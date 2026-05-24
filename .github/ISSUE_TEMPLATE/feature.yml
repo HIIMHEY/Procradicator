@@ -1,0 +1,22 @@
+name: Feature
+description: Feature deliverable for the app.
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: User Story
+      description: "As a... I want to... So that..."
+    validations:
+      required: true
+  - type: textarea
+    id: scenarios
+    attributes:
+      label: Acceptance Scenarios
+      description: "Given [context], When [action], Then [outcome]"
+      value: |
+        - [ ] Scenario: ...
+          - Given...
+          - When...
+          - Then...
+
+
