@@ -5,6 +5,7 @@ import reactPlugin from 'eslint-plugin-react';
 //@ts-ignore
 import reactNative from 'eslint-plugin-react-native';
 import prettierConfig from 'eslint-config-prettier';
+import { version } from 'typescript';
 
 /**@type {any} */
 const reactNativeAny = reactNative;
@@ -25,6 +26,11 @@ export default [
         ecmaFeatures: { jsx: true },
       },
     },
+    settings: {
+      version: {
+        react: 'detect',
+      },
+    },
     rules: {
       ...reactPlugin.configs.recommended.rules,
 
@@ -36,6 +42,6 @@ export default [
 
   prettierConfig,
   {
-    ignores: ['node_modules/', '.expo/', 'dist/', 'ios/', 'android/'],
+    ignores: ['node_modules/', '.expo/', 'dist/', 'ios/', 'android/', '*.config.mjs'],
   },
 ];
