@@ -2,13 +2,13 @@ name: Frontend CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
-      - 'apps/mobile/**'
+      - "apps/mobile/**"
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
-      - 'apps/mobile/**'
+      - "apps/mobile/**"
 
 jobs:
   validate-ui:
@@ -28,8 +28,8 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: 'pnpm'
-          cache-dependency-path: 'apps/mobile/pnpm-lock.yaml'
+          cache: "pnpm"
+          cache-dependency-path: "apps/mobile/pnpm-lock.yaml"
 
       - name: install dep
         run: |

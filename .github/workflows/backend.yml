@@ -1,39 +1,37 @@
 name: Backend CI
 
 on:
-    push:
-        branches: [ main, master ]
-        paths:
-            - 'apps/server/**'
-    pull_request:
-        branches: [ main, master ]
-        paths:
-            - 'apps/server/**'
+  push:
+    branches: [main, master]
+    paths:
+      - "apps/server/**"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "apps/server/**"
 jobs:
-    test-and-lint:
-        runs-on: ubuntu-latest
-        steps:
-            - name: checkout repo
-              uses: actions/checkout@v6
-            - name: install uv
-              uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
-              with:
-                enable-cache: true
-                working-directory: 'apps/server'
-            - name: python env setup
-              run: |
-                cd apps/server
-                uv sync --locked --dev
-            - name: run ruff linter
-              run: |
-                cd apps/server
-                uv run ruff check .
-            - name: check code formatting
-              run : |
-                cd apps/server
-                uv run ruff format --check .
-            - name: run pytest tests
-              run:
-                cd apps/server
-                uv run pytest
-
+  test-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v6
+      - name: install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          enable-cache: true
+          working-directory: "apps/server"
+      - name: python env setup
+        run: |
+          cd apps/server
+          uv sync --locked --dev
+      - name: run ruff linter
+        run: |
+          cd apps/server
+          uv run ruff check .
+      - name: check code formatting
+        run: |
+          cd apps/server
+          uv run ruff format --check .
+      - name: run pytest tests
+        run: cd apps/server
+          uv run pytest
