@@ -33,5 +33,6 @@ jobs:
           cd apps/server
           uv run ruff format --check .
       - name: run pytest tests
-        run: cd apps/server
+        run: |
+          cd apps/server
           uv run pytest
