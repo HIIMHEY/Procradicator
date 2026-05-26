@@ -1,8 +1,8 @@
 .PHONY: format test lint
 
 format:
-	ruff format .
+	uv run ruff format src tests
 test:
-	pytest
+	uv run pytest
 lint:
-	ruff check .
+	uv run ruff check src tests

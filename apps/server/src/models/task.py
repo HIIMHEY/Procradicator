@@ -1,0 +1,31 @@
+import uuid
+from datetime import UTC, datetime
+
+from sqlmodel import Field, Relationship, SQLModel
+
+
+class SubtaskDependency(SQLModel, table=True):
+    predecessor_id: int = Field(foreign_key="subtask.id", primary_key=True)
+    successor_id: int = Field(foreign_key="subtask.id", primary_key=True)
+
+
+class Task(SQLModel, table=True):
+    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+    title: str
+    description: str | None = None
+    subtasks: list["Subtask"] = Relationship()
+
+
+class Subtask(SQLModel, table=True):
+    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+    title: str = Field(index=True)
+    description: str | None = None
+    is_done: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    next_subtask: list["Subtask"] = Relationship(
+        link_model=SubtaskDependency,
+        sa_relationship_kwargs={
+            "primaryjoin": "Subtask.id==SubtaskDependency.predecessor_id",
+            "secondaryjoin": "Subtask.id==SubtaskDependency.successor_id",
+        },
+    )
