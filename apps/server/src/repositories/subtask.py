@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from sqlmodel import Session
@@ -6,13 +7,30 @@ from models.task import Subtask, SubtaskDependency
 
 from .base import BaseRepo
 
+logger = logging.getLogger(__name__)
+
 
 class SubtaskRepo(BaseRepo[Subtask]):
     def __init__(self, session: Session) -> None:
         super().__init__(Subtask, session)
 
     def add_dep(self, predecessor_id: UUID, successor_id: UUID) -> SubtaskDependency:
-        dep: SubtaskDependency = SubtaskDependency(
-            predecessor_id=predecessor_id, successor_id=successor_id
+        logger.info(
+            f"Creating dependency: {predecessor_id} (predecessor) -> {successor_id} (successor)"
         )
-        return self.upsert(dep)
+        try:
+
+            dep: SubtaskDependency = SubtaskDependency(
+                predecessor_id=predecessor_id, successor_id=successor_id
+            )
+            result: SubtaskDependency = self.upsert(dep)
+            logger.debug(
+                f"Dependency successfully persisted between {predecessor_id} and {successor_id}"
+            )
+            return result
+        except Exception as e:
+            logger.error(
+                f"Failed to create deependency edge from {predecessor_id} to {successor_id}: {str(e)}",  # noqa: E501
+                exc_info=True,
+            )
+            raise e
