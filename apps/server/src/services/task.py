@@ -1,19 +1,22 @@
 import logging
+from typing import Annotated
 from uuid import UUID
 
-from apps.server.src.repositories.task import TaskRepo
-from apps.server.src.schemas.llm import CreateRoadmap
+from fastapi import Depends
 
-from ..exceptions import ServiceError
-from ..models.task import Task
+from src.exceptions import ServiceError
+from src.models.task import Task
+from src.repositories.task import TaskRepo
+from src.schemas.task import CreateTask
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+
 class TaskService:
-    def __init__(self, task_repo: TaskRepo) -> None:
+    def __init__(self, task_repo: Annotated[TaskRepo, Depends()]) -> None:
         self.task_repo = task_repo
 
-    def create_roadmap(self, roadmap_data: CreateRoadmap) -> Task:
+    def create_roadmap(self, roadmap_data: CreateTask) -> Task:
         try:
             return self.task_repo.create_roadmap_graph(roadmap_data)
 

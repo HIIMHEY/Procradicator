@@ -1,16 +1,18 @@
 import logging
+from typing import Annotated
 from uuid import UUID
 
-from apps.server.src.schemas.llm import CreateRoadmap
-from sqlalchemy import select
+from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, col
+from sqlmodel import Session, col, select
 from sqlmodel.sql.expression import SelectOfScalar
 
-from models.task import Subtask, SubtaskDependency, Task
+from src.db.sqlmodelorm import get_session
 from src.exceptions import DatabaseError, ResourceNotFoundError
-from utils.db_exception_mapper import map_db_exception
+from src.models.task import Subtask, SubtaskDependency, Task
+from src.schemas.task import CreateTask
+from src.utils.db_exception_mapper import map_db_exception
 
 from .base import BaseRepo
 
@@ -18,9 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 class TaskRepo(BaseRepo[Task]):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Annotated[Session, Depends(get_session)]) -> None:
         super().__init__(Task, session)
 
+    # TODO: got to stanadise what is roadmap and what is task
     def get_roadmap(self, task_id: UUID) -> Task:
         logger.debug(f"Fetching roadmap graph for Task: {task_id}")
         try:
@@ -41,7 +44,6 @@ class TaskRepo(BaseRepo[Task]):
             if not result:
                 logger.warning(f"Roadmap lookup failed: Task {task_id} not found")
                 raise ResourceNotFoundError("task not found")
-
             return result
 
         except SQLAlchemyError as e:
@@ -49,7 +51,7 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error fetching roadmap {task_id}: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
-    def create_roadmap_graph(self, roadmap: CreateRoadmap) -> Task:
+    def create_roadmap_graph(self, roadmap: CreateTask) -> Task:
         logger.info(f"Starting atomic roadmap generation: '{roadmap.title}'")
         try:
             main_task = Task(title=roadmap.title, description=roadmap.description)
@@ -96,10 +98,10 @@ class TaskRepo(BaseRepo[Task]):
 
             self.session.commit()
             self.session.refresh(main_task)
-            logger.info(f"Successfully committed roadmap '{main_task.title}'")
+            logger.info(f"Successfully committed task '{main_task.title}'")
             return main_task
 
         except (Exception, SQLAlchemyError) as e:
             self.session.rollback()
-            logger.error(f"Failed to build roadmap graph: {str(e)}", exc_info=True)
+            logger.error(f"Failed to build task graph: {str(e)}", exc_info=True)
             raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e

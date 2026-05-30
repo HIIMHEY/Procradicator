@@ -3,62 +3,94 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
-from apps.server.src.core.config import settings
-from apps.server.src.models.chat import ChatMessage, Role
-from apps.server.src.models.task import Task
-from apps.server.src.repositories.chat import ChatRepo
-from apps.server.src.schemas.llm import CreateRoadmap
-from apps.server.src.services.task import TaskService
-from apps.server.src.utils import chat_hist_mapper
 from pydantic_ai import Agent, AgentRunResult, ModelMessage, ModelRetry, RunContext
-from pydantic_ai.models.ollama import OllamaModel
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
 
-from exceptions import DatabaseError, ResourceNotFoundError
+# from pydantic_ai.models.ollama import OllamaModel
+# from pydantic_ai.providers.ollama import OllamaProvider
+from src.core.config import settings
+from src.exceptions import DatabaseError, ResourceNotFoundError
+from src.models.chat import ChatMessage, Role
+from src.models.task import Task
+from src.schemas.task import CreateTask
+from src.services.chat import ChatService
+from src.services.task import TaskService
+from src.utils import chat_hist_mapper
 
 logger: logging.Logger = logging.getLogger(__name__)
+
 
 @dataclass
 class AgentDeps:
     task_svc: TaskService
-    chat_repo: ChatRepo
+    chat_svc: ChatService
     session_id: UUID
 
 
 class LLMService:
     def __init__(self) -> None:
-        self.model = OllamaModel(model_name=settings.model_name)
+        # self.model = OllamaModel(
+        #     model_name=settings.model_name,
+        #     provider=OllamaProvider(base_url=settings.ollama_base_url),
+        # )
+        self.model = OpenAIChatModel(
+            model_name=settings.model_name,
+            provider=OpenAIProvider(
+                base_url=settings.base_url, api_key=settings.groq_api_key
+            ),
+        )
 
-        # TODO: move the prompts to txt file in prompts folder n create txt file loader
+        # TODO: move the prompt to txt file in prompts folder n create txt file loader
         self.agent = Agent(
             self.model,
             deps_type=AgentDeps,
             output_type=str,
-            system_prompt=(
-                "You are the Procradicator AI Planner. Your goal is to help users break down "
-                "complex projects into actionable subtasks with clear dependencies. "
-                "Always use the 'generate_roadmap_tool' for structured project planning."
-                "Based on the user description, determine if there is enough information to create"
-                "the complete subtask roadmap. If more information is required, ask a concise and "
-                "effective follow up question that can be answered simply with a few words, "
-                "a short phrase or sentence. Repeat this until you have sufficent information "
-                "to use the 'generate_roadmap_tool'. Once a successful tool call is completed."
-                "Reply with 'DONE!' to indicate the end of the session."
-            ),
-            retries=2,
+            instructions=("""
+            ROLE: You are the "Procradicator AI Planner," a specialized logic engine
+            that converts vague human goals into a strict Directed Acyclic Graph (DAG)
+            of actionable tasks.
+            STRICT SCHEMA ENFORCEMENT:
+            You must output data that match the schema for 'generate_task_tool' exactly.
+            FIELD NAME 1: Use 'temp_id'.
+            Never use 'id' or 'uuid'. This must be a unique slug (e.g., "setup-env").
+            FIELD NAME 2: Use 'depends_on'.
+            NEVER use the word 'dependencies'. This is a list of 'temp_id' strings.
+            ERROR PREVENTION: If a task has no prerequisites,
+            'depends_on' must be an empty list [].
+
+            OPERATIONAL WORKFLOW:
+            1. ANALYZE: Review the user's input.
+            2. VALIDATE: Do you have enough detail to create at least 3-5 distinct,
+            chronological subtasks?
+            3. INTERACT: If NO, ask ONE concise question (e.g. "What tools are you using?"
+            or "What is your deadline?"). DO NOT PROVIDE THE ROADMAP UNTIL THIS IS
+            ANSWERED.
+            4. EXECUTE: If YES, call 'generate_task_tool' immediately.
+
+            LOGIC CONSTRAINTS:
+            Every 'depends_on' entry must refer to a 'temp_id' that exists within the
+            same task set. Tasks must be "atomic"—small enough that a user doesn't
+            procrastinate starting them. Direct output to the tool only; do not add
+            conversational "here is your roadmap" fluff when calling the tool.
+                          """),
+            system_prompt=(),
+            retries=3,
         )
 
         @self.agent.tool
-        async def generate_roadmap_tool(
-            ctx: RunContext[AgentDeps], roadmap: CreateRoadmap
+        async def generate_task_tool(
+            ctx: RunContext[AgentDeps], roadmap: CreateTask
         ) -> str:
             try:
                 # Call specialized TaskRepository logic
+                logger.info("TOOL CALL")
                 task: Task = ctx.deps.task_svc.create_roadmap(roadmap)
-                return f"SUCCESS: Roadmap '{task.title}' created with {len(roadmap.subtasks)} subtasks."  # noqa: E501
+                return f"SUCCESS: Task '{task.title}' created with {len(roadmap.subtasks)} subtasks."  # noqa: E501
 
             except ValueError as e:
                 raise ModelRetry(
-                    f"Logic Error: {str(e)}. Check your 'temp_id' mapping."
+                    f"Value Error: {str(e)}. Check your structure and ensure your inputs are correct."
                 ) from e
 
             except ResourceNotFoundError as e:
@@ -68,28 +100,33 @@ class LLMService:
 
             except DatabaseError as e:
                 # if fatal DB error, stop retrying
-                return f"I encountered a database issue: {str(e)}"
+                return f"Encountered a database issue: {str(e)}"
 
     async def handle_chat(
         self,
         session_id: UUID,
         user_input: str,
         task_svc: TaskService,
-        chat_repo: ChatRepo,
-    ) -> str:
+        chat_svc: ChatService,
+    ) -> ChatMessage:
+        chat_svc.add_message(
+            session_id, role=Role.USER, content=user_input
+        )  # user input
 
-        db_history: Sequence[ChatMessage] = chat_repo.get_history(session_id)
+        db_history: Sequence[ChatMessage] = chat_svc.get_history(session_id)
         pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(
             db_history
         )
         deps: AgentDeps = AgentDeps(
-            task_svc=task_svc, chat_repo=chat_repo, session_id=session_id
+            task_svc=task_svc, chat_svc=chat_svc, session_id=session_id
         )
 
         result: AgentRunResult[str] = await self.agent.run(
             user_input, deps=deps, message_history=pydantic_history
         )
 
-        chat_repo.add_message(session_id, role=Role.ASSISTANT, content=result.output)
+        res: ChatMessage = chat_svc.add_message(
+            session_id, role=Role.ASSISTANT, content=result.output
+        )  # agent input
 
-        return result.output
+        return res

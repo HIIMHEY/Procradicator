@@ -1,17 +1,22 @@
 import logging
 from datetime import UTC, datetime
+from typing import Annotated
 from uuid import UUID
 
-from apps.server.src.models.chat import ChatSession
-from apps.server.src.repositories.base import BaseRepo
-from apps.server.src.utils.db_exception_mapper import map_db_exception
+from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import Session
+
+from src.db.sqlmodelorm import get_session
+from src.models.chat import ChatSession
+from src.repositories.base import BaseRepo
+from src.utils.db_exception_mapper import map_db_exception
 
 logger = logging.getLogger(__name__)
 
 
 class SessionRepo(BaseRepo[ChatSession]):
-    def __init__(self, session) -> None:
+    def __init__(self, session: Annotated[Session, Depends(get_session)]) -> None:
         super().__init__(ChatSession, session)
 
     def link_task_to_session(self, session_id: UUID, task_id: UUID) -> ChatSession:

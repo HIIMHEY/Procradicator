@@ -1,7 +1,6 @@
 import logging
 from collections.abc import Sequence
 
-from apps.server.src.models.chat import ChatMessage, Role
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -11,6 +10,8 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserPromptPart,
 )
+
+from src.models.chat import ChatMessage, Role
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -22,9 +23,7 @@ def map_chat_history(db_messages: Sequence[ChatMessage]) -> Sequence[ModelMessag
         try:
             match msg.role:
                 case Role.USER:
-                    mapped_history.append(
-                        ModelRequest(parts=[UserPromptPart(content=msg.content)])
-                    )
+                    mapped_history.append(ModelRequest(parts=[UserPromptPart(content=msg.content)]))
 
                 case Role.ASSISTANT:
                     if msg.tool_call_id:
@@ -40,15 +39,11 @@ def map_chat_history(db_messages: Sequence[ChatMessage]) -> Sequence[ModelMessag
                             )
                         )
                     else:
-                        mapped_history.append(
-                            ModelResponse(parts=[TextPart(content=msg.content)])
-                        )
+                        mapped_history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
 
                 case Role.TOOL:
                     if not msg.tool_call_id:
-                        raise ValueError(
-                            f"Message {msg.id} has Role.TOOL but no tool_call_id"
-                        )
+                        raise ValueError(f"Message {msg.id} has Role.TOOL but no tool_call_id")
 
                     mapped_history.append(
                         ModelRequest(
@@ -63,9 +58,7 @@ def map_chat_history(db_messages: Sequence[ChatMessage]) -> Sequence[ModelMessag
                     )
 
                 case Role.SYSTEM:
-                    mapped_history.append(
-                        ModelRequest(parts=[UserPromptPart(content=msg.content)])
-                    )
+                    mapped_history.append(ModelRequest(parts=[UserPromptPart(content=msg.content)]))
 
         except Exception as e:
             logger.error(f"map from chat message to model request failed: {str(e)}")

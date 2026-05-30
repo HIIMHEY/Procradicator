@@ -1,6 +1,6 @@
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
-from exceptions import (
+from src.exceptions import (
     ConcurrencyError,
     DatabaseError,
     ResourceNotFoundError,
