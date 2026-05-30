@@ -5,6 +5,7 @@ import reactPlugin from 'eslint-plugin-react';
 //@ts-ignore
 import reactNative from 'eslint-plugin-react-native';
 import prettierConfig from 'eslint-config-prettier';
+import globals from 'globals';
 import { version } from 'typescript';
 
 /**@type {any} */
@@ -15,6 +16,15 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
 
+  {
+    files: ['metro.config.js', '*.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
   {
     files: ['**/*.{ts,tsx,js,jsx}'],
     plugins: {
@@ -27,8 +37,8 @@ export default [
       },
     },
     settings: {
-      version: {
-        react: 'detect',
+      react: {
+        version: 'detect',
       },
     },
     rules: {
