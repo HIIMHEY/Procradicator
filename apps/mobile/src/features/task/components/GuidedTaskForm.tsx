@@ -1,4 +1,4 @@
-﻿import { useForm } from '@tanstack/react-form';
+import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
@@ -10,7 +10,7 @@ type GuidedTaskFormProps = {
   isSubmitting: boolean;
   questions: string[];
   onAnswerChange: (index: number, value: string) => void;
-  onSubmit: (input: GuidedRoadmapInput) => void;
+  onSubmit: (input: Omit<GuidedRoadmapInput, 'sessionId'>) => void;
 };
 
 export function GuidedTaskForm({
@@ -43,9 +43,6 @@ export function GuidedTaskForm({
   return (
     <View className="gap-3">
       <Text className="text-xl font-extrabold text-emerald-950">Semi-automatic guidance</Text>
-      <Text className="leading-5 text-slate-500">
-        Use this when the task description is vague. The backend can ask follow-up questions first.
-      </Text>
 
       <form.Field name="description">
         {(field) => (
@@ -81,8 +78,8 @@ export function GuidedTaskForm({
 
       <SubmitButton
         isLoading={isSubmitting}
-        loadingText="Thinking..."
-        normalText={questions.length > 0 ? 'Create roadmap' : 'Get follow-up questions'}
+        loadingText="Sending..."
+        normalText={questions.length > 0 ? 'Send answers' : 'Send description'}
         onPress={() => void form.handleSubmit()}
       />
     </View>

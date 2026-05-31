@@ -1,4 +1,4 @@
-﻿import { useForm } from '@tanstack/react-form';
+import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
@@ -6,19 +6,18 @@ import type { ManualRoadmapInput } from '../types/task';
 import { moveItem, sanitizeSubtasks } from '../utils/taskUtils';
 import { SubmitButton } from './SubmitButton';
 
-const DEFAULT_SUBTASKS = ['Draft README', 'Build roadmap screen', 'Test demo flow'];
-
 type ManualTaskFormProps = {
   isSubmitting: boolean;
   onSubmit: (input: ManualRoadmapInput) => void;
 };
 
 export function ManualTaskForm({ isSubmitting, onSubmit }: ManualTaskFormProps) {
-  const [subtasks, setSubtasks] = useState(DEFAULT_SUBTASKS);
+  const [subtasks, setSubtasks] = useState<string[]>([]);
   const [formError, setFormError] = useState('');
   const form = useForm({
     defaultValues: {
       title: 'Finish Milestone 1',
+      description: '',
       subtaskInput: '',
     },
     onSubmit: ({ value }) => {
@@ -33,7 +32,7 @@ export function ManualTaskForm({ isSubmitting, onSubmit }: ManualTaskFormProps) 
         return;
       }
       setFormError('');
-      onSubmit({ title: cleanTitle, subtasks: cleanSubtasks });
+      onSubmit({ title: cleanTitle, description: value.description, subtasks: cleanSubtasks });
     },
   });
 
@@ -60,6 +59,22 @@ export function ManualTaskForm({ isSubmitting, onSubmit }: ManualTaskFormProps) 
               className="rounded-lg border border-slate-300 p-3 text-base text-emerald-950"
               onChangeText={field.handleChange}
               placeholder="Example: Finish Milestone 1"
+              value={field.state.value}
+            />
+          </View>
+        )}
+      </form.Field>
+
+      <form.Field name="description">
+        {(field) => (
+          <View className="gap-2">
+            <Text className="font-bold text-slate-800">Description</Text>
+            <TextInput
+              className="min-h-20 rounded-lg border border-slate-300 p-3 text-base text-emerald-950"
+              multiline
+              onChangeText={field.handleChange}
+              placeholder="Optional context for the roadmap"
+              textAlignVertical="top"
               value={field.state.value}
             />
           </View>

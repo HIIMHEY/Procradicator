@@ -1,4 +1,4 @@
-﻿/// <reference types="jest" />
+/// <reference types="jest" />
 
 import React from 'react';
 
@@ -7,16 +7,16 @@ import { ManualTaskForm } from '../../src/features/task/components/ManualTaskFor
 
 test('ManualTaskForm lets user add, move, and delete manual subtasks', () => {
   render(<ManualTaskForm isSubmitting={false} onSubmit={jest.fn()} />);
-  fireEvent.changeText(
-    screen.getByPlaceholderText('Example: Read assignment brief'),
-    'Submit README',
-  );
+  const input = screen.getByPlaceholderText('Example: Read assignment brief');
+  fireEvent.changeText(input, 'Draft README');
   fireEvent.press(screen.getByText('Add'));
-  expect(screen.getByText('4. Submit README')).toBeTruthy();
-  fireEvent.press(screen.getAllByText('Up')[3]);
-  expect(screen.getByText('3. Submit README')).toBeTruthy();
-  fireEvent.press(screen.getAllByText('Delete')[2]);
-  expect(screen.queryByText('3. Submit README')).toBeNull();
+  fireEvent.changeText(input, 'Submit README');
+  fireEvent.press(screen.getByText('Add'));
+  expect(screen.getByText('2. Submit README')).toBeTruthy();
+  fireEvent.press(screen.getAllByText('Up')[1]);
+  expect(screen.getByText('1. Submit README')).toBeTruthy();
+  fireEvent.press(screen.getAllByText('Delete')[0]);
+  expect(screen.queryByText('1. Submit README')).toBeNull();
 });
 
 test('ManualTaskForm shows validation error when title is empty', async () => {

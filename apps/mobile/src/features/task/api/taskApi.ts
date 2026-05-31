@@ -1,33 +1,34 @@
 import { API_BASE_URL } from '../../../config/env';
 import type {
-  AutomaticRoadmapInput,
-  ClarifyResponse,
-  GuidedRoadmapInput,
-  ManualRoadmapInput,
-  Task,
-  TaskResponse,
+  ChatMessage,
+  ChatSessionResponse,
+  CreateTaskInput,
+  CreateTaskResponse,
 } from '../types/task';
-import { normalizeTask } from '../utils/taskUtils';
 
 const REQUEST_TIMEOUT_MS = 10000;
 
-async function requestJson<T>(path: string, options: RequestInit) {
+async function requestJson<T>(path: string, options: RequestInit = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers,
       },
       signal: controller.signal,
     });
     const text = await response.text();
     const data = parseJsonObject(text);
+
     if (!response.ok) {
       throw new Error(readApiError(data));
     }
+
     return data as T;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -47,41 +48,50 @@ function parseJsonObject(text: string) {
 }
 
 function readApiError(data: Record<string, unknown>) {
+  const detail = data.detail;
+
+  if (Array.isArray(detail)) {
+    const firstMessage = detail.find(
+      (item): item is { msg: string } =>
+        typeof item === 'object' && item !== null && 'msg' in item && typeof item.msg === 'string',
+    );
+    if (firstMessage) {
+      return firstMessage.msg;
+    }
+  }
+
   for (const key of ['detail', 'error', 'message']) {
     const value = data[key];
     if (typeof value === 'string' && value.trim()) {
       return value;
     }
   }
+
   return 'Request failed.';
 }
 
-export async function createManualRoadmap(input: ManualRoadmapInput) {
-  const result = await requestJson<TaskResponse>('/tasks/manual', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-  return normalizeTask(result);
-}
+export const taskMutationKeys = {
+  createTask: ['tasks', 'create'] as const,
+  createChatSession: ['chats', 'sessions', 'create'] as const,
+  sendChatMessage: ['chats', 'messages', 'send'] as const,
+};
 
-export async function createAutomaticRoadmap(input: AutomaticRoadmapInput) {
-  const result = await requestJson<TaskResponse>('/tasks/automatic', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-  return normalizeTask(result);
-}
-
-export async function createGuidedRoadmap(input: GuidedRoadmapInput) {
-  return requestJson<Task | ClarifyResponse | TaskResponse>('/tasks/clarify', {
+export async function createTask(input: CreateTaskInput) {
+  return requestJson<CreateTaskResponse>('/tasks/', {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
-export async function toggleSubtask(taskId: string, subtaskId: string) {
-  const result = await requestJson<TaskResponse>(`/tasks/${taskId}/subtasks/${subtaskId}/toggle`, {
-    method: 'PATCH',
+export async function createChatSession() {
+  return requestJson<ChatSessionResponse>('/chats/sessions', {
+    method: 'POST',
   });
-  return normalizeTask(result);
+}
+
+export async function sendChatMessage({ sessionId, msg }: { sessionId: string; msg: string }) {
+  return requestJson<ChatMessage>(`/chats/sessions/${sessionId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ msg }),
+  });
 }

@@ -1,23 +1,26 @@
-﻿import { useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import {
-  createAutomaticRoadmap,
-  createGuidedRoadmap,
-  createManualRoadmap,
-  toggleSubtask,
-} from '../api/taskApi';
+import { createChatSession, createTask, sendChatMessage, taskMutationKeys } from '../api/taskApi';
 import type {
   AutomaticRoadmapInput,
   GuidedRoadmapInput,
+  GuidedRoadmapResult,
   ManualRoadmapInput,
   StatusMessage,
   Task,
 } from '../types/task';
-import { getErrorMessage, isClarifyResponse, normalizeTask } from '../utils/taskUtils';
+import {
+  buildCreateTaskInput,
+  createLocalTaskFromResponse,
+  getErrorMessage,
+  isQuestionLike,
+  toggleLocalSubtask,
+} from '../utils/taskUtils';
 
 export function useTaskRoadmap() {
   const [task, setTask] = useState<Task | null>(null);
+  const [guidedSessionId, setGuidedSessionId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
@@ -26,54 +29,68 @@ export function useTaskRoadmap() {
     setStatusMessage({ kind: 'error', text: getErrorMessage(error) });
   const clearStatusMessage = () => setStatusMessage(null);
   const manualRoadmap = useMutation({
-    mutationFn: createManualRoadmap,
+    mutationKey: taskMutationKeys.createTask,
+    mutationFn: async (input: ManualRoadmapInput) => {
+      const request = buildCreateTaskInput(input);
+      const response = await createTask(request);
+      return createLocalTaskFromResponse(request, response);
+    },
     onMutate: clearStatusMessage,
     onSuccess: (nextTask) => {
       setTask(nextTask);
       setQuestions([]);
       setAnswers([]);
+      setGuidedSessionId(null);
       showSuccess('Manual roadmap created.');
     },
     onError: showError,
   });
   const automaticRoadmap = useMutation({
-    mutationFn: createAutomaticRoadmap,
+    mutationKey: taskMutationKeys.sendChatMessage,
+    mutationFn: sendAutomaticMessage,
     onMutate: clearStatusMessage,
-    onSuccess: (nextTask) => {
-      setTask(nextTask);
-      setQuestions([]);
-      setAnswers([]);
-      showSuccess('Automatic roadmap created.');
+    onSuccess: (message) => {
+      showSuccess(message.content || 'Automatic roadmap request sent.');
     },
     onError: showError,
   });
   const guidedRoadmap = useMutation({
-    mutationFn: createGuidedRoadmap,
+    mutationKey: taskMutationKeys.sendChatMessage,
+    mutationFn: sendGuidedMessage,
     onMutate: clearStatusMessage,
     onSuccess: (result) => {
-      if (isClarifyResponse(result)) {
-        setQuestions(result.questions);
-        setAnswers(result.questions.map((_, index) => answers[index] || ''));
-        showSuccess('Follow-up questions generated.');
+      const content = result.message.content.trim();
+      setGuidedSessionId(result.sessionId);
+
+      if (isQuestionLike(content)) {
+        setQuestions((currentQuestions) => [...currentQuestions, content]);
+        setAnswers((currentAnswers) => [...currentAnswers, '']);
+        showSuccess('Answer the follow-up question.');
         return;
       }
-      setTask(normalizeTask(result));
+
       setQuestions([]);
       setAnswers([]);
-      showSuccess('Guided roadmap created.');
+      showSuccess(content || 'Guided roadmap request sent.');
     },
     onError: showError,
   });
-  const subtaskToggle = useMutation({
-    mutationFn: ({ taskId, subtaskId }: { taskId: string; subtaskId: string }) =>
-      toggleSubtask(taskId, subtaskId),
-    onMutate: clearStatusMessage,
-    onSuccess: (nextTask) => {
-      setTask(nextTask);
-      showSuccess('Progress updated.');
-    },
-    onError: showError,
-  });
+
+  async function sendAutomaticMessage(input: AutomaticRoadmapInput) {
+    const session = await createChatSession();
+    return sendChatMessage({ sessionId: session.session_id, msg: input.description });
+  }
+
+  async function sendGuidedMessage(input: GuidedRoadmapInput): Promise<GuidedRoadmapResult> {
+    const sessionId = input.sessionId || (await createChatSession()).session_id;
+    const msg = [input.description, ...input.answers].filter(Boolean).join('\n');
+    const message = await sendChatMessage({ sessionId, msg });
+
+    return {
+      sessionId,
+      message,
+    };
+  }
 
   function updateAnswer(index: number, value: string) {
     setAnswers((currentAnswers) => {
@@ -91,16 +108,14 @@ export function useTaskRoadmap() {
     automaticRoadmap.mutate(input);
   }
 
-  function submitGuidedRoadmap(input: GuidedRoadmapInput) {
-    guidedRoadmap.mutate(input);
+  function submitGuidedRoadmap(input: Omit<GuidedRoadmapInput, 'sessionId'>) {
+    guidedRoadmap.mutate({ ...input, sessionId: guidedSessionId });
   }
 
   function toggleSubtaskCompletion(subtaskId: string) {
-    if (!task) {
-      return;
-    }
-
-    subtaskToggle.mutate({ taskId: task.id, subtaskId });
+    setTask((currentTask) =>
+      currentTask ? toggleLocalSubtask(currentTask, subtaskId) : currentTask,
+    );
   }
 
   return {
@@ -110,7 +125,6 @@ export function useTaskRoadmap() {
     manualRoadmap,
     questions,
     statusMessage,
-    subtaskToggle,
     task,
     clearStatusMessage,
     submitAutomaticRoadmap,

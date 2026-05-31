@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -61,7 +61,7 @@ export function TaskScreen() {
         </View>
 
         <RoadmapView
-          isUpdating={roadmap.subtaskToggle.isPending}
+          isUpdating={false}
           task={roadmap.task}
           onToggleSubtask={roadmap.toggleSubtaskCompletion}
         />
