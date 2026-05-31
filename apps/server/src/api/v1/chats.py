@@ -21,6 +21,12 @@ async def create_session(
     return {"session_id": session.id}
 
 
+@router.get("/sessions/{session_id}")
+async def get_session(
+    session_id: UUID, chat_svc: Annotated[ChatService, Depends()]
+) -> ChatSession:
+    return chat_svc.get_session(session_id)
+
 @router.get("/sessions/{session_id}/history")
 async def get_history(
     session_id: UUID, limit: int, chat_svc: Annotated[ChatService, Depends()]
@@ -38,3 +44,4 @@ async def send_message(
     llm_svc: Annotated[LLMService, Depends()],
 ) -> ChatMessage:
     return await llm_svc.handle_chat(session_id, payload.msg, task_svc, chat_svc)
+

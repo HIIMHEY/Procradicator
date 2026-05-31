@@ -52,9 +52,10 @@ class LLMService:
             of actionable tasks.
             STRICT SCHEMA ENFORCEMENT:
             You must output data that match the schema for 'generate_task_tool' exactly.
-            FIELD NAME 1: Use 'temp_id'.
+            Use 'temp_id'.
             Never use 'id' or 'uuid'. This must be a unique slug (e.g., "setup-env").
-            FIELD NAME 2: Use 'depends_on'.
+            Use 'depends_on'.
+            Title is mandatory. Description is optional but helpful.
             NEVER use the word 'dependencies'. This is a list of 'temp_id' strings.
             ERROR PREVENTION: If a task has no prerequisites,
             'depends_on' must be an empty list [].
@@ -86,11 +87,14 @@ class LLMService:
                 # Call specialized TaskRepository logic
                 logger.info("TOOL CALL")
                 task: Task = ctx.deps.task_svc.create_roadmap(roadmap)
+                if not task.id:
+                    raise ValueError()
+                ctx.deps.chat_svc.link_task_to_session(task.id, ctx.deps.session_id)
                 return f"SUCCESS: Task '{task.title}' created with {len(roadmap.subtasks)} subtasks."  # noqa: E501
 
             except ValueError as e:
                 raise ModelRetry(
-                    f"Value Error: {str(e)}. Check your structure and ensure your inputs are correct."
+                    f"Value Error: {str(e)}. Check your structure and ensure your fields for tasks and subtasks are correct."  # noqa: E501
                 ) from e
 
             except ResourceNotFoundError as e:

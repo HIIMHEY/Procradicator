@@ -7,4 +7,4 @@ test:
 lint:
 	uv run ruff check src tests
 dev:
-	fastapi dev src/main.py
+	uv run fastapi dev src/main.py

@@ -32,11 +32,7 @@ class TaskRepo(BaseRepo[Task]):
             statement: SelectOfScalar[Task] = (
                 select(Task)
                 .where(col(Task.id) == task_id)
-                .options(
-                    selectinload(Task.subtasks).selectinload(  # type: ignore
-                        Subtask.next_subtask  # type: ignore
-                    )
-                )
+                .options(selectinload(Task.subtasks))  # type: ignore
             )
 
             result: Task | None = self.session.exec(statement).first()
