@@ -1,9 +1,18 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { createChatSession, createTask, sendChatMessage, taskMutationKeys } from '../api/taskApi';
+import {
+  createChatSession,
+  createTask,
+  getChatSession,
+  getTask,
+  sendChatMessage,
+  taskMutationKeys,
+  taskQueryKeys,
+} from '../api/taskApi';
 import type {
   AutomaticRoadmapInput,
+  ChatRoadmapResult,
   GuidedRoadmapInput,
   GuidedRoadmapResult,
   ManualRoadmapInput,
@@ -12,13 +21,14 @@ import type {
 } from '../types/task';
 import {
   buildCreateTaskInput,
-  createLocalTaskFromResponse,
   getErrorMessage,
   isQuestionLike,
+  mapBackendTaskToTask,
   toggleLocalSubtask,
 } from '../utils/taskUtils';
 
 export function useTaskRoadmap() {
+  const queryClient = useQueryClient();
   const [task, setTask] = useState<Task | null>(null);
   const [guidedSessionId, setGuidedSessionId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<string[]>([]);
@@ -33,7 +43,15 @@ export function useTaskRoadmap() {
     mutationFn: async (input: ManualRoadmapInput) => {
       const request = buildCreateTaskInput(input);
       const response = await createTask(request);
-      return createLocalTaskFromResponse(request, response);
+      const taskId = response.task_id;
+      if (!taskId) {
+        throw new Error('Backend did not return a task id.');
+      }
+      const backendTask = await queryClient.fetchQuery({
+        queryKey: taskQueryKeys.task(taskId),
+        queryFn: () => getTask(taskId),
+      });
+      return mapBackendTaskToTask(backendTask);
     },
     onMutate: clearStatusMessage,
     onSuccess: (nextTask) => {
@@ -49,8 +67,16 @@ export function useTaskRoadmap() {
     mutationKey: taskMutationKeys.sendChatMessage,
     mutationFn: sendAutomaticMessage,
     onMutate: clearStatusMessage,
-    onSuccess: (message) => {
-      showSuccess(message.content || 'Automatic roadmap request sent.');
+    onSuccess: (result) => {
+      if (result.task) {
+        setTask(result.task);
+        setQuestions([]);
+        setAnswers([]);
+        setGuidedSessionId(null);
+        showSuccess(result.message.content || 'Generated roadmap loaded.');
+        return;
+      }
+      showSuccess(result.message.content || 'Automatic roadmap request sent.');
     },
     onError: showError,
   });
@@ -61,14 +87,20 @@ export function useTaskRoadmap() {
     onSuccess: (result) => {
       const content = result.message.content.trim();
       setGuidedSessionId(result.sessionId);
-
+      if (result.task) {
+        setTask(result.task);
+        setQuestions([]);
+        setAnswers([]);
+        setGuidedSessionId(null);
+        showSuccess(content || 'Generated roadmap loaded.');
+        return;
+      }
       if (isQuestionLike(content)) {
         setQuestions((currentQuestions) => [...currentQuestions, content]);
         setAnswers((currentAnswers) => [...currentAnswers, '']);
         showSuccess('Answer the follow-up question.');
         return;
       }
-
       setQuestions([]);
       setAnswers([]);
       showSuccess(content || 'Guided roadmap request sent.');
@@ -76,19 +108,42 @@ export function useTaskRoadmap() {
     onError: showError,
   });
 
-  async function sendAutomaticMessage(input: AutomaticRoadmapInput) {
+  async function loadGeneratedTask(sessionId: string) {
+    const session = await queryClient.fetchQuery({
+      queryKey: taskQueryKeys.chatSession(sessionId),
+      queryFn: () => getChatSession(sessionId),
+    });
+    const taskId = session.task_id;
+    if (!taskId) {
+      return null;
+    }
+    const backendTask = await queryClient.fetchQuery({
+      queryKey: taskQueryKeys.task(taskId),
+      queryFn: () => getTask(taskId),
+    });
+    return mapBackendTaskToTask(backendTask);
+  }
+
+  async function sendAutomaticMessage(input: AutomaticRoadmapInput): Promise<ChatRoadmapResult> {
     const session = await createChatSession();
-    return sendChatMessage({ sessionId: session.session_id, msg: input.description });
+    const message = await sendChatMessage({ sessionId: session.session_id, msg: input.description });
+    const generatedTask = await loadGeneratedTask(session.session_id);
+    return {
+      sessionId: session.session_id,
+      message,
+      task: generatedTask,
+    };
   }
 
   async function sendGuidedMessage(input: GuidedRoadmapInput): Promise<GuidedRoadmapResult> {
     const sessionId = input.sessionId || (await createChatSession()).session_id;
     const msg = [input.description, ...input.answers].filter(Boolean).join('\n');
     const message = await sendChatMessage({ sessionId, msg });
-
+    const generatedTask = await loadGeneratedTask(sessionId);
     return {
       sessionId,
       message,
+      task: generatedTask,
     };
   }
 

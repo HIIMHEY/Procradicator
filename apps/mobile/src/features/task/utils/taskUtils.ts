@@ -1,4 +1,4 @@
-import type { CreateTaskInput, CreateTaskResponse, ManualRoadmapInput, Task } from '../types/task';
+import type { BackendTask, CreateTaskInput, ManualRoadmapInput, Task } from '../types/task';
 
 export function sanitizeSubtasks(subtasks: string[]) {
   return subtasks.map((item) => item.trim()).filter(Boolean);
@@ -9,7 +9,6 @@ export function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
   if (nextIndex < 0 || nextIndex >= items.length) {
     return items;
   }
-
   const reordered = [...items];
   const current = reordered[index];
   reordered[index] = reordered[nextIndex];
@@ -20,7 +19,6 @@ export function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
 export function buildCreateTaskInput(input: ManualRoadmapInput): CreateTaskInput {
   const subtasks = sanitizeSubtasks(input.subtasks);
   const tempIds = subtasks.map((_, index) => `subtask-${index + 1}`);
-
   return {
     title: input.title.trim(),
     description: input.description.trim() || null,
@@ -33,21 +31,17 @@ export function buildCreateTaskInput(input: ManualRoadmapInput): CreateTaskInput
   };
 }
 
-export function createLocalTaskFromResponse(
-  request: CreateTaskInput,
-  response: CreateTaskResponse,
-): Task {
-  const subtasks = request.subtasks.map((subtask) => ({
-    id: response[subtask.temp_id] || subtask.temp_id,
+export function mapBackendTaskToTask(backendTask: BackendTask): Task {
+  const subtasks = backendTask.subtasks.map((subtask) => ({
+    id: subtask.id,
     title: subtask.title,
     description: subtask.description,
-    is_done: false,
+    is_done: subtask.is_done,
   }));
-
   return addProgress({
-    id: response.task || response.task_id || 'created-task',
-    title: request.title,
-    description: request.description,
+    id: backendTask.id,
+    title: backendTask.title,
+    description: backendTask.description,
     subtasks,
     completed_count: 0,
     total_count: subtasks.length,
@@ -67,7 +61,6 @@ export function toggleLocalSubtask(task: Task, subtaskId: string): Task {
 export function addProgress(task: Task): Task {
   const total = task.subtasks.length;
   const completed = task.subtasks.filter((subtask) => subtask.is_done).length;
-
   return {
     ...task,
     completed_count: completed,

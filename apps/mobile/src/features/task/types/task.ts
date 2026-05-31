@@ -19,6 +19,22 @@ export type Task = {
   progress: number;
 };
 
+export type BackendSubtask = {
+  id: string;
+  title: string;
+  description: string | null;
+  is_done: boolean;
+  next_subtask?: string[];
+};
+
+export type BackendTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  subtasks: BackendSubtask[];
+  created_at?: string;
+};
+
 export type CreateSubtask = {
   temp_id: string;
   title: string;
@@ -32,10 +48,20 @@ export type CreateTaskInput = {
   subtasks: CreateSubtask[];
 };
 
-export type CreateTaskResponse = Record<string, string>;
+export type CreateTaskResponse = {
+  task_id: string | null;
+};
 
 export type ChatSessionResponse = {
   session_id: string;
+  id?: string;
+};
+
+export type ChatSession = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  task_id: string | null;
 };
 
 export type ChatMessage = {
@@ -63,10 +89,13 @@ export type GuidedRoadmapInput = {
   sessionId: string | null;
 };
 
-export type GuidedRoadmapResult = {
+export type ChatRoadmapResult = {
   sessionId: string;
   message: ChatMessage;
+  task: Task | null;
 };
+
+export type GuidedRoadmapResult = ChatRoadmapResult;
 
 export type StatusMessage = {
   kind: 'success' | 'error';

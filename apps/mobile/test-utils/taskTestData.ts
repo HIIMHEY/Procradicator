@@ -1,18 +1,54 @@
 import type {
+  BackendTask,
   ChatMessage,
+  ChatSession,
   ChatSessionResponse,
   CreateTaskResponse,
   Task,
 } from '../src/features/task/types/task';
 
 export const createTaskResponse: CreateTaskResponse = {
-  task: 'task-1',
-  'subtask-1': 'subtask-1',
-  'subtask-2': 'subtask-2',
+  task_id: 'task-1',
 };
 
 export const chatSession: ChatSessionResponse = {
   session_id: 'session-1',
+};
+
+export const chatSessionWithoutTask: ChatSession = {
+  id: 'session-1',
+  created_at: '2026-05-31T07:35:49.255580',
+  updated_at: '2026-05-31T07:36:52.778800',
+  task_id: null,
+};
+
+export const chatSessionWithTask: ChatSession = {
+  id: 'session-1',
+  created_at: '2026-05-31T07:35:49.255580',
+  updated_at: '2026-05-31T07:43:51.876519',
+  task_id: 'task-1',
+};
+
+export const backendTask: BackendTask = {
+  id: 'task-1',
+  title: 'Roadmap From API',
+  description: 'A generated roadmap returned by the backend.',
+  subtasks: [
+    {
+      id: 'subtask-1',
+      title: 'Open brief',
+      description: 'Read the task requirements.',
+      is_done: false,
+      next_subtask: ['subtask-2'],
+    },
+    {
+      id: 'subtask-2',
+      title: 'Write first draft',
+      description: 'Create the first version.',
+      is_done: false,
+      next_subtask: [],
+    },
+  ],
 };
 
 export const automaticChatMessage: ChatMessage = {
