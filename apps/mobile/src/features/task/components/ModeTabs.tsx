@@ -9,7 +9,6 @@ type ModeTabsProps = {
 
 const labels: Record<Mode, string> = {
   manual: 'Manual',
-  automatic: 'Auto',
   guided: 'Guided',
 };
 

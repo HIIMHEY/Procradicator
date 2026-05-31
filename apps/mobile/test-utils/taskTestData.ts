@@ -51,15 +51,6 @@ export const backendTask: BackendTask = {
   ],
 };
 
-export const automaticChatMessage: ChatMessage = {
-  id: 'message-1',
-  session_id: 'session-1',
-  role: 'ASSISTANT',
-  content: 'Automatic request accepted.',
-  created_at: '2026-05-31T06:35:49.963048',
-  tool_call_id: null,
-};
-
 export const guidedQuestionMessage: ChatMessage = {
   id: 'message-2',
   session_id: 'session-1',

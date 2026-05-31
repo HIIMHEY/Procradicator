@@ -5,7 +5,6 @@ import React from 'react';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import Index from '../../src/app/index';
 import {
-  automaticChatMessage,
   backendTask,
   chatSession,
   chatSessionWithTask,
@@ -34,8 +33,8 @@ test('TaskScreen renders the task creation screen', () => {
   renderWithQueryClient(<Index />);
   expect(screen.getByText('Procradicator')).toBeTruthy();
   expect(screen.getByText('Manual')).toBeTruthy();
-  expect(screen.getByText('Auto')).toBeTruthy();
   expect(screen.getByText('Guided')).toBeTruthy();
+  expect(screen.queryByText('Auto')).toBeNull();
   expect(screen.getByText('Create task manually')).toBeTruthy();
 });
 
@@ -99,39 +98,6 @@ test('TaskScreen toggles a subtask locally and updates progress', async () => {
   expect(mockFetch).toHaveBeenCalledTimes(2);
 });
 
-test('TaskScreen sends an automatic request and loads the generated backend roadmap', async () => {
-  mockFetch
-    .mockResolvedValueOnce(mockResponse(chatSession))
-    .mockResolvedValueOnce(mockResponse(automaticChatMessage))
-    .mockResolvedValueOnce(mockResponse(chatSessionWithTask))
-    .mockResolvedValueOnce(mockResponse(backendTask));
-  renderWithQueryClient(<Index />);
-  fireEvent.press(screen.getByText('Auto'));
-  fireEvent.press(screen.getByText('Generate roadmap'));
-  expect(await screen.findByText('Roadmap From API')).toBeTruthy();
-  expect(screen.getByText('Open brief')).toBeTruthy();
-  expect(mockFetch).toHaveBeenNthCalledWith(
-    1,
-    expect.stringContaining('/chats/sessions'),
-    expect.objectContaining({ method: 'POST' }),
-  );
-  expect(mockFetch).toHaveBeenNthCalledWith(
-    2,
-    expect.stringContaining('/chats/sessions/session-1/messages'),
-    expect.objectContaining({ method: 'POST' }),
-  );
-  expect(mockFetch).toHaveBeenNthCalledWith(
-    3,
-    expect.stringContaining('/chats/sessions/session-1'),
-    expect.objectContaining({ method: 'GET' }),
-  );
-  expect(mockFetch).toHaveBeenNthCalledWith(
-    4,
-    expect.stringContaining('/tasks/task-1'),
-    expect.objectContaining({ method: 'GET' }),
-  );
-});
-
 test('TaskScreen guided mode displays backend follow-up question and then loads generated roadmap', async () => {
   mockFetch
     .mockResolvedValueOnce(mockResponse(chatSession))
@@ -142,6 +108,7 @@ test('TaskScreen guided mode displays backend follow-up question and then loads 
     .mockResolvedValueOnce(mockResponse(backendTask));
   renderWithQueryClient(<Index />);
   fireEvent.press(screen.getByText('Guided'));
+  expect(screen.getByText('AI-assisted guidance')).toBeTruthy();
   fireEvent.press(screen.getByText('Send description'));
   expect(await screen.findByText('What do you need to submit?')).toBeTruthy();
   fireEvent.changeText(screen.getByPlaceholderText('Type your answer'), 'Milestone 1 README');

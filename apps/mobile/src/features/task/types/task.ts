@@ -1,4 +1,4 @@
-export const TASK_MODES = ['manual', 'automatic', 'guided'] as const;
+export const TASK_MODES = ['manual', 'guided'] as const;
 
 export type Mode = (typeof TASK_MODES)[number];
 
@@ -79,23 +79,17 @@ export type ManualRoadmapInput = {
   subtasks: string[];
 };
 
-export type AutomaticRoadmapInput = {
-  description: string;
-};
-
 export type GuidedRoadmapInput = {
   description: string;
   answers: string[];
   sessionId: string | null;
 };
 
-export type ChatRoadmapResult = {
+export type GuidedRoadmapResult = {
   sessionId: string;
   message: ChatMessage;
   task: Task | null;
 };
-
-export type GuidedRoadmapResult = ChatRoadmapResult;
 
 export type StatusMessage = {
   kind: 'success' | 'error';

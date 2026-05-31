@@ -11,8 +11,6 @@ import {
   taskQueryKeys,
 } from '../api/taskApi';
 import type {
-  AutomaticRoadmapInput,
-  ChatRoadmapResult,
   GuidedRoadmapInput,
   GuidedRoadmapResult,
   ManualRoadmapInput,
@@ -63,23 +61,6 @@ export function useTaskRoadmap() {
     },
     onError: showError,
   });
-  const automaticRoadmap = useMutation({
-    mutationKey: taskMutationKeys.sendChatMessage,
-    mutationFn: sendAutomaticMessage,
-    onMutate: clearStatusMessage,
-    onSuccess: (result) => {
-      if (result.task) {
-        setTask(result.task);
-        setQuestions([]);
-        setAnswers([]);
-        setGuidedSessionId(null);
-        showSuccess(result.message.content || 'Generated roadmap loaded.');
-        return;
-      }
-      showSuccess(result.message.content || 'Automatic roadmap request sent.');
-    },
-    onError: showError,
-  });
   const guidedRoadmap = useMutation({
     mutationKey: taskMutationKeys.sendChatMessage,
     mutationFn: sendGuidedMessage,
@@ -124,17 +105,6 @@ export function useTaskRoadmap() {
     return mapBackendTaskToTask(backendTask);
   }
 
-  async function sendAutomaticMessage(input: AutomaticRoadmapInput): Promise<ChatRoadmapResult> {
-    const session = await createChatSession();
-    const message = await sendChatMessage({ sessionId: session.session_id, msg: input.description });
-    const generatedTask = await loadGeneratedTask(session.session_id);
-    return {
-      sessionId: session.session_id,
-      message,
-      task: generatedTask,
-    };
-  }
-
   async function sendGuidedMessage(input: GuidedRoadmapInput): Promise<GuidedRoadmapResult> {
     const sessionId = input.sessionId || (await createChatSession()).session_id;
     const msg = [input.description, ...input.answers].filter(Boolean).join('\n');
@@ -159,10 +129,6 @@ export function useTaskRoadmap() {
     manualRoadmap.mutate(input);
   }
 
-  function submitAutomaticRoadmap(input: AutomaticRoadmapInput) {
-    automaticRoadmap.mutate(input);
-  }
-
   function submitGuidedRoadmap(input: Omit<GuidedRoadmapInput, 'sessionId'>) {
     guidedRoadmap.mutate({ ...input, sessionId: guidedSessionId });
   }
@@ -172,17 +138,14 @@ export function useTaskRoadmap() {
       currentTask ? toggleLocalSubtask(currentTask, subtaskId) : currentTask,
     );
   }
-
   return {
     answers,
-    automaticRoadmap,
     guidedRoadmap,
     manualRoadmap,
     questions,
     statusMessage,
     task,
     clearStatusMessage,
-    submitAutomaticRoadmap,
     submitGuidedRoadmap,
     submitManualRoadmap,
     toggleSubtaskCompletion,
