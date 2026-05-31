@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api.v1.tasks import router as task_router
@@ -24,7 +25,17 @@ setup_logging()
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+cors_origins_str: str = settings.cors_origins
+origins: list[str] = cors_origins_str.split(",") if cors_origins_str else ["*"]
+
 app: FastAPI = FastAPI(title="Procradicator API", version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(Exception)
