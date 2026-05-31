@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTaskRoadmap } from '../hooks/useTaskRoadmap';
 import type { Mode } from '../types/task';
-import { AutomaticTaskForm } from './AutomaticTaskForm';
 import { GuidedTaskForm } from './GuidedTaskForm';
 import { ManualTaskForm } from './ManualTaskForm';
 import { ModeTabs } from './ModeTabs';
@@ -37,13 +36,6 @@ export function TaskScreen() {
             <ManualTaskForm
               isSubmitting={roadmap.manualRoadmap.isPending}
               onSubmit={roadmap.submitManualRoadmap}
-            />
-          ) : null}
-
-          {mode === 'automatic' ? (
-            <AutomaticTaskForm
-              isSubmitting={roadmap.automaticRoadmap.isPending}
-              onSubmit={roadmap.submitAutomaticRoadmap}
             />
           ) : null}
 

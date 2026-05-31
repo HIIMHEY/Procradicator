@@ -15,7 +15,7 @@ export function RoadmapView({ isUpdating, task, onToggleSubtask }: RoadmapViewPr
       <View className="gap-3 rounded-lg bg-white p-4">
         <Text className="text-xl font-extrabold text-emerald-950">No roadmap yet</Text>
         <Text className="leading-5 text-slate-500">
-          Create a manual, automatic, or guided roadmap to see progress nodes here.
+          Create a manual or guided roadmap to see progress nodes here.
         </Text>
       </View>
     );

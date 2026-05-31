@@ -42,7 +42,7 @@ export function GuidedTaskForm({
 
   return (
     <View className="gap-3">
-      <Text className="text-xl font-extrabold text-emerald-950">Semi-automatic guidance</Text>
+      <Text className="text-xl font-extrabold text-emerald-950">AI-assisted guidance</Text>
 
       <form.Field name="description">
         {(field) => (
