@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "server"
 version = "0.1.0"
@@ -5,7 +9,13 @@ description = "Procradicator Backend"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi[standard]>=0.136.3",
+    "ollama>=0.6.2",
+    "psycopg2-binary>=2.9.12",
     "pydantic>=2.13.4",
+    "pydantic-ai>=1.104.0",
+    "pydantic-settings>=2.14.1",
+    "python-dotenv>=1.2.2",
     "sqlalchemy>=2.0.50",
     "sqlmodel>=0.0.38",
 ]
@@ -19,6 +29,7 @@ dev = [
 ]
 
 [tool.ruff]
+src = ["src"]
 line-length = 100
 
 [tool.ruff.lint]
@@ -34,5 +45,7 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 
-[tool.setuptools.package-dir]
-where = ["src"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

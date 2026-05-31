@@ -5,15 +5,16 @@ from sqlmodel import Field, Relationship, SQLModel
 
 
 class SubtaskDependency(SQLModel, table=True):
-    predecessor_id: int = Field(foreign_key="subtask.id", primary_key=True)
-    successor_id: int = Field(foreign_key="subtask.id", primary_key=True)
+    predecessor_id: uuid.UUID = Field(foreign_key="subtask.id", primary_key=True)
+    successor_id: uuid.UUID = Field(foreign_key="subtask.id", primary_key=True)
 
 
 class Task(SQLModel, table=True):
     id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
     title: str
     description: str | None = None
-    subtasks: list["Subtask"] = Relationship()
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    subtasks: list["Subtask"] = Relationship(back_populates="task")
 
 
 class Subtask(SQLModel, table=True):
@@ -22,6 +23,8 @@ class Subtask(SQLModel, table=True):
     description: str | None = None
     is_done: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    task_id: uuid.UUID = Field(foreign_key="task.id")
+    task: "Task" = Relationship(back_populates="subtasks")
     next_subtask: list["Subtask"] = Relationship(
         link_model=SubtaskDependency,
         sa_relationship_kwargs={

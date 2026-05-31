@@ -27,12 +27,12 @@ jobs:
       - name: run ruff linter
         run: |
           cd apps/server
-          uv run ruff check .
+          make lint
       - name: check code formatting
         run: |
           cd apps/server
-          uv run ruff format --check .
+          make format
       - name: run pytest tests
         run: |
           cd apps/server
-          uv run pytest
+          make test
