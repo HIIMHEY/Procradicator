@@ -1,8 +1,10 @@
-.PHONY: format test lint
+.PHONY: format test lint dev
 
 format:
-	ruff format .
+	uv run ruff format src tests
 test:
-	pytest
+	uv run pytest
 lint:
-	ruff check .
+	uv run ruff check src tests
+dev:
+	uv run fastapi dev src/main.py
