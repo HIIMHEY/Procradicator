@@ -30,9 +30,7 @@ class TaskRepo(BaseRepo[Task]):
             # Task.subtask etc are RelationshipProperty and not List at class level,
             # safe to ignore
             statement: SelectOfScalar[Task] = (
-                select(Task)
-                .where(col(Task.id) == task_id)
-                .options(selectinload(Task.subtasks))  # type: ignore
+                select(Task).where(col(Task.id) == task_id).options(selectinload(Task.subtasks))  # type: ignore
             )
 
             result: Task | None = self.session.exec(statement).first()
@@ -54,9 +52,7 @@ class TaskRepo(BaseRepo[Task]):
             self.session.add(main_task)
             self.session.flush()
             if main_task.id is None:
-                raise DatabaseError(
-                    "failed to retrieve generated task ID from database"
-                )
+                raise DatabaseError("failed to retrieve generated task ID from database")
             logger.debug(f"Created main task record with ID: {main_task.id}")
             id_map: dict[str, UUID] = {}  # maps ai generated slugs to db id
             links_to_build: list[tuple[UUID, list[str]]] = []
@@ -70,9 +66,7 @@ class TaskRepo(BaseRepo[Task]):
                 self.session.add(new_subtask)
                 self.session.flush()
                 if new_subtask.id is None:
-                    raise DatabaseError(
-                        "failed to retrieve generated subtask ID from database"
-                    )
+                    raise DatabaseError("failed to retrieve generated subtask ID from database")
                 id_map[st_schema.temp_id] = new_subtask.id
                 links_to_build.append((new_subtask.id, st_schema.depends_on))
 
@@ -87,9 +81,7 @@ class TaskRepo(BaseRepo[Task]):
                         )
 
                     self.session.add(
-                        SubtaskDependency(
-                            predecessor_id=pred_id, successor_id=successor_id
-                        )
+                        SubtaskDependency(predecessor_id=pred_id, successor_id=successor_id)
                     )
 
             self.session.commit()

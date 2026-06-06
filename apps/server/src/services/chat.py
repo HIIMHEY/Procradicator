@@ -46,7 +46,6 @@ class ChatService:
             logger.error(f"Session task link failed: {str(e)}")
             raise ServiceError(f"Could not link task to session: {str(e)}") from e
 
-
     # TODO: get rid of magic no 20
     def get_history(self, session_id: UUID, limit: int = 20) -> Sequence[ChatMessage]:
         try:
@@ -66,6 +65,4 @@ class ChatService:
             return self.chat_repo.add_message(session_id, role, content, tool_call_id)
         except Exception as e:
             logger.error(f"Add message failed: {str(e)}")
-            raise ServiceError(
-                f"Could not add message to chat history: {str(e)}"
-            ) from e
+            raise ServiceError(f"Could not add message to chat history: {str(e)}") from e
