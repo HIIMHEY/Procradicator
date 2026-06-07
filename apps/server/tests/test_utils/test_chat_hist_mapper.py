@@ -1,7 +1,14 @@
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from pydantic_ai import TextPart, ToolCallPart, ToolReturnPart, UserPromptPart
+from pydantic_ai import (
+    ModelMessage,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
 from pydantic_ai.messages import ModelRequest, ModelResponse
 from src.models.chat import ChatMessage, Role
 from src.utils import chat_hist_mapper
@@ -11,7 +18,7 @@ class TestUtils:
     def test_map_chat_history_valid(self) -> None:
         session_id: uuid.UUID = uuid.uuid4()
         tool_call_id_str: str = str(uuid.uuid4())
-        db_msgs = [
+        db_msgs: list[ChatMessage] = [
             ChatMessage(
                 id=uuid.uuid4(),
                 session_id=session_id,
@@ -44,7 +51,7 @@ class TestUtils:
             ),
         ]
 
-        result = chat_hist_mapper.map_chat_history(db_msgs)
+        result: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(db_msgs)
 
         assert len(result) == 4
 
