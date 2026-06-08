@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.models.task import Task
-from src.schemas.task import CreateTask, GetTask
+from src.schemas.task import CreateTask, GetTask, UpdateTask
 from src.services.task import TaskService
 
 router = APIRouter(prefix="/tasks", tags=["Task"])
@@ -24,3 +24,10 @@ async def get_task(task_id: UUID, task_svc: Annotated[TaskService, Depends()]) -
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     return GetTask.model_validate(task)
+
+@router.put("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_task(
+    task_id: UUID,
+    payload: UpdateTask, task_svc: Annotated[TaskService, Depends()]
+) -> None:
+    task_svc.update_roadmap(task_id, payload)

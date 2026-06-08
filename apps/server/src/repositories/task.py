@@ -11,7 +11,7 @@ from sqlmodel.sql.expression import SelectOfScalar
 from src.db.sqlmodelorm import get_session
 from src.exceptions import DatabaseError, ResourceNotFoundError
 from src.models.task import Subtask, SubtaskDependency, Task
-from src.schemas.task import CreateTask
+from src.schemas.task import CreateTask, UpdateTask
 from src.utils.db_exception_mapper import map_db_exception
 
 from .base import BaseRepo
@@ -46,13 +46,15 @@ class TaskRepo(BaseRepo[Task]):
             raise map_db_exception(e) from e
 
     def create_roadmap_graph(self, roadmap: CreateTask) -> Task:
-        logger.info(f"Starting atomic roadmap generation: '{roadmap.title}'")
+        logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
             main_task = Task(title=roadmap.title, description=roadmap.description)
             self.session.add(main_task)
             self.session.flush()
             if main_task.id is None:
-                raise DatabaseError("failed to retrieve generated task ID from database")
+                raise DatabaseError(
+                    "failed to retrieve generated task ID from database"
+                )
             logger.debug(f"Created main task record with ID: {main_task.id}")
             id_map: dict[str, UUID] = {}  # maps ai generated slugs to db id
             links_to_build: list[tuple[UUID, list[str]]] = []
@@ -66,7 +68,9 @@ class TaskRepo(BaseRepo[Task]):
                 self.session.add(new_subtask)
                 self.session.flush()
                 if new_subtask.id is None:
-                    raise DatabaseError("failed to retrieve generated subtask ID from database")
+                    raise DatabaseError(
+                        "failed to retrieve generated subtask ID from database"
+                    )
                 id_map[st_schema.temp_id] = new_subtask.id
                 links_to_build.append((new_subtask.id, st_schema.depends_on))
 
@@ -81,7 +85,9 @@ class TaskRepo(BaseRepo[Task]):
                         )
 
                     self.session.add(
-                        SubtaskDependency(predecessor_id=pred_id, successor_id=successor_id)
+                        SubtaskDependency(
+                            predecessor_id=pred_id, successor_id=successor_id
+                        )
                     )
 
             self.session.commit()
@@ -92,4 +98,84 @@ class TaskRepo(BaseRepo[Task]):
         except (Exception, SQLAlchemyError) as e:
             self.session.rollback()
             logger.error(f"Failed to build task graph: {str(e)}", exc_info=True)
+            raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e
+
+    def update_roadmap(self, task_id: UUID, roadmap: UpdateTask) -> None:
+        logger.info(f"Updating roadmap for Task ID: {task_id}")
+        try:
+            db_task = self.get_roadmap(task_id)
+            db_task.title, db_task.description = roadmap.title, roadmap.description
+            self.session.add(db_task)
+
+            existing_subs = {sub.id: sub for sub in db_task.subtasks}
+            id_map: dict[UUID | str, UUID] = {}
+            incoming_sub_ids = set()
+
+            for st in roadmap.subtasks:
+                clean_id = (
+                    UUID(st.id)
+                    if isinstance(st.id, str) and len(st.id) == 36
+                    else st.id
+                )
+
+                if isinstance(clean_id, UUID) and clean_id in existing_subs:
+                    sub = existing_subs[clean_id]
+                    sub.title, sub.description = st.title, st.description
+                    incoming_sub_ids.add(sub.id)
+                else:
+                    sub = Subtask(
+                        title=st.title, description=st.description, task_id=db_task.id
+                    )
+                    self.session.add(sub)
+                    self.session.flush()
+
+                id_map[st.id] = sub.id
+
+            # delete removed subtasks
+            for sub_id, sub in existing_subs.items():
+                if sub_id not in incoming_sub_ids:
+                    self.session.delete(sub)
+            self.session.flush()
+
+            # sync dependency edges
+            target_deps = set()
+            for st in roadmap.subtasks:
+                succ_id = id_map.get(st.id)
+                for pred_key in st.depends_on:
+                    pred_id = id_map.get(pred_key) or id_map.get(
+                        UUID(pred_key)
+                        if isinstance(pred_key, str) and len(pred_key) == 36
+                        else pred_key
+                    )
+                    if not pred_id:
+                        raise ResourceNotFoundError(
+                            f"Dependency reference '{pred_key}' not found."
+                        )
+                    target_deps.add((pred_id, succ_id))
+
+            # fetch active links and compute updates
+            current_deps = self.session.exec(
+                select(SubtaskDependency).where(
+                    col(SubtaskDependency.successor_id).in_(id_map.values())
+                )
+            ).all()
+            current_dep_map = {
+                (d.predecessor_id, d.successor_id): d for d in current_deps
+            }
+
+            # del missing links / remove orphaned links
+            for pred_id, succ_id in target_deps - current_dep_map.keys():
+                self.session.add(
+                    SubtaskDependency(predecessor_id=pred_id, successor_id=succ_id)
+                )
+            for edge, dep_obj in current_dep_map.items():
+                if edge not in target_deps:
+                    self.session.delete(dep_obj)
+
+            self.session.commit()
+            self.session.refresh(db_task)
+
+        except (Exception, SQLAlchemyError) as e:
+            self.session.rollback()
+            logger.error(f"Failed to update task {task_id}: {e}", exc_info=True)
             raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e

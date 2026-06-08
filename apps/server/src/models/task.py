@@ -10,7 +10,7 @@ class SubtaskDependency(SQLModel, table=True):
 
 
 class Task(SQLModel, table=True):
-    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     title: str
     description: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -18,7 +18,7 @@ class Task(SQLModel, table=True):
 
 
 class Subtask(SQLModel, table=True):
-    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     title: str = Field(index=True)
     description: str | None = None
     is_done: bool = Field(default=False)

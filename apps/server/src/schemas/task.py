@@ -22,6 +22,20 @@ class CreateTask(BaseModel):
     subtasks: list[CreateSubtask] = Field(..., min_length=1)
 
 
+class UpdateSubTask(BaseModel):
+    id: UUID | str = Field(...)
+    title: str
+    description: str | None = None
+    depends_on: list[UUID | str] =  Field(
+        default_factory=list,
+        description="List of id that must be finished before this one starts",
+    )
+
+class UpdateTask(BaseModel):
+    title: str = Field(..., description="The overall goal agin...")
+    description: str | None
+    subtasks: list[UpdateSubTask] = Field(..., min_length=1)
+
 class GetSubtask(BaseModel):
     id: UUID
     title: str
