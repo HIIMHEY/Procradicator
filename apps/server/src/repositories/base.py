@@ -23,9 +23,7 @@ class BaseRepo[T: SQLModel]:
     def read(self, id: UUID) -> T:
         obj: T | None = self.session.get(self.model, id)
         if not obj:
-            logger.warning(
-                f"[{self.model.__name__}] Read failed: Record {id} not found"
-            )
+            logger.warning(f"[{self.model.__name__}] Read failed: Record {id} not found")
             raise ResourceNotFoundError("record not found")
         return obj
 
@@ -35,15 +33,11 @@ class BaseRepo[T: SQLModel]:
             self.session.add(obj)
             self.session.commit()
             self.session.refresh(obj)
-            logger.info(
-                f"[{self.model.__name__}] Upserted record: {getattr(obj, 'id', 'unknown')}"
-            )
+            logger.info(f"[{self.model.__name__}] Upserted record: {getattr(obj, 'id', 'unknown')}")
             return obj
         except SQLAlchemyError as e:
             self.session.rollback()
-            logger.error(
-                f"[{self.model.__name__}] Upsert failed: {str(e)}", exc_info=True
-            )
+            logger.error(f"[{self.model.__name__}] Upsert failed: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
     def delete(self, id: UUID) -> bool:
@@ -72,9 +66,7 @@ class BaseRepo[T: SQLModel]:
         page_size: int = 20,
     ) -> tuple[Sequence[T], int]:
         # returns a tuple of (items, total_count)
-        logger.debug(
-            f"[{self.model.__name__}] Listing page {page} with size {page_size}"
-        )
+        logger.debug(f"[{self.model.__name__}] Listing page {page} with size {page_size}")
         statement = select(self.model)
         if where:
             statement = statement.where(*where)
@@ -96,7 +88,5 @@ class BaseRepo[T: SQLModel]:
 
             return results, total_count
         except SQLAlchemyError as e:
-            logger.error(
-                f"[{self.model.__name__}] List query failed: {str(e)}", exc_info=True
-            )
+            logger.error(f"[{self.model.__name__}] List query failed: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e

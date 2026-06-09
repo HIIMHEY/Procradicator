@@ -10,7 +10,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 # from pydantic_ai.models.ollama import OllamaModel
 # from pydantic_ai.providers.ollama import OllamaProvider
 from src.core.config import settings
-from src.exceptions import DatabaseError, ResourceNotFoundError
+from src.exceptions import DatabaseError, ResourceNotFoundError, ServiceError
 from src.models.chat import ChatMessage, Role
 from src.models.task import Task
 from src.schemas.task import CreateTask
@@ -43,7 +43,7 @@ class LLMService:
 
         # TODO: move the prompt to txt file in prompts folder n create txt file loader
         self.agent = Agent(
-            self.model,
+            model=self.model,
             deps_type=AgentDeps,
             output_type=str,
             instructions=("""
@@ -63,7 +63,8 @@ class LLMService:
             OPERATIONAL WORKFLOW:
             1. ANALYZE: Review the user's input.
             2. VALIDATE: Do you have enough detail to create at least 3-5 distinct,
-            chronological subtasks?
+            chronological subtasks? Is each subtask such that it is completable within
+            hour?
             3. INTERACT: If NO, ask ONE concise question (e.g. "What tools are you using?"
             or "What is your deadline?"). DO NOT PROVIDE THE ROADMAP UNTIL THIS IS
             ANSWERED.
@@ -82,9 +83,8 @@ class LLMService:
         @self.agent.tool
         async def generate_task_tool(
             ctx: RunContext[AgentDeps], roadmap: CreateTask
-        ) -> str:
+        )  -> str | None:
             try:
-                # Call specialized TaskRepository logic
                 logger.info("TOOL CALL")
                 task: Task = ctx.deps.task_svc.create_roadmap(roadmap)
                 if not task.id:
@@ -96,15 +96,18 @@ class LLMService:
                 raise ModelRetry(
                     f"Value Error: {str(e)}. Check your structure and ensure your fields for tasks and subtasks are correct."  # noqa: E501
                 ) from e
+            except ServiceError as e:
+                match e.__cause__:
+                    case ResourceNotFoundError():
+                        raise ModelRetry(
+                            f"Not Found: {str(e)}. Ensure all dependencies exist in your list."
+                        ) from e
+                    case DatabaseError():
+                        # if fatal DB error, stop retrying
+                        return f"Encountered a database issue: {str(e)}"
+                    case _:
+                        return f"An unexpected error occured: {str(e)}"
 
-            except ResourceNotFoundError as e:
-                raise ModelRetry(
-                    f"Not Found: {str(e)}. Ensure all dependencies exist in your list."
-                ) from e
-
-            except DatabaseError as e:
-                # if fatal DB error, stop retrying
-                return f"Encountered a database issue: {str(e)}"
 
     async def handle_chat(
         self,

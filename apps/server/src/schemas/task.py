@@ -32,7 +32,7 @@ class GetSubtask(BaseModel):
 
     @field_validator("next_subtask", mode="before")
     @classmethod
-    def extract_ids(cls, v: Any) -> list[UUID]: # get ids only
+    def extract_ids(cls, v: Any) -> list[UUID]:  # get ids only
         if isinstance(v, list):
             return [obj.id if hasattr(obj, "id") else obj for obj in v]
         return v
