@@ -28,9 +28,7 @@ async def create_session(
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(
-    session_id: UUID, chat_svc: Annotated[ChatService, Depends()]
-) -> ChatSession:
+async def get_session(session_id: UUID, chat_svc: Annotated[ChatService, Depends()]) -> ChatSession:
     try:
         return chat_svc.get_session(session_id)
     except Exception as e:

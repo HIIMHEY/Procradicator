@@ -25,15 +25,11 @@ async def create_task(
 
 
 @router.get("/{task_id}")
-async def get_task(
-    task_id: UUID, task_svc: Annotated[TaskService, Depends()]
-) -> GetTask:
+async def get_task(task_id: UUID, task_svc: Annotated[TaskService, Depends()]) -> GetTask:
     try:
         task: Task | None = task_svc.get_roadmap(task_id)
         if not task:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
         return GetTask.model_validate(task)
     except Exception as e:
         raise HTTPException(

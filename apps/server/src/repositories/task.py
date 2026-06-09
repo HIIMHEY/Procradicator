@@ -52,9 +52,7 @@ class TaskRepo(BaseRepo[Task]):
             self.session.add(main_task)
             self.session.flush()
             if main_task.id is None:
-                raise DatabaseError(
-                    "failed to retrieve generated task ID from database"
-                )
+                raise DatabaseError("failed to retrieve generated task ID from database")
             logger.debug(f"Created main task record with ID: {main_task.id}")
             id_map: dict[str, UUID] = {}  # maps ai generated slugs to db id
             links_to_build: list[tuple[UUID, list[str]]] = []
@@ -68,9 +66,7 @@ class TaskRepo(BaseRepo[Task]):
                 self.session.add(new_subtask)
                 self.session.flush()
                 if new_subtask.id is None:
-                    raise DatabaseError(
-                        "failed to retrieve generated subtask ID from database"
-                    )
+                    raise DatabaseError("failed to retrieve generated subtask ID from database")
                 id_map[st_schema.temp_id] = new_subtask.id
                 links_to_build.append((new_subtask.id, st_schema.depends_on))
 
@@ -85,9 +81,7 @@ class TaskRepo(BaseRepo[Task]):
                         )
 
                     self.session.add(
-                        SubtaskDependency(
-                            predecessor_id=pred_id, successor_id=successor_id
-                        )
+                        SubtaskDependency(predecessor_id=pred_id, successor_id=successor_id)
                     )
 
             self.session.commit()
@@ -112,20 +106,14 @@ class TaskRepo(BaseRepo[Task]):
             incoming_sub_ids = set()
 
             for st in roadmap.subtasks:
-                clean_id = (
-                    UUID(st.id)
-                    if isinstance(st.id, str) and len(st.id) == 36
-                    else st.id
-                )
+                clean_id = UUID(st.id) if isinstance(st.id, str) and len(st.id) == 36 else st.id
 
                 if isinstance(clean_id, UUID) and clean_id in existing_subs:
                     sub = existing_subs[clean_id]
                     sub.title, sub.description = st.title, st.description
                     incoming_sub_ids.add(sub.id)
                 else:
-                    sub = Subtask(
-                        title=st.title, description=st.description, task_id=db_task.id
-                    )
+                    sub = Subtask(title=st.title, description=st.description, task_id=db_task.id)
                     self.session.add(sub)
                     self.session.flush()
 
@@ -148,9 +136,7 @@ class TaskRepo(BaseRepo[Task]):
                         else pred_key
                     )
                     if not pred_id:
-                        raise ResourceNotFoundError(
-                            f"Dependency reference '{pred_key}' not found."
-                        )
+                        raise ResourceNotFoundError(f"Dependency reference '{pred_key}' not found.")
                     target_deps.add((pred_id, succ_id))
 
             # fetch active links and compute updates
@@ -159,15 +145,11 @@ class TaskRepo(BaseRepo[Task]):
                     col(SubtaskDependency.successor_id).in_(id_map.values())
                 )
             ).all()
-            current_dep_map = {
-                (d.predecessor_id, d.successor_id): d for d in current_deps
-            }
+            current_dep_map = {(d.predecessor_id, d.successor_id): d for d in current_deps}
 
             # del missing links / remove orphaned links
             for pred_id, succ_id in target_deps - current_dep_map.keys():
-                self.session.add(
-                    SubtaskDependency(predecessor_id=pred_id, successor_id=succ_id)
-                )
+                self.session.add(SubtaskDependency(predecessor_id=pred_id, successor_id=succ_id))
             for edge, dep_obj in current_dep_map.items():
                 if edge not in target_deps:
                     self.session.delete(dep_obj)
