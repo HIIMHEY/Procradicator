@@ -37,3 +37,10 @@ class TaskService:
         except Exception as e:
             logger.error(f"Roadmap update faailed: {str(e)}")
             raise ServiceError(f"Could not update roadmap: {str(e)}") from e
+
+    def del_roadmap(self, task_id: UUID) -> None:
+        try:
+            self.task_repo.delete(task_id)
+        except Exception as e:
+            logger.error(f"Roadmap delete faailed: {str(e)}")
+            raise ServiceError(f"Could not delete roadmap: {str(e)}") from e
