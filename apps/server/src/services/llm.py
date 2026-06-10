@@ -36,9 +36,7 @@ class LLMService:
         # )
         self.model = OpenAIChatModel(
             model_name=settings.model_name,
-            provider=OpenAIProvider(
-                base_url=settings.base_url, api_key=settings.groq_api_key
-            ),
+            provider=OpenAIProvider(base_url=settings.base_url, api_key=settings.groq_api_key),
         )
 
         # TODO: move the prompt to txt file in prompts folder n create txt file loader
@@ -46,7 +44,8 @@ class LLMService:
             model=self.model,
             deps_type=AgentDeps,
             output_type=str,
-            instructions=("""
+            instructions=(
+                """
             ROLE: You are the "Procradicator AI Planner," a specialized logic engine
             that converts vague human goals into a strict Directed Acyclic Graph (DAG)
             of actionable tasks.
@@ -75,22 +74,23 @@ class LLMService:
             same task set. Tasks must be "atomic"—small enough that a user doesn't
             procrastinate starting them. Direct output to the tool only; do not add
             conversational "here is your roadmap" fluff when calling the tool.
-                          """),
+                          """
+            ),
             system_prompt=(),
             retries=3,
         )
 
         @self.agent.tool
-        async def generate_task_tool(
-            ctx: RunContext[AgentDeps], roadmap: CreateTask
-        )  -> str | None:
+        async def generate_task_tool(ctx: RunContext[AgentDeps], roadmap: CreateTask) -> str | None:
             try:
                 logger.info("TOOL CALL")
                 task: Task = ctx.deps.task_svc.create_roadmap(roadmap)
                 if not task.id:
                     raise ValueError()
                 ctx.deps.chat_svc.link_task_to_session(task.id, ctx.deps.session_id)
-                return f"SUCCESS: Task '{task.title}' created with {len(roadmap.subtasks)} subtasks."  # noqa: E501
+                return (
+                    f"SUCCESS: Task '{task.title}' created with {len(roadmap.subtasks)} subtasks."  # noqa: E501
+                )
 
             except ValueError as e:
                 raise ModelRetry(
@@ -116,17 +116,11 @@ class LLMService:
         task_svc: TaskService,
         chat_svc: ChatService,
     ) -> ChatMessage:
-        chat_svc.add_message(
-            session_id, role=Role.USER, content=user_input
-        )  # user input
+        chat_svc.add_message(session_id, role=Role.USER, content=user_input)  # user input
 
         db_history: Sequence[ChatMessage] = chat_svc.get_history(session_id)
-        pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(
-            db_history
-        )
-        deps: AgentDeps = AgentDeps(
-            task_svc=task_svc, chat_svc=chat_svc, session_id=session_id
-        )
+        pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(db_history)
+        deps: AgentDeps = AgentDeps(task_svc=task_svc, chat_svc=chat_svc, session_id=session_id)
 
         result: AgentRunResult[str] = await self.agent.run(
             user_input, deps=deps, message_history=pydantic_history

@@ -18,7 +18,7 @@ class ChatSession(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # link to created task / subtasks
-    task_id: uuid.UUID | None = Field(default=None, foreign_key="task.id")
+    task_id: uuid.UUID | None = Field(default=None, foreign_key="task.id", ondelete="SET NULL")
 
     messages: list["ChatMessage"] = Relationship(back_populates="session")
 

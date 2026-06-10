@@ -5,20 +5,24 @@ from sqlmodel import Field, Relationship, SQLModel
 
 
 class SubtaskDependency(SQLModel, table=True):
-    predecessor_id: uuid.UUID = Field(foreign_key="subtask.id", primary_key=True)
-    successor_id: uuid.UUID = Field(foreign_key="subtask.id", primary_key=True)
+    predecessor_id: uuid.UUID = Field(
+        foreign_key="subtask.id", ondelete="CASCADE", primary_key=True
+    )
+    successor_id: uuid.UUID = Field(foreign_key="subtask.id", ondelete="CASCADE", primary_key=True)
 
 
 class Task(SQLModel, table=True):
-    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     title: str
     description: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    subtasks: list["Subtask"] = Relationship(back_populates="task")
+    subtasks: list["Subtask"] = Relationship(
+        back_populates="task", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 class Subtask(SQLModel, table=True):
-    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     title: str = Field(index=True)
     description: str | None = None
     is_done: bool = Field(default=False)
@@ -30,5 +34,6 @@ class Subtask(SQLModel, table=True):
         sa_relationship_kwargs={
             "primaryjoin": "Subtask.id==SubtaskDependency.predecessor_id",
             "secondaryjoin": "Subtask.id==SubtaskDependency.successor_id",
+            "cascade": "all, delete",
         },
     )

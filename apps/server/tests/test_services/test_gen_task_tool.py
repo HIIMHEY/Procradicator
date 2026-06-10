@@ -47,11 +47,7 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
         }
 
         # if initial turn, make llm req a tool call
-        if not any(
-            isinstance(p, ToolCallPart)
-            for m in messages
-            for p in getattr(m, "parts", [])
-        ):
+        if not any(isinstance(p, ToolCallPart) for m in messages for p in getattr(m, "parts", [])):
             return ModelResponse(
                 parts=[
                     ToolCallPart(
