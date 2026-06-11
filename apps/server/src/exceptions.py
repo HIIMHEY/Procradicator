@@ -30,3 +30,13 @@ class ConcurrencyError(DatabaseError):
 class ServiceError(BaseError):
     # parent for logic-specific issues
     pass
+
+
+class EmailAlreadyRegisteredError(ServiceError):
+    # raised when registering with an email that already exists
+    pass
+
+
+class InvalidCredentialsError(ServiceError):
+    # raised when login credentials are invalid
+    pass
