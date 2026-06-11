@@ -12,6 +12,7 @@ from src.models import (
     Subtask,  # noqa: F401
     SubtaskDependency,  # noqa: F401
     Task,  # noqa: F401
+    User,  # noqa: F401
 )
 
 # this is the Alembic Config object, which provides

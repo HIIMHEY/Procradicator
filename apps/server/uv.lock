@@ -3120,6 +3120,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "email-validator" },
     { name = "fastapi", extra = ["standard"] },
     { name = "ollama" },
     { name = "psycopg2-binary" },
@@ -3142,6 +3143,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.18.4" },
+    { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.136.3" },
     { name = "ollama", specifier = ">=0.6.2" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
