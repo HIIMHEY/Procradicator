@@ -3,6 +3,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from src.exceptions import (
+    DependencyUnavailableError,
+    DuplicateItemError,
+    ItemNotFoundError,
+)
 from src.models.task import Task
 from src.schemas.task import CreateTask, GetTask, UpdateTask
 from src.services.task import TaskService
@@ -15,26 +20,35 @@ async def create_task(
     payload: CreateTask, task_svc: Annotated[TaskService, Depends()]
 ) -> dict[str, UUID | None]:
     try:
-        task: Task = task_svc.create_roadmap(payload)
+        task: Task = await task_svc.create_roadmap(payload)
         return {"task_id": task.id}
-    except Exception as e:
+    except DuplicateItemError as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occured",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Task creation violated a uniqueness constraint",
+        ) from e
+    except DependencyUnavailableError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task creation could not resolve a dependency",
         ) from e
 
 
 @router.get("/{task_id}")
-async def get_task(task_id: UUID, task_svc: Annotated[TaskService, Depends()]) -> GetTask:
+async def get_task(
+    task_id: UUID, task_svc: Annotated[TaskService, Depends()]
+) -> GetTask:
     try:
-        task: Task | None = task_svc.get_roadmap(task_id)
-        if not task:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+        task: Task | None = await task_svc.get_roadmap(task_id)
         return GetTask.model_validate(task)
-    except Exception as e:
+    except ItemNotFoundError as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occured",
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+        ) from e
+    except DependencyUnavailableError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="A required service is unavailable",
         ) from e
 
 
@@ -43,20 +57,33 @@ async def update_task(
     task_id: UUID, payload: UpdateTask, task_svc: Annotated[TaskService, Depends()]
 ) -> None:
     try:
-        task_svc.update_roadmap(task_id, payload)
-    except Exception as e:
+        await task_svc.update_roadmap(task_id, payload)
+    except ItemNotFoundError as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occured",
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+        ) from e
+    except DuplicateItemError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Task update violated a uniqueness constraint",
+        ) from e
+    except DependencyUnavailableError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="A required service is unavailable",
         ) from e
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def del_task(task_id: UUID, task_svc: Annotated[TaskService, Depends()]) -> None:
     try:
-        task_svc.del_roadmap(task_id)
-    except Exception as e:
+        await task_svc.del_roadmap(task_id)
+    except ItemNotFoundError as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occured",
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+        ) from e
+    except DependencyUnavailableError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="A required service is unavailable",
         ) from e
