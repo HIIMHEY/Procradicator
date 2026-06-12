@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -14,15 +14,14 @@ models.ALLOW_MODEL_REQUESTS = False
 
 @pytest.mark.anyio
 async def test_gen_task_tool_handles_db_disconn() -> None:
-    mock_task_svc: MagicMock = MagicMock()
-    mock_chat_svc: MagicMock = MagicMock()
+    mock_task_svc: MagicMock = AsyncMock()
+    mock_chat_svc: MagicMock = AsyncMock()
+
     session_id: UUID = uuid4()
 
     # sim unexpected error
     db_err: DatabaseError = DatabaseError("database connection was lost")
-    svc_err: ServiceError = ServiceError(
-        f"Could not generate roadmap: {str(db_err)}"
-    )
+    svc_err: ServiceError = ServiceError(f"Could not generate roadmap: {str(db_err)}")
     svc_err.__cause__ = db_err
     mock_task_svc.create_roadmap.side_effect = svc_err
 
@@ -47,7 +46,11 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
         }
 
         # if initial turn, make llm req a tool call
-        if not any(isinstance(p, ToolCallPart) for m in messages for p in getattr(m, "parts", [])):
+        if not any(
+            isinstance(p, ToolCallPart)
+            for m in messages
+            for p in getattr(m, "parts", [])
+        ):
             return ModelResponse(
                 parts=[
                     ToolCallPart(
