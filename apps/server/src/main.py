@@ -18,7 +18,7 @@ from .api.v1.chats import router as chat_router
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # runs on startup
-    db_init()
+    await db_init()
     yield
 
 

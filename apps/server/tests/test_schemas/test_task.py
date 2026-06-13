@@ -36,9 +36,9 @@ class TestTask:
             "description": "subtask desc",
             "depends_on": [],
         }
-        data = {"title": "test title", "subtasks": [subtask]}  # TODO typedDict type
+        data = {"subtasks": [subtask]}  # TODO typedDict type
         with pytest.raises(ValidationError):
-            CreateTask(**data)
+            CreateTask(**data) # type: ignore , cause thats what were testing for
 
     def test_create_task_empty_subtasks(self) -> None:
         data = {"title": "test title", "subtasks": []}  # TODO typedDict type

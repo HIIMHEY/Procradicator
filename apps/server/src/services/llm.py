@@ -84,10 +84,10 @@ class LLMService:
         async def generate_task_tool(ctx: RunContext[AgentDeps], roadmap: CreateTask) -> str | None:
             try:
                 logger.info("TOOL CALL")
-                task: Task = ctx.deps.task_svc.create_roadmap(roadmap)
+                task: Task = await ctx.deps.task_svc.create_roadmap(roadmap)
                 if not task.id:
                     raise ValueError()
-                ctx.deps.chat_svc.link_task_to_session(task.id, ctx.deps.session_id)
+                await ctx.deps.chat_svc.link_task_to_session(task.id, ctx.deps.session_id)
                 return (
                     f"SUCCESS: Task '{task.title}' created with {len(roadmap.subtasks)} subtasks."  # noqa: E501
                 )
@@ -116,9 +116,9 @@ class LLMService:
         task_svc: TaskService,
         chat_svc: ChatService,
     ) -> ChatMessage:
-        chat_svc.add_message(session_id, role=Role.USER, content=user_input)  # user input
+        await chat_svc.add_message(session_id, role=Role.USER, content=user_input)  # user input
 
-        db_history: Sequence[ChatMessage] = chat_svc.get_history(session_id)
+        db_history: Sequence[ChatMessage] = await chat_svc.get_history(session_id)
         pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(db_history)
         deps: AgentDeps = AgentDeps(task_svc=task_svc, chat_svc=chat_svc, session_id=session_id)
 
@@ -126,7 +126,7 @@ class LLMService:
             user_input, deps=deps, message_history=pydantic_history
         )
 
-        res: ChatMessage = chat_svc.add_message(
+        res: ChatMessage = await chat_svc.add_message(
             session_id, role=Role.ASSISTANT, content=result.output
         )  # agent input
 

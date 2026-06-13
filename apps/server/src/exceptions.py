@@ -10,7 +10,6 @@ class DatabaseError(BaseError):
     # parent for any persistence issues
     pass
 
-
 class ResourceNotFoundError(DatabaseError):
     # raised when a resource doesn't exist, like yeah
     pass
@@ -25,10 +24,28 @@ class ConcurrencyError(DatabaseError):
     # raised when ops issues like locks, timeouts or connection dropped
     pass
 
-
 # Service errors
 class ServiceError(BaseError):
     # parent for logic-specific issues
+    pass
+
+class InvalidOperationError(ServiceError):
+    #raised when the request breaks business rules
+    pass
+
+
+class ItemNotFoundError(ServiceError):
+    # raised when the item is not found
+    pass
+
+
+class DuplicateItemError(ServiceError):
+    # raised when action violates unique constraint
+    pass
+
+
+class DependencyUnavailableError(ServiceError):
+    # raised when service cannot proceed because a critical resource is locked or offline
     pass
 
 

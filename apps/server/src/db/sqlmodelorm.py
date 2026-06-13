@@ -1,25 +1,34 @@
 import logging
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import Any
 
-from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
-engine = create_engine(settings.db_url, echo=settings.debug)
+# async engine does not support preprepared statements
+engine = create_async_engine(
+    settings.db_url, echo=settings.debug, connect_args={"prepare_threshold": None}
+)
+async_session_pool = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
-def db_init() -> None:
+async def db_init() -> None:
     logger.info("Initializing database...")
     # creates tables if not exist
     try:
-        SQLModel.metadata.create_all(engine)
-        logger.info("Database tables created/verified successfully.")
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+            logger.info("Database tables created/verified successfully.")
     except Exception as e:
         logger.critical(f"Database initialization failed: {str(e)}", exc_info=True)
 
 
-def get_session() -> Generator[Session, Any, None]:
-    with Session(engine) as session:
+async def get_async_session() -> AsyncGenerator[AsyncSession, Any]:
+    async with async_session_pool() as session:
         yield session
