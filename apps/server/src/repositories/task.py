@@ -56,6 +56,7 @@ class TaskRepo(BaseRepo[Task]):
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
             main_task = Task(title=roadmap.title, description=roadmap.description)
+            self.session.add(main_task)
 
             id_map: dict[str, UUID] = {}  # maps ai generated slugs to db id
             links_to_build: list[tuple[UUID, list[str]]] = []
@@ -66,11 +67,15 @@ class TaskRepo(BaseRepo[Task]):
                     description=st_schema.description,
                     task_id=main_task.id,
                 )
-
+                self.session.add(new_subtask)
+                await self.session.flush()
                 id_map[st_schema.temp_id] = new_subtask.id
                 links_to_build.append((new_subtask.id, st_schema.depends_on))
 
-            logger.debug(f"Flushed {len(roadmap.subtasks)} subtasks to database")
+            await self.session.flush()
+            logger.debug(
+                f"Successfully flushed parent task and {len(roadmap.subtasks)} subtasks to database"
+            )
 
             for successor_id, predecessors in links_to_build:
                 for pred_slug in predecessors:
@@ -85,10 +90,13 @@ class TaskRepo(BaseRepo[Task]):
                             predecessor_id=pred_id, successor_id=successor_id
                         )
                     )
-            self.session.add(main_task)
+
             await self.session.commit()
             await self.session.refresh(main_task)
-            logger.info(f"Successfully committed task '{main_task.id}'")
+
+            logger.info(
+                f"Successfully committed task '{main_task.id}' with graph links."
+            )
             return main_task
 
         except (Exception, SQLAlchemyError) as e:
