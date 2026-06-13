@@ -45,7 +45,7 @@ class BaseRepo[T: SQLModel]:
         obj: T | None = await self.session.get(self.model, id)
         if not obj:
             logger.debug(f"[{self.model.__name__}] Delete failed: {id} does not exist")
-            return False
+            raise ResourceNotFoundError("record not found")
         try:
             await self.session.delete(obj)
             await self.session.commit()

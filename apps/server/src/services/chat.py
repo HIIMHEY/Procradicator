@@ -62,6 +62,8 @@ class ChatService:
         self, session_id: UUID, limit: int = 20
     ) -> Sequence[ChatMessage]:
         try:
+            # reads the session, if not exists throw ResourceNotFoundError
+            await self.session_repo.read(session_id)
             return await self.chat_repo.get_history(session_id, limit)
         except DatabaseError as e:
             logger.error(f"Session create failed: {str(e)}")

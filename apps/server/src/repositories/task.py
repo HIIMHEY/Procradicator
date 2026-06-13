@@ -10,7 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel.sql.expression import SelectOfScalar
 
 from src.db.sqlmodelorm import get_async_session
-from src.exceptions import DatabaseError, ResourceNotFoundError
+from src.exceptions import ResourceNotFoundError
 from src.models.task import Subtask, SubtaskDependency, Task
 from src.schemas.task import CreateTask, UpdateTask
 from src.utils.db_exception_mapper import map_db_exception
@@ -56,13 +56,7 @@ class TaskRepo(BaseRepo[Task]):
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
             main_task = Task(title=roadmap.title, description=roadmap.description)
-            self.session.add(main_task)
-            await self.session.flush()
-            if main_task.id is None:
-                raise DatabaseError(
-                    "failed to retrieve generated task ID from database"
-                )
-            logger.debug(f"Created main task record with ID: {main_task.id}")
+
             id_map: dict[str, UUID] = {}  # maps ai generated slugs to db id
             links_to_build: list[tuple[UUID, list[str]]] = []
 
@@ -72,12 +66,7 @@ class TaskRepo(BaseRepo[Task]):
                     description=st_schema.description,
                     task_id=main_task.id,
                 )
-                self.session.add(new_subtask)
-                await self.session.flush()
-                if new_subtask.id is None:
-                    raise DatabaseError(
-                        "failed to retrieve generated subtask ID from database"
-                    )
+
                 id_map[st_schema.temp_id] = new_subtask.id
                 links_to_build.append((new_subtask.id, st_schema.depends_on))
 
@@ -96,10 +85,10 @@ class TaskRepo(BaseRepo[Task]):
                             predecessor_id=pred_id, successor_id=successor_id
                         )
                     )
-
+            self.session.add(main_task)
             await self.session.commit()
             await self.session.refresh(main_task)
-            logger.info(f"Successfully committed task '{main_task.title}'")
+            logger.info(f"Successfully committed task '{main_task.id}'")
             return main_task
 
         except (Exception, SQLAlchemyError) as e:

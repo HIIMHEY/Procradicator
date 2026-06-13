@@ -27,7 +27,7 @@ class TaskService:
             logger.error(f"Roadmap generation failed: {str(e)}")
             raise ServiceError(f"Could not generate roadmap: {str(e)}") from e
 
-    async def get_roadmap(self, task_id: UUID) -> Task | None:
+    async def get_roadmap(self, task_id: UUID) -> Task:
         try:
             return await self.task_repo.get_roadmap(task_id)
         except DatabaseError as e:
