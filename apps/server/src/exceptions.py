@@ -54,6 +54,11 @@ class EmailAlreadyRegisteredError(ServiceError):
     pass
 
 
+class UsernameAlreadyRegisteredError(ServiceError):
+    # raised when registering with a username that already exists
+    pass
+
+
 class InvalidCredentialsError(ServiceError):
     # raised when login credentials are invalid
     pass

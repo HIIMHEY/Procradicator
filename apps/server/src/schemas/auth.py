@@ -5,8 +5,13 @@ class RegisterRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: EmailStr
     password: str = Field(
-        min_length=8, max_length=128, description="Password must be at least 8 characters long"
+        min_length=8,
+        max_length=128,
+        description="Password must be at least 8 characters long and at most 128 characters long",
     )
-    display_name: str | None = Field(
-        default=None, max_length=100, description="Optional display name for the user"
+    username: str = Field(
+        min_length=1,
+        max_length=100,
+        pattern=r"\S",
+        description="Unique username and at least one non-whitespace character for the user",
     )
