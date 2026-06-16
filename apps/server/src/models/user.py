@@ -13,3 +13,6 @@ class User(SQLModel, table=True):
     hashed_password: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    is_active: bool = Field(default=True)  # User can log in and access protected routes
+    is_superuser: bool = Field(default=False)  # Admin permissions
+    is_verified: bool = Field(default=False)  # Email verification status

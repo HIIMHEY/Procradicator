@@ -36,7 +36,7 @@ def hash_password(password: str) -> str:
     return f"{ALGORITHM}${ITERATIONS}${_encode_base64(salt)}${_encode_base64(digest)}"
 
 
-# Verifies a password against a stored hash in the database
+# Verifies a password against a stored hash (hashed password) in the database
 def verify_password(password: str, stored_hash: str | None) -> bool:
     if stored_hash is None:
         return False

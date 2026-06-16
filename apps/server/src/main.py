@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 
 from src.api.v1.auth import router as auth_router
 from src.api.v1.tasks import router as task_router
+from src.auth.backend import auth_backend
+from src.auth.dependencies import fastapi_users
 from src.core.config import settings
 from src.core.logging import setup_logging
 from src.db.sqlmodelorm import db_init
@@ -51,6 +53,11 @@ async def global_exception_handler(req: Request, exc: Exception) -> JSONResponse
 app.include_router(auth_router)
 app.include_router(task_router)
 app.include_router(chat_router)
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/auth",
+    tags=["Auth"],
+)  # Includes built in POST /auth/login and logout etc etc
 
 
 # heard this is nice to have

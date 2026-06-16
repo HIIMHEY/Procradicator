@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from src.auth.dependencies import current_active_user
 from src.exceptions import (
     EmailAlreadyRegisteredError,
     ServiceError,
@@ -40,3 +41,11 @@ async def register(
             detail = "Could not register user"
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         raise HTTPException(status_code=status_code, detail=detail) from e
+
+
+# Return the currently logged-in user
+@router.get("/me", response_model=UserRead)
+async def get_current_user(
+    user: Annotated[User, Depends(current_active_user)],
+) -> UserRead:
+    return UserRead.model_validate(user)

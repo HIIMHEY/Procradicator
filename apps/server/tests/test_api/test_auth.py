@@ -1,9 +1,12 @@
 from collections.abc import Generator
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from src.auth.manager import get_user_manager
+from src.core.config import settings
 from src.exceptions import (
     DatabaseError,
     EmailAlreadyRegisteredError,
@@ -45,6 +48,17 @@ def clear_dependency_overrides() -> Generator[None]:
 
 def override_user_service(service: object) -> None:
     app.dependency_overrides[UserService] = lambda: service
+
+
+# Fake UserManager
+def override_user_manager(user: User | None) -> None:
+    manager = MagicMock()
+    manager.authenticate = AsyncMock(return_value=user)
+    manager.get = AsyncMock(return_value=user)
+    manager.on_after_login = AsyncMock()
+    manager.on_after_logout = AsyncMock()
+    manager.parse_id.return_value = user.id if user else uuid4()
+    app.dependency_overrides[get_user_manager] = lambda: manager
 
 
 def registration_payload() -> dict[str, str]:
@@ -125,3 +139,52 @@ def test_register_missing_username_returns_422() -> None:
     del payload["username"]
     response = TestClient(app).post("/auth/register", json=payload)
     assert response.status_code == 422
+
+
+def test_login_me_logout_flow() -> None:
+    user = User(
+        id=uuid4(),
+        email="user@example.com",
+        username="testuser",
+        hashed_password="stored-hash",
+        is_active=True,
+    )
+    override_user_manager(user)
+    client = TestClient(app)
+    login_response = client.post(
+        "/auth/login",
+        data={
+            "username": "user@example.com",
+            "password": "correct-password",
+        },
+    )
+    assert login_response.status_code == 204
+    assert settings.access_cookie_name in client.cookies
+    assert "httponly" in login_response.headers["set-cookie"].lower()
+    me_response = client.get("/auth/me")
+    assert me_response.status_code == 200
+    assert me_response.json()["email"] == "user@example.com"
+    assert me_response.json()["username"] == "testuser"
+    assert "hashed_password" not in me_response.json()
+    logout_response = client.post("/auth/logout")
+    assert logout_response.status_code == 204
+    assert settings.access_cookie_name not in client.cookies
+    assert client.get("/auth/me").status_code == 401
+
+
+def test_login_with_invalid_credentials_returns_400() -> None:
+    override_user_manager(None)
+    response = TestClient(app).post(
+        "/auth/login",
+        data={
+            "username": "user@example.com",
+            "password": "wrong-password",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "LOGIN_BAD_CREDENTIALS"
+
+
+def test_me_without_cookie_returns_401() -> None:
+    response = TestClient(app).get("/auth/me")
+    assert response.status_code == 401
