@@ -4,12 +4,14 @@ import hmac
 import secrets
 from binascii import Error as BinasciiError
 
-ALGORITHM = "pbkdf2_sha256"
-ITERATIONS = 600_000
-MIN_ITERATIONS = 100_000
-MAX_ITERATIONS = 1_200_000
-SALT_BYTES = 16
-DIGEST_BYTES = 32
+from src.auth.constants import (
+    ALGORITHM,
+    DIGEST_BYTES,
+    ITERATIONS,
+    MAX_ITERATIONS,
+    MIN_ITERATIONS,
+    SALT_BYTES,
+)
 
 
 # Database stores strings not bytes

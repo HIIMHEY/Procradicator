@@ -83,5 +83,8 @@ def test_user_read_excludes_hashed_password() -> None:
     data = response.model_dump()
     assert data["email"] == "tom@example.com"
     assert data["username"] == "Tom"
+    assert data["is_active"] is True
+    assert data["is_superuser"] is False
+    assert data["is_verified"] is False
     assert "hashed_password" not in data
     assert "password" not in data

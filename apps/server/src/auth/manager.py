@@ -25,7 +25,7 @@ async def get_user_db(
     yield user_db
 
 
-# This class is needed for FastAPI Users to handle user authentication and management. 
+# This class is needed for FastAPI Users to handle user authentication and management.
 # It uses the AuthService to verify credentials during login.
 # Acts as a bridge between FastAPI Users and our custom AuthService.
 class UserManager(UUIDIDMixin, BaseUserManager[Any, uuid.UUID]):

@@ -1,11 +1,11 @@
 from typing import cast
 
 import pytest
-from src.exceptions import InvalidCredentialsError, ServiceError
+from src.exceptions import CredentialVerificationError, InvalidCredentialsError, ServiceError
 from src.models.user import User
 from src.services.auth import AuthService
 from src.services.user import UserService
-from src.utils.security import hash_password
+from src.utils.auth import hash_password
 
 pytestmark = pytest.mark.anyio
 
@@ -89,6 +89,6 @@ async def test_verify_credentials_preserves_user_service_error() -> None:
 async def test_verify_credentials_wraps_unexpected_error() -> None:
     unexpected_error = RuntimeError("Unexpected failure")
     service = make_service(FakeUserService(error=unexpected_error))
-    with pytest.raises(ServiceError) as exc_info:
+    with pytest.raises(CredentialVerificationError) as exc_info:
         await service.verify_credentials("tom@example.com", "password123")
     assert exc_info.value.__cause__ is unexpected_error

@@ -4,14 +4,16 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.exceptions import (
+    DuplicateItemError,
     EmailAlreadyRegisteredError,
     ServiceError,
+    UniqueConstraintError,
     UsernameAlreadyRegisteredError,
 )
 from src.models.user import User
 from src.repositories.user import UserRepo
 from src.schemas.auth import RegisterRequest
-from src.utils.security import hash_password
+from src.utils.auth import hash_password
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -49,6 +51,11 @@ class UserService:
                 hashed_password=hashed_password,
             )
             return await self.user_repo.upsert(user)
+        except (EmailAlreadyRegisteredError, UsernameAlreadyRegisteredError):
+            raise
+        except UniqueConstraintError as e:
+            logger.error(f"Registration failed: {str(e)}", exc_info=True)
+            raise DuplicateItemError("Email or username is already registered") from e
         except Exception as e:
             logger.error(f"Registration failed: {str(e)}", exc_info=True)
             raise ServiceError("Could not register user") from e

@@ -8,10 +8,9 @@ from fastapi.testclient import TestClient
 from src.auth.manager import get_user_manager
 from src.core.config import settings
 from src.exceptions import (
-    DatabaseError,
+    DuplicateItemError,
     EmailAlreadyRegisteredError,
     ServiceError,
-    UniqueConstraintError,
     UsernameAlreadyRegisteredError,
 )
 from src.main import app
@@ -36,7 +35,7 @@ class FailedUserService:
         self.error = error
 
     async def register(self, payload: RegisterRequest) -> User:
-        raise ServiceError("Could not register user") from self.error
+        raise self.error
 
 
 @pytest.fixture(autouse=True)
@@ -103,15 +102,15 @@ def test_register_duplicate_username_returns_409() -> None:
     assert response.json()["detail"] == "Username is already registered"
 
 
-def test_register_unique_constraint_returns_409() -> None:
-    override_user_service(FailedUserService(UniqueConstraintError("record already exists")))
+def test_register_duplicate_item_returns_409() -> None:
+    override_user_service(FailedUserService(DuplicateItemError("record already exists")))
     response = TestClient(app).post("/auth/register", json=registration_payload())
     assert response.status_code == 409
     assert response.json()["detail"] == "Email or username is already registered"
 
 
 def test_register_service_error_returns_500() -> None:
-    override_user_service(FailedUserService(DatabaseError("database unavailable")))
+    override_user_service(FailedUserService(ServiceError("database unavailable")))
     response = TestClient(app).post("/auth/register", json=registration_payload())
     assert response.status_code == 500
     assert response.json()["detail"] == "Could not register user"

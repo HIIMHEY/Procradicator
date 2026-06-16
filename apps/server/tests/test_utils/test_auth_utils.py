@@ -1,4 +1,5 @@
-from src.utils.security import ALGORITHM, ITERATIONS, hash_password, verify_password
+from src.auth.constants import ALGORITHM, ITERATIONS
+from src.utils.auth import hash_password, verify_password
 
 
 def test_hash_password_does_not_store_plaintext_password() -> None:

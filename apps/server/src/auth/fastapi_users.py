@@ -10,7 +10,3 @@ fastapi_users = FastAPIUsers[Any, uuid.UUID](
     get_user_manager,
     [auth_backend],
 )
-
-current_active_user = fastapi_users.current_user(active=True)
-# FastAPI helper that checks the login cookie validity and returns the logged-in active user 
-# ("Who is logged in?").

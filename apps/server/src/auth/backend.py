@@ -7,15 +7,21 @@ from fastapi_users.authentication import (
     JWTStrategy,
 )
 
+from src.auth.constants import (
+    AUTH_BACKEND_NAME,
+    AUTH_COOKIE_HTTPONLY,
+    AUTH_COOKIE_PATH,
+    AUTH_COOKIE_SAMESITE,
+)
 from src.core.config import settings
 
 cookie_transport = CookieTransport(
     cookie_name=settings.access_cookie_name,
     cookie_max_age=settings.access_token_lifetime_seconds,
-    cookie_path="/",  # Applies to the enitre backend site
+    cookie_path=AUTH_COOKIE_PATH,
     cookie_secure=settings.access_cookie_secure,
-    cookie_httponly=True,  # JS cannot access cookie
-    cookie_samesite="lax",
+    cookie_httponly=AUTH_COOKIE_HTTPONLY,
+    cookie_samesite=AUTH_COOKIE_SAMESITE,
 )
 
 
@@ -28,7 +34,7 @@ def get_jwt_strategy() -> JWTStrategy[Any, uuid.UUID]:
 
 # Combines Cookie transport and JWT strategy
 auth_backend = AuthenticationBackend[Any, uuid.UUID](
-    name="cookie",
+    name=AUTH_BACKEND_NAME,
     transport=cookie_transport,
     get_strategy=get_jwt_strategy,
 )

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from src.api.v1.auth import router as auth_router
 from src.api.v1.tasks import router as task_router
 from src.auth.backend import auth_backend
-from src.auth.dependencies import fastapi_users
+from src.auth.fastapi_users import fastapi_users
 from src.core.config import settings
 from src.core.logging import setup_logging
 from src.db.sqlmodelorm import db_init

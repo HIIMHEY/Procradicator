@@ -18,6 +18,6 @@ async def test_get_by_username_returns_first_matching_user() -> None:
     repo = UserRepo(cast(AsyncSession, session))
     assert await repo.get_by_username("Tom") is user
     statement = session.exec.await_args.args[0]
-    assert "users.username" in str(statement)
+    assert '"user".username' in str(statement)
     assert "Tom" in statement.compile().params.values()
     result.first.assert_called_once_with()

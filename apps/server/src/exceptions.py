@@ -62,3 +62,7 @@ class UsernameAlreadyRegisteredError(ServiceError):
 class InvalidCredentialsError(ServiceError):
     # raised when login credentials are invalid
     pass
+
+class CredentialVerificationError(ServiceError):
+    # raised when there is an error verifying credentials due to backend error
+    pass

@@ -2,7 +2,7 @@ import secrets
 
 from fastapi_users.password import PasswordHelperProtocol
 
-from src.utils.security import hash_password, verify_password
+from src.utils.auth import hash_password, verify_password
 
 
 # Needed for FastAPI Users to use my existing PBKDF2 algoritms for verifying/hashing

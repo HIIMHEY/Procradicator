@@ -2,11 +2,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.auth.dependencies import current_active_user
+from src.auth.utils import current_active_user
 from src.exceptions import (
+    DuplicateItemError,
     EmailAlreadyRegisteredError,
     ServiceError,
-    UniqueConstraintError,
     UsernameAlreadyRegisteredError,
 )
 from src.models.user import User
@@ -24,23 +24,26 @@ async def register(
     try:
         user: User = await user_service.register(payload)
         return UserRead.model_validate(user)
+    except EmailAlreadyRegisteredError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email is already registered",
+        ) from e
+    except UsernameAlreadyRegisteredError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username is already registered",
+        ) from e
+    except DuplicateItemError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email or username is already registered",
+        ) from e
     except ServiceError as e:
-        cause: BaseException | None = e.__cause__
-        detail: str
-        status_code: int
-        if isinstance(cause, EmailAlreadyRegisteredError):
-            detail = "Email is already registered"
-            status_code = status.HTTP_409_CONFLICT
-        elif isinstance(cause, UsernameAlreadyRegisteredError):
-            detail = "Username is already registered"
-            status_code = status.HTTP_409_CONFLICT
-        elif isinstance(cause, UniqueConstraintError):
-            detail = "Email or username is already registered"
-            status_code = status.HTTP_409_CONFLICT
-        else:
-            detail = "Could not register user"
-            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        raise HTTPException(status_code=status_code, detail=detail) from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not register user",
+        ) from e
 
 
 # Return the currently logged-in user
