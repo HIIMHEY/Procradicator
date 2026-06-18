@@ -4,12 +4,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from src.auth.fastapi_users.setup import current_active_user
 from src.exceptions import (
     DependencyUnavailableError,
     DuplicateItemError,
+    ForbiddenError,
     ItemNotFoundError,
 )
 from src.models.chat import ChatMessage, ChatSession
+from src.models.user import User
 from src.schemas.chat import CreateMessage
 from src.services.chat import ChatService
 from src.services.llm import LLMService
@@ -21,9 +24,10 @@ router = APIRouter(prefix="/chats", tags=["Chat"])
 @router.post("/sessions", status_code=status.HTTP_201_CREATED)
 async def create_session(
     chat_svc: Annotated[ChatService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
 ) -> dict[str, UUID]:
     try:
-        session: ChatSession = await chat_svc.create_session()
+        session: ChatSession = await chat_svc.create_session(current_user.id)
         return {"session_id": session.id}
     except DuplicateItemError as e:
         raise HTTPException(
@@ -39,10 +43,17 @@ async def create_session(
 
 @router.get("/sessions/{session_id}")
 async def get_session(
-    session_id: UUID, chat_svc: Annotated[ChatService, Depends()]
+    session_id: UUID,
+    chat_svc: Annotated[ChatService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
 ) -> ChatSession:
     try:
-        return await chat_svc.get_session(session_id)
+        return await chat_svc.get_session(session_id, current_user.id)
+    except ForbiddenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chat session access forbidden",
+        ) from e
     except ItemNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -57,10 +68,18 @@ async def get_session(
 
 @router.get("/sessions/{session_id}/history")
 async def get_history(
-    session_id: UUID, limit: int, chat_svc: Annotated[ChatService, Depends()]
+    session_id: UUID,
+    limit: int,
+    chat_svc: Annotated[ChatService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
 ) -> Sequence[ChatMessage]:
     try:
-        return await chat_svc.get_history(session_id, limit)
+        return await chat_svc.get_history(session_id, current_user.id, limit)
+    except ForbiddenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chat session access forbidden",
+        ) from e
     except ItemNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -80,9 +99,17 @@ async def send_message(
     chat_svc: Annotated[ChatService, Depends()],
     task_svc: Annotated[TaskService, Depends()],
     llm_svc: Annotated[LLMService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
 ) -> ChatMessage:
     try:
-        return await llm_svc.handle_chat(session_id, payload.msg, task_svc, chat_svc)
+        return await llm_svc.handle_chat(
+            session_id, current_user.id, payload.msg, task_svc, chat_svc
+        )
+    except ForbiddenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chat session access forbidden",
+        ) from e
     except ItemNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

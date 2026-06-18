@@ -10,6 +10,7 @@ class DatabaseError(BaseError):
     # parent for any persistence issues
     pass
 
+
 class ResourceNotFoundError(DatabaseError):
     # raised when a resource doesn't exist, like yeah
     pass
@@ -24,13 +25,20 @@ class ConcurrencyError(DatabaseError):
     # raised when ops issues like locks, timeouts or connection dropped
     pass
 
+
 # Service errors
 class ServiceError(BaseError):
     # parent for logic-specific issues
     pass
 
+
 class InvalidOperationError(ServiceError):
-    #raised when the request breaks business rules
+    # raised when the request breaks business rules
+    pass
+
+
+class ForbiddenError(ServiceError):
+    # raised when an authenticated user cannot access a resource
     pass
 
 
@@ -62,6 +70,7 @@ class UsernameAlreadyRegisteredError(ServiceError):
 class InvalidCredentialsError(ServiceError):
     # raised when login credentials are invalid
     pass
+
 
 class CredentialVerificationError(ServiceError):
     # raised when there is an error verifying credentials due to backend error

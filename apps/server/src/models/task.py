@@ -8,13 +8,13 @@ class SubtaskDependency(SQLModel, table=True):
     predecessor_id: uuid.UUID = Field(
         foreign_key="subtask.id", ondelete="CASCADE", primary_key=True
     )
-    successor_id: uuid.UUID = Field(
-        foreign_key="subtask.id", ondelete="CASCADE", primary_key=True
-    )
+    successor_id: uuid.UUID = Field(foreign_key="subtask.id", ondelete="CASCADE", primary_key=True)
 
 
 class Task(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", index=True) 
+    #Belongs to only one user, also points to User table
     title: str
     description: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
