@@ -32,9 +32,13 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
         role=Role.ASSISTANT,
         content="Mocked Response",
     )
+    user_id: UUID = uuid4()
 
     deps: AgentDeps = AgentDeps(
-        task_svc=mock_task_svc, chat_svc=mock_chat_svc, session_id=session_id
+        task_svc=mock_task_svc,
+        chat_svc=mock_chat_svc,
+        session_id=session_id,
+        user_id=user_id,
     )
 
     async def mock_llm_behavior(messages, info: AgentInfo) -> ModelResponse:
@@ -46,11 +50,7 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
         }
 
         # if initial turn, make llm req a tool call
-        if not any(
-            isinstance(p, ToolCallPart)
-            for m in messages
-            for p in getattr(m, "parts", [])
-        ):
+        if not any(isinstance(p, ToolCallPart) for m in messages for p in getattr(m, "parts", [])):
             return ModelResponse(
                 parts=[
                     ToolCallPart(
@@ -75,12 +75,14 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
     with agent.override(model=mock_model, deps=deps):
         await llm_svc.handle_chat(
             session_id=session_id,
+            user_id=user_id,
             user_input="some user input",
             task_svc=mock_task_svc,
             chat_svc=mock_chat_svc,
         )
 
     mock_task_svc.create_roadmap.assert_called_once()
+    assert mock_task_svc.create_roadmap.call_args.args[1] == user_id
     mock_chat_svc.link_task_to_session.assert_not_called()
 
     # user message and assistant error message saved
