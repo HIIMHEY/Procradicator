@@ -46,15 +46,12 @@ async def test_create_session_stores_user_id() -> None:
     session_repo = RecordingSessionRepo()
     service = ChatService(UnusedChatRepo(), session_repo, SameUsersTaskRepo(uuid4()))  # type: ignore[arg-type]
     user_id = uuid4()
-
     session = await service.create_session(user_id)
-
     assert session.user_id == user_id
     assert session_repo.created_session is session
 
 
 async def test_get_history_rejects_other_users_session() -> None:
     service = ChatService(UnusedChatRepo(), OtherUsersSessionRepo(), SameUsersTaskRepo(uuid4()))  # type: ignore[arg-type]
-
     with pytest.raises(ForbiddenError):
         await service.get_history(uuid4(), uuid4(), limit=20)

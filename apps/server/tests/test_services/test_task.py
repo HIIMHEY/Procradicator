@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 import pytest
 from src.exceptions import ForbiddenError
 from src.models.task import Task
-from src.schemas.task import CreateTask
+from src.schemas.task import CreateSubtask, CreateTask
 from src.services.task import TaskService
 
 pytestmark = pytest.mark.anyio
@@ -14,12 +14,12 @@ def create_task_payload() -> CreateTask:
         title="Build a study plan",
         description=None,
         subtasks=[
-            {
-                "temp_id": "pick-topic",
-                "title": "Pick topic",
-                "description": None,
-                "depends_on": [],
-            }
+            CreateSubtask(
+                temp_id="pick-topic",
+                title="Pick topic",
+                description=None,
+                depends_on=[],
+            )
         ],
     )
 
@@ -52,15 +52,12 @@ async def test_create_roadmap_passes_user_id_to_repository() -> None:
     repo = RecordingTaskRepo()
     service = TaskService(repo)  # type: ignore[arg-type]
     user_id = uuid4()
-
     task = await service.create_roadmap(create_task_payload(), user_id)
-
     assert task.user_id == user_id
     assert repo.user_id == user_id
 
 
 async def test_get_roadmap_rejects_other_users_task() -> None:
     service = TaskService(OtherUsersTaskRepo())  # type: ignore[arg-type]
-
     with pytest.raises(ForbiddenError):
         await service.get_roadmap(uuid4(), uuid4())
