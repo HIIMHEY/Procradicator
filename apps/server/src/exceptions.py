@@ -47,3 +47,22 @@ class DuplicateItemError(ServiceError):
 class DependencyUnavailableError(ServiceError):
     # raised when service cannot proceed because a critical resource is locked or offline
     pass
+
+
+class EmailAlreadyRegisteredError(ServiceError):
+    # raised when registering with an email that already exists
+    pass
+
+
+class UsernameAlreadyRegisteredError(ServiceError):
+    # raised when registering with a username that already exists
+    pass
+
+
+class InvalidCredentialsError(ServiceError):
+    # raised when login credentials are invalid
+    pass
+
+class CredentialVerificationError(ServiceError):
+    # raised when there is an error verifying credentials due to backend error
+    pass

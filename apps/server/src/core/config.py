@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     debug: bool = False
     groq_api_key: str = Field(default=...)
     cors_origins: str = Field(default=...)
+    access_token_secret: SecretStr = Field(default=...)
+    access_token_lifetime_seconds: int = Field(
+        default=3600, gt=0
+    )  # Change it back to 900 seconds in later, once refresh tokens are implemented
+    access_cookie_name: str = Field(default="procradicator_access")
+    access_cookie_secure: bool = Field(default=True)
     model_config = SettingsConfigDict(env_file=".env")
 
 
