@@ -9,7 +9,7 @@ from src.repositories.user import UserRepo
 pytestmark = pytest.mark.anyio
 
 
-async def test_get_by_username_returns_first_matching_user() -> None:
+async def test_get_by_username_returns_user_from_query_result() -> None:
     user = User(email="tom@example.com", username="Tom", hashed_password="hash")
     result = MagicMock()
     result.first.return_value = user

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from src.auth.manager import get_user_manager
+from src.auth.fastapi_users.manager import get_user_manager
 from src.core.config import settings
 from src.exceptions import (
     DuplicateItemError,

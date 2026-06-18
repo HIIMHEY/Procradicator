@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.security import OAuth2PasswordRequestForm
-from src.auth.manager import UserManager
+from src.auth.fastapi_users.manager import UserManager
 from src.exceptions import InvalidCredentialsError, ServiceError
 from src.models.user import User
 

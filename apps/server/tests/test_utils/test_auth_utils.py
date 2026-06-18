@@ -1,5 +1,9 @@
-from src.auth.constants import ALGORITHM, ITERATIONS
-from src.utils.auth import hash_password, verify_password
+from src.utils.auth import (
+    DEFAULT_PASSWORD_HASH_CONFIG,
+    PasswordHashConfig,
+    hash_password,
+    verify_password,
+)
 
 
 def test_hash_password_does_not_store_plaintext_password() -> None:
@@ -20,8 +24,20 @@ def test_hash_password_uses_correct_format() -> None:
     hashed = hash_password(password)
     parts = hashed.split("$")
     assert len(parts) == 4
-    assert parts[0] == ALGORITHM
-    assert parts[1] == str(ITERATIONS)
+    assert parts[0] == DEFAULT_PASSWORD_HASH_CONFIG.algorithm
+    assert parts[1] == str(DEFAULT_PASSWORD_HASH_CONFIG.iterations)
+
+
+def test_hash_password_accepts_custom_config() -> None:
+    config = PasswordHashConfig(
+        iterations=100_000,
+        min_iterations=100_000,
+        max_iterations=100_000,
+    )
+    hashed = hash_password("my_secure_password", config=config)
+    parts = hashed.split("$")
+    assert parts[1] == "100000"
+    assert verify_password("my_secure_password", hashed, config=config) is True
 
 
 def test_verify_password_returns_true_for_correct_password() -> None:

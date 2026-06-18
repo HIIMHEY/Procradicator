@@ -7,7 +7,7 @@ from fastapi_users.authentication import (
     JWTStrategy,
 )
 
-from src.auth.constants import (
+from src.auth.fastapi_users.constants import (
     AUTH_BACKEND_NAME,
     AUTH_COOKIE_HTTPONLY,
     AUTH_COOKIE_PATH,

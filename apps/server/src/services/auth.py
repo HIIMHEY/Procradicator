@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from src.auth.constants import DUMMY_PASSWORD_HASH
+from src.auth.fastapi_users.constants import DUMMY_PASSWORD_HASH
 from src.exceptions import CredentialVerificationError, InvalidCredentialsError, ServiceError
 from src.models.user import User
 from src.services.user import UserService

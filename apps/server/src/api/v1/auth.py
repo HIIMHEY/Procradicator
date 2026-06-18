@@ -2,7 +2,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.auth.utils import current_active_user
+from src.auth.fastapi_users.backend import auth_backend
+from src.auth.fastapi_users.setup import current_active_user, fastapi_users
 from src.exceptions import (
     DuplicateItemError,
     EmailAlreadyRegisteredError,
@@ -15,6 +16,7 @@ from src.schemas.user import UserRead
 from src.services.user import UserService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+router.include_router(fastapi_users.get_auth_router(auth_backend))
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
