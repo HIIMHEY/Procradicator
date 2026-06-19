@@ -30,9 +30,11 @@
     "react": "19.2.3",
     "react-aria": "^3.49.0",
     "react-dom": "19.2.3",
+    "react-hook-form": "^7.79.0",
     "react-native": "0.85.3",
     "react-native-css": "^3.0.7",
     "react-native-css-interop": "^0.2.5",
+    "react-native-draggable-flatlist": "^4.0.3",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-reanimated": "4.1.7",
     "react-native-safe-area-context": "^5.6.1",
@@ -100,7 +102,7 @@
       "<rootDir>/jest.setup.ts"
     ],
     "transform": {
-       "^.+\\.(js|jsx|ts|tsx)$": [
+      "^.+\\.(js|jsx|ts|tsx)$": [
         "babel-jest",
         {
           "rootMode": "upward-optional",

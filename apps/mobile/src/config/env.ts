@@ -8,7 +8,7 @@ const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).
 export const API_ROUTES = {
   CHAT_SESSION: {},
   TASKS: {
-    BASE: `${BASE_URL}/tasks/`,
+    BASE: `${BASE_URL}/tasks`,
     DETAIL: (id: string) => `${BASE_URL}/tasks/${id}`,
   },
   AUTH: {

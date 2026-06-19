@@ -5,18 +5,18 @@ import { Button, ButtonText, ButtonIcon } from '@/components/ui/button';
 import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
 import { AddIcon } from '@/components/ui/icon';
-import useReadTask from '../hooks/useReadTask';
+import useReadTask from '../../hooks/useReadTasks';
 import { TaskListSkeleton } from './TaskListSkeleton';
-import { BackendTask } from '../types/task';
+import { BackendTask } from '../../types/task';
 import { TaskItem } from './TaskItem';
+import { useRouter } from 'expo-router';
+
 
 export function TaskDashboard() {
+  const router = useRouter();
   const { data, isPending, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useReadTask();
   const tasks: BackendTask[] = data?.pages.flatMap((page) => page.data) ?? [];
-  const handleCreateTask = () => {
-    console.log('create');
-  };
 
   const handleLogout = () => {
     console.log(
@@ -43,7 +43,7 @@ export function TaskDashboard() {
 
       <Button
         size="lg"
-        onPress={handleCreateTask}
+        onPress={() => router.navigate('/tasks/create')}
         className="bg-indigo-600 rounded-xl py-3.5 mb-8 w-full shadow-sm active:bg-indigo-700"
       >
         <ButtonIcon as={AddIcon} className="text-white mr-2" />
@@ -76,7 +76,11 @@ export function TaskDashboard() {
               <Box className="py-4 items-center">
                 <ActivityIndicator size="small" color="#4f46e5" />
               </Box>
-            ) : null
+            ) : (
+              <Box className="py-4 items-center">
+                <Text> You&apos;ve reached the end </Text>
+              </Box>
+            )
           }
         />
       )}

@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import { TouchableOpacity, Text, Platform, UIManager, LayoutAnimation } from 'react-native';
-import { BackendTask } from '../types/task';
+import { TouchableOpacity, Text, LayoutAnimation } from 'react-native';
+import { BackendTask } from '../../types/task';
 import { HStack } from '@/components/ui/hstack';
 import { Icon, EditIcon, ChevronLeftIcon, TrashIcon, ChevronRightIcon} from '@/components/ui/icon';
 import { Box } from '@/components/ui/box';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface TaskItemProps {
   task: BackendTask;
@@ -15,7 +11,7 @@ interface TaskItemProps {
   onEdit?: (id: string) => void;
 }
 
-export const TaskItem: React.FC<TaskItemProps> = ({ task, onDelete, onEdit }) => {
+export function TaskItem({ task, onDelete, onEdit } : TaskItemProps) {
   const [showOptions, setShowOptions] = useState(false);
 
   const isCompleted = task.subtasks.length > 0 && task.subtasks.every((sub) => sub.is_done);
@@ -29,7 +25,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({ task, onDelete, onEdit }) =>
     <HStack
       className="w-full border border-black rounded-2xl mb-4 overflow-hidden bg-white min-h-[70px] items-stretch"
     >
-        
+
       <Box className="flex-1 justify-center px-4 py-3 border-r border-black">
         <Text
           className={`text-black text-base font-medium ${showOptions ? 'line-clamp-2' : 'truncate'}`}
