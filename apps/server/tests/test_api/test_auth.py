@@ -153,7 +153,7 @@ def test_login_me_logout_flow() -> None:
     login_response = client.post(
         "/auth/login",
         data={
-            "username": "user@example.com",
+            "username": "testuser",
             "password": "correct-password",
         },
     )
@@ -176,7 +176,7 @@ def test_login_with_invalid_credentials_returns_400() -> None:
     response = TestClient(app).post(
         "/auth/login",
         data={
-            "username": "user@example.com",
+            "username": "testuser",
             "password": "wrong-password",
         },
     )
