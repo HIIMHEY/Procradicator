@@ -1,14 +1,17 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from src.auth.fastapi_users.setup import current_active_user
 from src.exceptions import (
     DependencyUnavailableError,
     DuplicateItemError,
+    ForbiddenError,
     ItemNotFoundError,
 )
 from src.models.task import Task
+from src.models.user import User
 from src.schemas.task import CreateTask, GetTask, UpdateTask
 from src.services.task import TaskService
 
@@ -17,10 +20,12 @@ router = APIRouter(prefix="/tasks", tags=["Task"])
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_task(
-    payload: CreateTask, task_svc: Annotated[TaskService, Depends()]
+    payload: CreateTask,
+    task_svc: Annotated[TaskService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
 ) -> dict[str, UUID | None]:
     try:
-        task: Task = await task_svc.create_roadmap(payload)
+        task: Task = await task_svc.create_roadmap(payload, current_user.id)
         return {"task_id": task.id}
     except DuplicateItemError as e:
         raise HTTPException(
@@ -34,17 +39,38 @@ async def create_task(
         ) from e
 
 
+@router.get("", response_model=list[GetTask])
+async def list_tasks(
+    task_svc: Annotated[TaskService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
+    page: Annotated[int, Query(ge=1)] = 1, #Page at least 1
+    limit: Annotated[int, Query(ge=1, le=100)] = 20, #Limit at least 1, max 100
+) -> list[GetTask]:
+    try:
+        tasks: list[Task] = await task_svc.list_roadmaps_for_user(current_user.id, page, limit)
+        return [GetTask.model_validate(task) for task in tasks] 
+    except DependencyUnavailableError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="A required service is unavailable",
+        ) from e
+
+
 @router.get("/{task_id}")
 async def get_task(
-    task_id: UUID, task_svc: Annotated[TaskService, Depends()]
+    task_id: UUID,
+    task_svc: Annotated[TaskService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
 ) -> GetTask:
     try:
-        task: Task | None = await task_svc.get_roadmap(task_id)
+        task: Task | None = await task_svc.get_roadmap(task_id, current_user.id)
         return GetTask.model_validate(task)
-    except ItemNotFoundError as e:
+    except ForbiddenError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Task access forbidden"
         ) from e
+    except ItemNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found") from e
     except DependencyUnavailableError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -54,14 +80,19 @@ async def get_task(
 
 @router.put("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_task(
-    task_id: UUID, payload: UpdateTask, task_svc: Annotated[TaskService, Depends()]
+    task_id: UUID,
+    payload: UpdateTask,
+    task_svc: Annotated[TaskService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
 ) -> None:
     try:
-        await task_svc.update_roadmap(task_id, payload)
-    except ItemNotFoundError as e:
+        await task_svc.update_roadmap(task_id, payload, current_user.id)
+    except ForbiddenError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Task access forbidden"
         ) from e
+    except ItemNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found") from e
     except DuplicateItemError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -75,13 +106,19 @@ async def update_task(
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def del_task(task_id: UUID, task_svc: Annotated[TaskService, Depends()]) -> None:
+async def del_task(
+    task_id: UUID,
+    task_svc: Annotated[TaskService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
+) -> None:
     try:
-        await task_svc.del_roadmap(task_id)
-    except ItemNotFoundError as e:
+        await task_svc.del_roadmap(task_id, current_user.id)
+    except ForbiddenError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Task access forbidden"
         ) from e
+    except ItemNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found") from e
     except DependencyUnavailableError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

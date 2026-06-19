@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class TaskRepo(BaseRepo[Task]):
-    def __init__(
-        self, session: Annotated[AsyncSession, Depends(get_async_session)]
-    ) -> None:
+    def __init__(self, session: Annotated[AsyncSession, Depends(get_async_session)]) -> None:
         super().__init__(Task, session)
 
     # TODO: got to stanadise what is roadmap and what is task
@@ -52,10 +50,17 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error fetching roadmap {task_id}: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
-    async def create_roadmap_graph(self, roadmap: CreateTask) -> Task:
+    async def create_roadmap_graph(self, roadmap: CreateTask, user_id: UUID) -> Task:
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
-            main_task = Task(title=roadmap.title, description=roadmap.description)
+            main_task = Task(
+                title=roadmap.title,
+                description=roadmap.description,
+                user_id=user_id,
+                # Saves who owns the task to DB
+                # (Needed since TaskService does not create Task directly
+                # unlike ChatSession)
+            )
             self.session.add(main_task)
 
             id_map: dict[str, UUID] = {}  # maps ai generated slugs to db id
@@ -86,23 +91,42 @@ class TaskRepo(BaseRepo[Task]):
                         )
 
                     self.session.add(
-                        SubtaskDependency(
-                            predecessor_id=pred_id, successor_id=successor_id
-                        )
+                        SubtaskDependency(predecessor_id=pred_id, successor_id=successor_id)
                     )
 
             await self.session.commit()
             await self.session.refresh(main_task)
 
-            logger.info(
-                f"Successfully committed task '{main_task.id}' with graph links."
-            )
+            logger.info(f"Successfully committed task '{main_task.id}' with graph links.")
             return main_task
 
         except (Exception, SQLAlchemyError) as e:
             await self.session.rollback()
             logger.error(f"Failed to build task graph: {str(e)}", exc_info=True)
             raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e
+
+    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]: 
+        #Query the database for tasks with this user_id.
+        logger.debug(f"Listing tasks for user: {user_id}")
+        try:
+            statement: SelectOfScalar[Task] = (
+                select(Task)
+                .where(col(Task.user_id) == user_id) #Returns rows where it's actually owner's task
+                .options(
+                    selectinload(Task.subtasks).selectinload(Subtask.next_subtask)  # type: ignore
+                ) #Fetching tasks also fetches each task's subtasks and each subtask's next_subtask 
+                  #links efficently
+                .order_by(col(Task.created_at).desc(), col(Task.id)) 
+                #Newest task first, id is tie-breaker
+                .offset(offset)
+                .limit(limit)
+            )
+            results = (await self.session.exec(statement)).all()
+            return list(results)
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error(f"Error listing tasks for user {user_id}: {str(e)}", exc_info=True)
+            raise map_db_exception(e) from e
 
     async def update_roadmap(self, task_id: UUID, roadmap: UpdateTask) -> None:
         logger.info(f"Updating roadmap for Task ID: {task_id}")
@@ -116,20 +140,14 @@ class TaskRepo(BaseRepo[Task]):
             incoming_sub_ids = set()
 
             for st in roadmap.subtasks:
-                clean_id = (
-                    UUID(st.id)
-                    if isinstance(st.id, str) and len(st.id) == 36
-                    else st.id
-                )
+                clean_id = UUID(st.id) if isinstance(st.id, str) and len(st.id) == 36 else st.id
 
                 if isinstance(clean_id, UUID) and clean_id in existing_subs:
                     sub = existing_subs[clean_id]
                     sub.title, sub.description = st.title, st.description
                     incoming_sub_ids.add(sub.id)
                 else:
-                    sub = Subtask(
-                        title=st.title, description=st.description, task_id=db_task.id
-                    )
+                    sub = Subtask(title=st.title, description=st.description, task_id=db_task.id)
                     self.session.add(sub)
                     await self.session.flush()
 
@@ -152,9 +170,7 @@ class TaskRepo(BaseRepo[Task]):
                         else pred_key
                     )
                     if not pred_id:
-                        raise ResourceNotFoundError(
-                            f"Dependency reference '{pred_key}' not found."
-                        )
+                        raise ResourceNotFoundError(f"Dependency reference '{pred_key}' not found.")
                     target_deps.add((pred_id, succ_id))
 
             # fetch active links and compute updates
@@ -171,9 +187,7 @@ class TaskRepo(BaseRepo[Task]):
 
             # del missing links / remove orphaned links
             for pred_id, succ_id in target_deps - current_dep_map.keys():
-                self.session.add(
-                    SubtaskDependency(predecessor_id=pred_id, successor_id=succ_id)
-                )
+                self.session.add(SubtaskDependency(predecessor_id=pred_id, successor_id=succ_id))
             for edge, dep_obj in current_dep_map.items():
                 if edge not in target_deps:
                     await self.session.delete(dep_obj)

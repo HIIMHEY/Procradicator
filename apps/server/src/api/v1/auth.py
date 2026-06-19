@@ -51,6 +51,6 @@ async def register(
 # Return the currently logged-in user
 @router.get("/me", response_model=UserRead)
 async def get_current_user(
-    user: Annotated[User, Depends(current_active_user)],
+    current_user: Annotated[User, Depends(current_active_user)], 
 ) -> UserRead:
-    return UserRead.model_validate(user)
+    return UserRead.model_validate(current_user)
