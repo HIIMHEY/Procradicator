@@ -47,6 +47,9 @@ def logged_in_user(user_id: UUID | None = None) -> User:
 class RecordingTaskService:
     def __init__(self) -> None:
         self.user_id: UUID | None = None
+        self.list_user_id: UUID | None = None
+        self.page: int | None = None
+        self.limit: int | None = None
 
     async def create_roadmap(self, payload: CreateTask, user_id: UUID) -> Task:
         self.user_id = user_id
@@ -56,6 +59,19 @@ class RecordingTaskService:
             description=payload.description,
             user_id=user_id,
         )
+
+    async def list_roadmaps_for_user(self, user_id: UUID, page: int, limit: int) -> list[Task]:
+        self.list_user_id = user_id
+        self.page = page
+        self.limit = limit
+        return [
+            Task(
+                id=uuid4(),
+                title="Owned task",
+                description=None,
+                user_id=user_id,
+            )
+        ]
 
 
 class ForbiddenTaskService:
@@ -69,6 +85,12 @@ def test_create_task_requires_login() -> None:
     assert response.status_code == 401
 
 
+def test_list_tasks_requires_login() -> None:
+    app.dependency_overrides[TaskService] = lambda: RecordingTaskService()
+    response = TestClient(app).get("/tasks?page=1&limit=20")
+    assert response.status_code == 401
+
+
 def test_create_task_passes_current_user_id_to_service() -> None:
     user = logged_in_user()
     task_service = RecordingTaskService()
@@ -77,6 +99,19 @@ def test_create_task_passes_current_user_id_to_service() -> None:
     response = TestClient(app).post("/tasks/", json=task_payload())
     assert response.status_code == 201
     assert task_service.user_id == user.id
+
+
+def test_list_tasks_passes_current_user_and_pagination_to_service() -> None:
+    user = logged_in_user()
+    task_service = RecordingTaskService()
+    app.dependency_overrides[current_active_user] = lambda: user
+    app.dependency_overrides[TaskService] = lambda: task_service
+    response = TestClient(app).get("/tasks?page=2&limit=10")
+    assert response.status_code == 200
+    assert response.json()[0]["title"] == "Owned task"
+    assert task_service.list_user_id == user.id
+    assert task_service.page == 2
+    assert task_service.limit == 10
 
 
 def test_get_other_users_task_returns_403() -> None:

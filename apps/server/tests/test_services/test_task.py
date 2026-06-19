@@ -27,6 +27,9 @@ def create_task_payload() -> CreateTask:
 class RecordingTaskRepo:
     def __init__(self) -> None:
         self.user_id: UUID | None = None
+        self.list_user_id: UUID | None = None
+        self.offset: int | None = None
+        self.limit: int | None = None
 
     async def create_roadmap_graph(self, roadmap: CreateTask, user_id: UUID) -> Task:
         self.user_id = user_id
@@ -36,6 +39,19 @@ class RecordingTaskRepo:
             description=roadmap.description,
             user_id=user_id,
         )
+
+    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
+        self.list_user_id = user_id
+        self.offset = offset
+        self.limit = limit
+        return [
+            Task(
+                id=uuid4(),
+                title="Owned task",
+                description=None,
+                user_id=user_id,
+            )
+        ]
 
 
 class OtherUsersTaskRepo:
@@ -61,3 +77,14 @@ async def test_get_roadmap_rejects_other_users_task() -> None:
     service = TaskService(OtherUsersTaskRepo())  # type: ignore[arg-type]
     with pytest.raises(ForbiddenError):
         await service.get_roadmap(uuid4(), uuid4())
+
+
+async def test_list_roadmaps_for_user_converts_page_limit_to_offset() -> None:
+    repo = RecordingTaskRepo()
+    service = TaskService(repo)  # type: ignore[arg-type]
+    user_id = uuid4()
+    tasks = await service.list_roadmaps_for_user(user_id, page=3, limit=10)
+    assert tasks[0].user_id == user_id
+    assert repo.list_user_id == user_id
+    assert repo.offset == 20
+    assert repo.limit == 10
