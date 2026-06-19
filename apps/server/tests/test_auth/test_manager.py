@@ -23,11 +23,15 @@ async def test_authenticate_valid_credentials() -> None:
         auth_service=auth_service,
     )
     credentials = OAuth2PasswordRequestForm(
-        username="user@example.com",
+        username="testuser",
         password="correct-password",
     )
     result = await manager.authenticate(credentials)
     assert result == user
+    auth_service.verify_credentials.assert_awaited_once_with(
+        "testuser",
+        "correct-password",
+    )
 
 
 @pytest.mark.asyncio
@@ -43,11 +47,15 @@ async def test_authenticate_invalid_credentials() -> None:
         auth_service=auth_service,
     )
     credentials = OAuth2PasswordRequestForm(
-        username="user@example.com",
+        username="testuser",
         password="wrong-password",
     )
     result = await manager.authenticate(credentials)
     assert result is None
+    auth_service.verify_credentials.assert_awaited_once_with(
+        "testuser",
+        "wrong-password",
+    )
 
 
 @pytest.mark.asyncio
@@ -59,8 +67,12 @@ async def test_authenticate_preserves_service_error() -> None:
         auth_service=auth_service,
     )
     credentials = OAuth2PasswordRequestForm(
-        username="user@example.com",
+        username="testuser",
         password="correct-password",
     )
     with pytest.raises(ServiceError):
         await manager.authenticate(credentials)
+    auth_service.verify_credentials.assert_awaited_once_with(
+        "testuser",
+        "correct-password",
+    )

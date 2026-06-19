@@ -25,6 +25,13 @@ class UserService:
     def _normalize_email(self, email: str) -> str:
         return email.strip().lower()
 
+    async def get_by_username(self, username: str) -> User | None:
+        try:
+            return await self.user_repo.get_by_username(username)
+        except Exception as e:
+            logger.error(f"User lookup by username failed: {str(e)}", exc_info=True)
+            raise ServiceError("Could not get user") from e
+
     async def get_by_email(self, email: str) -> User | None:
         try:
             normalized_email: str = self._normalize_email(email)
