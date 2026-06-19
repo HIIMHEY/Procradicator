@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.auth.fastapi_users.setup import current_active_user
 from src.exceptions import (
@@ -36,6 +36,23 @@ async def create_task(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Task creation could not resolve a dependency",
+        ) from e
+
+
+@router.get("", response_model=list[GetTask])
+async def list_tasks(
+    task_svc: Annotated[TaskService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
+    page: Annotated[int, Query(ge=1)] = 1, #Page at least 1
+    limit: Annotated[int, Query(ge=1, le=100)] = 20, #Limit at least 1, max 100
+) -> list[GetTask]:
+    try:
+        tasks: list[Task] = await task_svc.list_roadmaps_for_user(current_user.id, page, limit)
+        return [GetTask.model_validate(task) for task in tasks] 
+    except DependencyUnavailableError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="A required service is unavailable",
         ) from e
 
 

@@ -56,10 +56,10 @@ class TaskRepo(BaseRepo[Task]):
             main_task = Task(
                 title=roadmap.title,
                 description=roadmap.description,
-                user_id=user_id, 
-            #Saves who owns the task to DB 
-            #(Needed since TaskService does not create Task directly 
-            # unlike ChatSession)
+                user_id=user_id,
+                # Saves who owns the task to DB
+                # (Needed since TaskService does not create Task directly
+                # unlike ChatSession)
             )
             self.session.add(main_task)
 
@@ -104,6 +104,29 @@ class TaskRepo(BaseRepo[Task]):
             await self.session.rollback()
             logger.error(f"Failed to build task graph: {str(e)}", exc_info=True)
             raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e
+
+    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]: 
+        #Query the database for tasks with this user_id.
+        logger.debug(f"Listing tasks for user: {user_id}")
+        try:
+            statement: SelectOfScalar[Task] = (
+                select(Task)
+                .where(col(Task.user_id) == user_id) #Returns rows where it's actually owner's task
+                .options(
+                    selectinload(Task.subtasks).selectinload(Subtask.next_subtask)  # type: ignore
+                ) #Fetching tasks also fetches each task's subtasks and each subtask's next_subtask 
+                  #links efficently
+                .order_by(col(Task.created_at).desc(), col(Task.id)) 
+                #Newest task first, id is tie-breaker
+                .offset(offset)
+                .limit(limit)
+            )
+            results = (await self.session.exec(statement)).all()
+            return list(results)
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error(f"Error listing tasks for user {user_id}: {str(e)}", exc_info=True)
+            raise map_db_exception(e) from e
 
     async def update_roadmap(self, task_id: UUID, roadmap: UpdateTask) -> None:
         logger.info(f"Updating roadmap for Task ID: {task_id}")
