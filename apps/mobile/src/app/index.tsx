@@ -1,5 +1,5 @@
-﻿import { TaskScreen } from '../features/task/components/TaskScreen';
+﻿import { TaskDashboard } from '@/task/task_dashboard/components/TaskDashboard';
 
 export default function Index() {
-  return <TaskScreen />;
+  return <TaskDashboard />;
 }

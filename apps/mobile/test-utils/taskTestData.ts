@@ -5,7 +5,7 @@ import type {
   ChatSessionResponse,
   CreateTaskResponse,
   Task,
-} from '../src/features/task/types/task';
+} from '../src/task/types/task';
 
 export const createTaskResponse: CreateTaskResponse = {
   task_id: 'task-1',
