@@ -15,6 +15,18 @@ const reactNativeAny = reactNative;
 export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/.expo/**',
+      '**/dist/**',
+      '**/ios/**',
+      '**/android/**',
+      '**/.config.mjs',
+      '**/components/ui/**',
+      '**/example/**'         
+    ]
+  },
 
   {
     files: ['metro.config.js', '*.config.js'],
@@ -52,6 +64,6 @@ export default [
 
   prettierConfig,
   {
-    ignores: ['node_modules/', '.expo/', 'dist/', 'ios/', 'android/', '*.config.mjs'],
+    ignores: ['node_modules/', '.expo/', 'dist/', 'ios/', 'android/', '*.config.mjs', 'components/ui/', 'example/'],
   },
 ];
