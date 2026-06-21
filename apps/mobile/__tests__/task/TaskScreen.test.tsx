@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 import { screen } from '@testing-library/react-native';
-import Index from '../../src/app/index';
+import TaskIndex from '../../src/app/tasks';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockFetch = jest.fn();
@@ -11,7 +11,7 @@ beforeEach(() => {
 });
 
 test('TaskScreen renders the task creation screen', () => {
-  renderWithProviders(<Index />);
+  renderWithProviders(<TaskIndex />);
   expect(screen.getByText('Your Tasks')).toBeTruthy();
   expect(screen.getByText('Create Task')).toBeTruthy();
 });

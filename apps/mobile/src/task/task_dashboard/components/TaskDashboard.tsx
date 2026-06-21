@@ -10,18 +10,19 @@ import { TaskListSkeleton } from './TaskListSkeleton';
 import { BackendTask } from '../../types/task';
 import { TaskItem } from './TaskItem';
 import { useRouter } from 'expo-router';
+import { useLogout } from '@/auth/hooks/useLogout';
 
 
 export function TaskDashboard() {
   const router = useRouter();
+  const logoutMutation = useLogout();
   const { data, isPending, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useReadTask();
   const tasks: BackendTask[] = data?.pages.flatMap((page) => page.data) ?? [];
 
-  const handleLogout = () => {
-    console.log(
-      'Gabriel it is log out time (this is a placeholder yes, pls replace with actual function)',
-    );
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+    router.replace('/');
   };
 
   return (
@@ -31,9 +32,12 @@ export function TaskDashboard() {
           size="sm"
           variant="solid"
           onPress={handleLogout}
+          isDisabled={logoutMutation.isPending}
           className="bg-orange-400 rounded-full px-6"
         >
-          <ButtonText className="text-white text-xs font-medium">Log out</ButtonText>
+          <ButtonText className="text-white text-xs font-medium">
+            {logoutMutation.isPending ? 'Logging out...' : 'Log out'}
+          </ButtonText>
         </Button>
       </HStack>
 
