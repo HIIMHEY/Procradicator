@@ -25,7 +25,7 @@ def task_payload() -> dict[str, object]:
         "description": "Make it less cursed",
         "subtasks": [
             {
-                "temp_id": "pick-topic",
+                "id": "pick-topic",
                 "title": "Pick topic",
                 "description": None,
                 "depends_on": [],

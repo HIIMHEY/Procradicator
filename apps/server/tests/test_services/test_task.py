@@ -15,7 +15,7 @@ def create_task_payload() -> CreateTask:
         description=None,
         subtasks=[
             CreateSubtask(
-                temp_id="pick-topic",
+                id="pick-topic",
                 title="Pick topic",
                 description=None,
                 depends_on=[],

@@ -8,7 +8,7 @@ from src.schemas.task import CreateTask, GetTask
 class TestTask:
     def test_create_task_valid(self) -> None:
         subtask = {
-            "temp_id": "temp_id",
+            "id": "id",
             "title": "subtask title",
             "description": "subtask desc",
             "depends_on": [],
@@ -24,14 +24,14 @@ class TestTask:
         assert len(model.subtasks) == 1
 
         first_subtask = model.subtasks[0]
-        assert first_subtask.temp_id == "temp_id"
+        assert first_subtask.id == "id"
         assert first_subtask.title == "subtask title"
         assert first_subtask.description == "subtask desc"
         assert first_subtask.depends_on == []
 
     def test_create_task_missing_fields(self) -> None:
         subtask = {
-            "temp_id": "temp_id",
+            "id": "id",
             "title": "subtask title",
             "description": "subtask desc",
             "depends_on": [],
