@@ -17,6 +17,7 @@ from src.services.user import UserService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 router.include_router(fastapi_users.get_auth_router(auth_backend))
+#Already includes built in POST /auth/login and logout routes
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)

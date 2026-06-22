@@ -74,7 +74,7 @@ class TaskRepo(BaseRepo[Task]):
                 )
                 self.session.add(new_subtask)
                 await self.session.flush()
-                id_map[st_schema.temp_id] = new_subtask.id
+                id_map[st_schema.id] = new_subtask.id
                 links_to_build.append((new_subtask.id, st_schema.depends_on))
 
             await self.session.flush()
@@ -105,7 +105,7 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Failed to build task graph: {str(e)}", exc_info=True)
             raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e
 
-    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]: 
+    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
         #Query the database for tasks with this user_id.
         logger.debug(f"Listing tasks for user: {user_id}")
         try:
@@ -114,9 +114,9 @@ class TaskRepo(BaseRepo[Task]):
                 .where(col(Task.user_id) == user_id) #Returns rows where it's actually owner's task
                 .options(
                     selectinload(Task.subtasks).selectinload(Subtask.next_subtask)  # type: ignore
-                ) #Fetching tasks also fetches each task's subtasks and each subtask's next_subtask 
+                ) #Fetching tasks also fetches each task's subtasks and each subtask's next_subtask
                   #links efficently
-                .order_by(col(Task.created_at).desc(), col(Task.id)) 
+                .order_by(col(Task.created_at).desc(), col(Task.id))
                 #Newest task first, id is tie-breaker
                 .offset(offset)
                 .limit(limit)

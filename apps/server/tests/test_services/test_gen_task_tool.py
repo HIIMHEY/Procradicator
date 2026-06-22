@@ -39,7 +39,7 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
 
     async def mock_llm_behavior(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         subtask: dict[str, str | None | list[str]] = {
-            "temp_id": "temp_id",
+            "id": "id",
             "title": "subtask title",
             "description": "subtask desc",
             "depends_on": [],

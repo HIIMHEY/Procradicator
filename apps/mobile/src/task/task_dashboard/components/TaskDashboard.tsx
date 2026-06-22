@@ -7,16 +7,25 @@ import { VStack } from '@/components/ui/vstack';
 import { AddIcon } from '@/components/ui/icon';
 import useReadTask from '../../hooks/useReadTasks';
 import { TaskListSkeleton } from './TaskListSkeleton';
-import { BackendTask } from '../../types/task';
+import { Task } from '../../schema';
 import { TaskItem } from './TaskItem';
 import { useRouter } from 'expo-router';
-
+import { Heading } from '@/components/ui/heading';
+import { ErrorFallback } from '../../components/ErrorFallback';
 
 export function TaskDashboard() {
   const router = useRouter();
-  const { data, isPending, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    useReadTask();
-  const tasks: BackendTask[] = data?.pages.flatMap((page) => page.data) ?? [];
+  const {
+    data,
+    isPending,
+    isError,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    refetch,
+  } = useReadTask();
+  const tasks: Task[] = data?.pages.flatMap((page) => page.data) ?? [];
 
   const handleLogout = () => {
     console.log(
@@ -25,7 +34,7 @@ export function TaskDashboard() {
   };
 
   return (
-    <Box className="flex-1 bg-slate-50 px-6 pt-12">
+    <Box className="flex-1 bg-slate-50 px-6 pt-12 items-center">
       <HStack className="justify-end mb-8 w-full">
         <Button
           size="sm"
@@ -38,13 +47,13 @@ export function TaskDashboard() {
       </HStack>
 
       <VStack className="items-center mb-6">
-        <Text className="text-3xl font-bold text-slate-900 tracking-tight">Your Tasks</Text>
+        <Heading className="text-3xl font-bold text-slate-900 tracking-tight">Your Tasks</Heading>
       </VStack>
 
       <Button
         size="lg"
-        onPress={() => router.navigate('/tasks/create')}
-        className="bg-indigo-600 rounded-xl py-3.5 mb-8 w-full shadow-sm active:bg-indigo-700"
+        onPress={() => router.replace('/tasks/create')}
+        className=" bg-indigo-600 rounded-xl py-3.5 mb-8 shadow-sm active:bg-indigo-700"
       >
         <ButtonIcon as={AddIcon} className="text-white mr-2" />
         <ButtonText className="text-white font-semibold">Create Task</ButtonText>
@@ -53,13 +62,13 @@ export function TaskDashboard() {
       {isPending ? (
         <TaskListSkeleton />
       ) : isError ? (
-        <>Error</> //TODO Error component
+        <ErrorFallback message={error.message} onRetry={refetch} />
       ) : (
         <FlatList
           data={tasks}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <Box className="mb-3">
+            <Box className="mb-3 max-w-lg">
               <TaskItem task={item} />
             </Box>
           )}

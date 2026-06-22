@@ -16,9 +16,9 @@ class AuthService:
     def __init__(self, user_service: Annotated[UserService, Depends()]) -> None:
         self.user_service = user_service
 
-    async def verify_credentials(self, email: str, password: str) -> User:
+    async def verify_credentials(self, username: str, password: str) -> User:
         try:
-            user: User | None = await self.user_service.get_by_email(email)
+            user: User | None = await self.user_service.get_by_username(username)
         except ServiceError:
             raise
         except Exception as e:
@@ -27,5 +27,5 @@ class AuthService:
         stored_hash: str | None = user.hashed_password if user else None
         password_is_valid: bool = verify_password(password, stored_hash or DUMMY_PASSWORD_HASH)
         if not user or not stored_hash or not password_is_valid:
-            raise InvalidCredentialsError("Invalid email or password")
+            raise InvalidCredentialsError("Invalid username or password")
         return user
