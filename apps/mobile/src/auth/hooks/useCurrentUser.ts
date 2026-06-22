@@ -1,5 +1,6 @@
 import { API_ROUTES } from '@/config/env';
 import { useQuery } from '@tanstack/react-query';
+import { userReadSchema } from '../schemas';
 import type { UserRead } from '../types';
 
 const fetchCurrentUser = async (): Promise<UserRead | null> => {
@@ -13,12 +14,14 @@ const fetchCurrentUser = async (): Promise<UserRead | null> => {
   if (!response.ok) {
     throw new Error('Could not check current user.');
   }
-  return response.json();
+  const data = await response.json();
+  return userReadSchema.parse(data);
 };
 
 export function useCurrentUser() {
   return useQuery({
-    queryKey: ['auth', 'me'], //Stores result of fetchCurrentUser under the label ['auth', 'me']
+    //Stores result of fetchCurrentUser under the label ['auth', 'me']
+    queryKey: ['auth', 'me'],
     queryFn: fetchCurrentUser,
     retry: false,
   });

@@ -5,7 +5,7 @@ import { VStack } from '@/components/ui/vstack';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, type Resolver, useForm } from 'react-hook-form';
 import { useRegister } from '../hooks/useRegister';
 import { registerSchema } from '../schemas';
 import type { RegisterInput } from '../types';
@@ -20,7 +20,7 @@ export function RegisterForm() {
     handleSubmit,
     formState: { errors },
   } = useForm<RegisterInput>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema as never) as Resolver<RegisterInput>,
     defaultValues: {
       email: '',
       username: '',

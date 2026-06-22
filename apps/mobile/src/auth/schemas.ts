@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 export const loginSchema = z.object({
   username: z
@@ -25,5 +25,16 @@ export const registerSchema = z.object({
     .max(128, 'Password must be at most 128 characters.'),
 });
 
+export const userReadSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  username: z.string(),
+  is_active: z.boolean(),
+  is_superuser: z.boolean(),
+  is_verified: z.boolean(),
+  created_at: z.string().optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type UserRead = z.infer<typeof userReadSchema>;

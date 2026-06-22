@@ -5,7 +5,7 @@ import { VStack } from '@/components/ui/vstack';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, type Resolver, useForm } from 'react-hook-form';
 //Controller connects custom UI components to React Hook form
 import { useLogin } from '../hooks/useLogin';
 import { loginSchema } from '../schemas';
@@ -21,7 +21,7 @@ export function LoginForm() {
     handleSubmit,
     formState: { errors },
   } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(loginSchema as never) as Resolver<LoginInput>,
     defaultValues: {
       username: '',
       password: '',

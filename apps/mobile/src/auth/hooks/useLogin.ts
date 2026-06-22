@@ -3,13 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { LoginInput } from '../types';
 
 const login = async ({ username, password }: LoginInput): Promise<void> => {
-  const body = new URLSearchParams();
-  body.append('username', username);
-  body.append('password', password);
+  const formBody = new URLSearchParams();
+  formBody.append('username', username);
+  formBody.append('password', password);
   const response = await fetch(API_ROUTES.AUTH.LOGIN, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
+    body: formBody,
     credentials: 'include',
   });
   if (!response.ok) {
@@ -20,10 +20,9 @@ const login = async ({ username, password }: LoginInput): Promise<void> => {
 export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: login, //later in loginMutation.mutateAsync(values), calls login(values)
+    mutationFn: login,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
-      //refresh current user query from useCurrentUser as cache may be outdated
     },
   });
 }

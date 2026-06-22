@@ -1,11 +1,15 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation } from '@tanstack/react-query';
+import { userReadSchema } from '../schemas';
 import type { RegisterInput, UserRead } from '../types';
+
+type ApiErrorResponse = {
+  detail?: string | unknown[];
+}; //FasAPI can return errors that is not my own string errors
 
 const readErrorMessage = async (response: Response, fallback: string): Promise<string> => {
   try {
-    const data = (await response.json()) as { detail?: unknown };
-    //response might have detail field, and we dont know the type yet
+    const data = (await response.json()) as ApiErrorResponse;
     if (typeof data.detail === 'string') {
       return data.detail;
     }
@@ -25,11 +29,12 @@ const register = async (payload: RegisterInput): Promise<UserRead> => {
   if (!response.ok) {
     throw new Error(await readErrorMessage(response, 'Could not create account.'));
   }
-  return response.json();
+  const data = await response.json();
+  return userReadSchema.parse(data);
 };
 
 export function useRegister() {
   return useMutation({
-    mutationFn: register, //For registerMutation.mutateAsync(values), will call register(values)
+    mutationFn: register,
   });
 }
