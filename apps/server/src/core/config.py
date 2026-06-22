@@ -1,6 +1,8 @@
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_OAUTH_STATE_SECRET = "development-only-oauth-state-secret-change-me"
+
 
 # read env vars here
 class Settings(BaseSettings):
@@ -17,6 +19,10 @@ class Settings(BaseSettings):
     )  # Change it back to 900 seconds in later, once refresh tokens are implemented
     access_cookie_name: str = Field(default="procradicator_access")
     access_cookie_secure: bool = Field(default=True)
+    google_oauth_client_id: str = Field(default="")
+    google_oauth_client_secret: SecretStr = Field(default=SecretStr(""))
+    oauth_state_secret: SecretStr = Field(default=SecretStr(DEFAULT_OAUTH_STATE_SECRET))
+    oauth_cookie_secure: bool = Field(default=True)
     model_config = SettingsConfigDict(env_file=".env")
 
 

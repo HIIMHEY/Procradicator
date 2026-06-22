@@ -1,7 +1,9 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
+
+from src.models.oauth_account import OAuthAccount
 
 
 class User(SQLModel, table=True):
@@ -14,3 +16,5 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)  # User can log in and access protected routes
     is_superuser: bool = Field(default=False)  # Admin permissions
     is_verified: bool = Field(default=False)  # Email verification status
+    oauth_accounts: list[OAuthAccount] = Relationship(sa_relationship_kwargs={"lazy": "joined"})
+    #Connects User and OAuthAccount tables via their user ids

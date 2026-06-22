@@ -16,9 +16,8 @@ export function useLogout() {
   return useMutation({
     mutationFn: logout,
     onSuccess: () => {
-      queryClient.setQueryData(['auth', 'me'], null); //updates cahce, no user logged in
-      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] }); //mark the current user data as outdated
-      //both use useCurrentUser() query
+      queryClient.setQueryData(['auth', 'me'], null); //updates cahce manually, no user logged in
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] }); //Double check if no user logged in
     },
   });
 }

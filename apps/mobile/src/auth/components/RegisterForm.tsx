@@ -10,6 +10,7 @@ import { useRegister } from '../hooks/useRegister';
 import { registerSchema } from '../schemas';
 import type { RegisterInput } from '../types';
 import { AuthScreenLayout } from './AuthScreenLayout';
+import { GoogleSsoSection } from './GoogleSsoSection';
 
 export function RegisterForm() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function RegisterForm() {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     try {
-      await registerMutation.mutateAsync(values);
+      await registerMutation.mutateAsync(values); //calls mutation fn register(values)
       router.replace('/login' as Href);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Could not create account.');
@@ -118,6 +119,8 @@ export function RegisterForm() {
           {registerMutation.isPending ? 'Creating account...' : 'Register'}
         </ButtonText>
       </Button>
+
+      <GoogleSsoSection prompt="or register with" />
     </AuthScreenLayout>
   );
 }

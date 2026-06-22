@@ -11,6 +11,7 @@ import { useLogin } from '../hooks/useLogin';
 import { loginSchema } from '../schemas';
 import type { LoginInput } from '../types';
 import { AuthScreenLayout } from './AuthScreenLayout';
+import { GoogleSsoSection } from './GoogleSsoSection';
 
 export function LoginForm() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function LoginForm() {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     try {
-      await loginMutation.mutateAsync(values);
+      await loginMutation.mutateAsync(values); //calls mutation fn login(values)
       router.replace('/tasks');
     } catch {
       setSubmitError('Invalid username or password.');
@@ -96,6 +97,8 @@ export function LoginForm() {
           {loginMutation.isPending ? 'Logging in...' : 'Login'}
         </ButtonText>
       </Button>
+
+      <GoogleSsoSection prompt="or login with" />
     </AuthScreenLayout>
   );
 }

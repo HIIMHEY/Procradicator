@@ -87,4 +87,21 @@ async def test_get_by_email_normalizes_email_before_querying_repo() -> None:
     assert fake_repo.requested_email == "tom@example.com"
 
 
+async def test_generate_oauth_username_from_email() -> None:
+    fake_repo = FakeUserRepo()
+    service = make_service(fake_repo)
+    assert await service.generate_oauth_username("Tom.Example@gmail.com") == "tom-example"
+
+
+async def test_generate_oauth_username_adds_suffix_when_taken() -> None:
+    fake_repo = FakeUserRepo(
+        users=[
+            User(email="one@example.com", username="tom-example", hashed_password="hash"),
+            User(email="two@example.com", username="tom-example-2", hashed_password="hash"),
+        ]
+    )
+    service = make_service(fake_repo)
+    assert await service.generate_oauth_username("Tom.Example@gmail.com") == "tom-example-3"
+
+
 # I will implement proper testing later

@@ -187,3 +187,9 @@ def test_login_with_invalid_credentials_returns_400() -> None:
 def test_me_without_cookie_returns_401() -> None:
     response = TestClient(app).get("/auth/me")
     assert response.status_code == 401
+
+
+def test_google_authorize_returns_authorization_url() -> None:
+    response = TestClient(app).get("/auth/google/authorize")
+    assert response.status_code == 200
+    assert "authorization_url" in response.json()
