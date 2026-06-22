@@ -52,11 +52,11 @@ class LLMService:
             of actionable tasks.
             STRICT SCHEMA ENFORCEMENT:
             You must output data that match the schema for 'generate_task_tool' exactly.
-            Use 'temp_id'.
-            Never use 'id' or 'uuid'. This must be a unique slug (e.g., "setup-env").
+            Use 'id'.
+            Never use 'uuid'. This must be a unique slug (e.g., "setup-env").
             Use 'depends_on'.
             Title is mandatory. Description is optional but helpful.
-            NEVER use the word 'dependencies'. This is a list of 'temp_id' strings.
+            NEVER use the word 'dependencies'. This is a list of 'id' strings.
             ERROR PREVENTION: If a task has no prerequisites,
             'depends_on' must be an empty list [].
 
@@ -71,7 +71,7 @@ class LLMService:
             4. EXECUTE: If YES, call 'generate_task_tool' immediately.
 
             LOGIC CONSTRAINTS:
-            Every 'depends_on' entry must refer to a 'temp_id' that exists within the
+            Every 'depends_on' entry must refer to a 'id' that exists within the
             same task set. Tasks must be "atomic"—small enough that a user doesn't
             procrastinate starting them. Direct output to the tool only; do not add
             conversational "here is your roadmap" fluff when calling the tool.

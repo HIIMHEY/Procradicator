@@ -1,7 +1,11 @@
 import { API_ROUTES } from '@/config/env';
 import { useQuery } from '@tanstack/react-query';
 
-const readTask = async ({ id }: { id: string }) => {
+interface readTaskOptions {
+  isEnabled: boolean
+}
+
+const readTask = async (id: string) => {
   const res = await fetch(`${API_ROUTES.TASKS.BASE}/${id}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
@@ -11,9 +15,10 @@ const readTask = async ({ id }: { id: string }) => {
   return res.json();
 };
 
-export default function useReadTask({ id }: { id: string }) {
+export default function useReadTask(id: string, options: readTaskOptions) {
   return useQuery({
     queryKey: ['task', id],
-    queryFn: () => readTask({ id }),
+    queryFn: () => readTask(id),
+    enabled: options.isEnabled
   });
 }

@@ -5,7 +5,7 @@ import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 
 export function TaskListSkeleton() {
   return (
-    <VStack space="md" className="w-full">
+    <VStack space="md" className="max-w-lg w-full">
       {[1, 2, 3].map((idx) => (
         <HStack
           key={idx}
