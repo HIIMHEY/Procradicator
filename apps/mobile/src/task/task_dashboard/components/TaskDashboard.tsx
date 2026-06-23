@@ -71,7 +71,7 @@ export function TaskDashboard() {
           keyExtractor={(item) => item?.id}
           renderItem={({ item }) => (
             <Box className="mb-3 w-full max-w-xl">
-              <TaskItem task={item} refetch={refetch} />
+              <TaskItem task={item} />
             </Box>
           )}
           showsVerticalScrollIndicator={false}

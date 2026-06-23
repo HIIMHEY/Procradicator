@@ -10,10 +10,9 @@ import { Toast, ToastTitle, useToast } from '@/components/ui/toast';
 
 interface TaskItemProps {
   task: Task;
-  refetch: () => void;
 }
 
-export function TaskItem({ task, refetch }: TaskItemProps) {
+export function TaskItem({ task }: TaskItemProps) {
   const [showOptions, setShowOptions] = useState(false);
   const router = useRouter();
   const toast = useToast();
@@ -62,7 +61,6 @@ export function TaskItem({ task, refetch }: TaskItemProps) {
             onPress={() =>
               DeleteMutate(undefined, {
                 onSuccess: () => {
-                  refetch();
                   toast.show({
                     placement: 'top',
                     duration: 3000,

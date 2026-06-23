@@ -9,7 +9,7 @@
   },
   "exclude": ["node_modules/*", "example/*"],
   "include": [
-    "*src/**/*.ts",
+    "src/**/*.ts",
     "src/**/*.tsx",
     "app/**/*.ts",
     "app/**/*.tsx",
