@@ -54,7 +54,7 @@ class LLMService:
             ),
         )
 
-        # TODO: move the prompt to txt file in prompts folder n create txt file loader
+        
         self.agent = Agent(
             model=self.model,
             deps_type=AgentDeps,
