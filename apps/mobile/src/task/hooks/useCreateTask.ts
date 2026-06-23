@@ -13,7 +13,7 @@ const createTask = async (values: ModifyTaskData) => {
   return res.json();
 };
 
-export default function useCreateComment() {
+export default function useCreateTask() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: createTask,

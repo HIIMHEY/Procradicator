@@ -23,12 +23,19 @@ import useReadTask from '@/task/hooks/useReadTask';
 import { useEffect } from 'react';
 import { ErrorFallback } from '@/task/components/ErrorFallback';
 import { TaskLoadingSkeleton } from './TaskLoadingSkeleton';
+import dayjs from 'dayjs';
 
 interface ModifyTaskPageProps {
   mode: TaskModifyMode;
 }
 
 export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
+  const toast = useToast();
+  const { id: rawId } = useLocalSearchParams();
+  const id = Array.isArray(rawId) ? rawId[0] : rawId || '';
+  const { mutate: createMutate, isPending: createPending } = useCreateTask();
+  const { mutate: updateMutate, isPending: updatePending } = useUpdateTask(id);
+  const { data, isPending, isError, error, refetch } = useReadTask(id, { isEnabled: !!id });
   const {
     control,
     handleSubmit,
@@ -39,24 +46,31 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
   } = useForm<ModifyTaskData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(ModifyTaskSchema as any), //ok as this is a known issue: https://github.com/react-hook-form/resolvers/issues/813
-    defaultValues: { title: '', description: '', subtasks: [] },
+    defaultValues: { title: '', description: '', subtasks: [], due_at: dayjs().toISOString() },
   });
-
-  const toast = useToast();
-  const { id: rawId } = useLocalSearchParams();
-  const id = Array.isArray(rawId) ? rawId[0] : rawId || '';
-  const { mutate: createMutate, isPending: createPending } = useCreateTask();
-  const { mutate: updateMutate, isPending: updatePending } = useUpdateTask(id);
-  const { data, isPending, isError, error, refetch } = useReadTask(id, { isEnabled: !!id });
   useEffect(() => {
     if (data && mode === 'Edit') {
+      const depMap = new Map<string, string[]>(); //ok we may want to rethink how we structure the data
+      data.subtasks.forEach((subtask: Subtask) => {
+        if (Array.isArray(subtask.next_subtask)) {
+          subtask.next_subtask.forEach((nextId) => {
+            if (!depMap.has(nextId)) {
+              depMap.set(nextId, []);
+            }
+            depMap.get(nextId)!.push(subtask.id);
+          });
+        }
+      });
       reset({
+        id: data.id || '',
         title: data.title || '',
         description: data.description || '',
+        due_at: data.due_at ? dayjs(data.due_at).toISOString() : dayjs().toISOString(),
         subtasks:
           data.subtasks?.map((subtask: Subtask) => ({
             ...subtask,
-            id: subtask.id || `temp-${Date.now()}`,
+            id: subtask.id || `temp-${dayjs().toISOString()}`,
+            depends_on: depMap.get(subtask.id) || [],
           })) || [],
       });
     }
@@ -80,16 +94,17 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
           ),
         });
       },
-      onSuccess: () =>
+      onSuccess: () => {
         toast.show({
           placement: 'top',
           duration: 3000,
-          render: () => {
+          render: () => (
             <Toast action="success" variant="solid">
-              <ToastTitle>Task {mode} Successly</ToastTitle>
-            </Toast>;
-          },
-        }),
+              <ToastTitle>Task {mode} Successfully</ToastTitle>
+            </Toast>
+          ),
+        });
+      },
     });
   };
 
@@ -120,14 +135,14 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
 
   const handleAddSubtask = () => {
     const genTempId = `temp-${Date.now()}`;
-    const lastSubtask = currSubtasks[currSubtasks.length - 1];
+    const lastSubtask = currSubtasks[currSubtasks.length - 1]; //this logic would need to be changed for more complex roadmaps
 
     append({
       id: genTempId,
       title: '',
       description: '',
-      estimate: 0,
-      is_done: false,
+      estimate: 1,
+      completed: 0,
       depends_on: lastSubtask ? [lastSubtask.id] : [], // can improve in future for more complex graphs
     });
   };

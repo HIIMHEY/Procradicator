@@ -1,5 +1,6 @@
 import { API_ROUTES } from '@/config/env';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { StatusCodes } from 'http-status-codes';
 
 const readTask = async ({ pageParam, limit }: { pageParam: number; limit: number }) => {
   const res = await fetch(`${API_ROUTES.TASKS.BASE}?page=${pageParam}&limit=${limit}`, {
@@ -8,6 +9,7 @@ const readTask = async ({ pageParam, limit }: { pageParam: number; limit: number
     credentials: 'include',
   });
   if (!res.ok) throw new Error(String(res.status));
+  if (res.status == StatusCodes.NO_CONTENT) return {};
   return res.json();
 };
 
@@ -17,8 +19,11 @@ export default function useReadTask(limit: number = 20) {
     queryKey: ['task', limit],
     queryFn: ({ pageParam }) => readTask({ pageParam, limit }),
     initialPageParam: 1,
-    getNextPageParam: (lastPage) => {
-      return lastPage.nextPage ?? undefined;
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage || lastPage.length === 0 || lastPage.length < limit) {
+        return undefined;
+      }
+      return allPages.length + 1;
     },
   });
 }

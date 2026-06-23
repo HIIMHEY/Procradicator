@@ -1,10 +1,10 @@
-import { FlatList, ActivityIndicator } from 'react-native';
+import { FlatList, ActivityIndicator, View } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
 import { Button, ButtonText, ButtonIcon } from '@/components/ui/button';
 import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
-import { AddIcon } from '@/components/ui/icon';
+import { AddIcon, Icon } from '@/components/ui/icon';
 import useReadTask from '../../hooks/useReadTasks';
 import { TaskListSkeleton } from './TaskListSkeleton';
 import { Task } from '../../schema';
@@ -12,6 +12,7 @@ import { TaskItem } from './TaskItem';
 import { useRouter } from 'expo-router';
 import { Heading } from '@/components/ui/heading';
 import { ErrorFallback } from '../../components/ErrorFallback';
+import { Smile } from 'lucide-react-native';
 
 export function TaskDashboard() {
   const router = useRouter();
@@ -24,17 +25,17 @@ export function TaskDashboard() {
     isFetchingNextPage,
     fetchNextPage,
     refetch,
+    isRefetching,
   } = useReadTask();
-  const tasks: Task[] = data?.pages.flatMap((page) => page.data) ?? [];
+  const tasks: Task[] = data?.pages.flatMap((page) => page || []) ?? [];
 
   const handleLogout = () => {
     console.log(
       'Gabriel it is log out time (this is a placeholder yes, pls replace with actual function)',
     );
   };
-
   return (
-    <Box className="flex-1 bg-slate-50 px-6 pt-12 items-center">
+    <Box className="flex-1 w-full h-full bg-slate-50 px-6 pt-12 items-center">
       <HStack className="justify-end mb-8 w-full">
         <Button
           size="sm"
@@ -65,21 +66,29 @@ export function TaskDashboard() {
         <ErrorFallback message={error.message} onRetry={refetch} />
       ) : (
         <FlatList
+          contentContainerClassName="w-full items-center justify-start"
           data={tasks}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item?.id}
           renderItem={({ item }) => (
-            <Box className="mb-3 max-w-lg">
-              <TaskItem task={item} />
+            <Box className="mb-3 w-full max-w-xl">
+              <TaskItem task={item} refetch={refetch} />
             </Box>
           )}
           showsVerticalScrollIndicator={false}
-          className="pb-10"
+          className="flex-1 w-full pb-10"
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) {
               fetchNextPage();
             }
           }}
+          refreshing={isRefetching}
+          onRefresh={refetch}
           onEndReachedThreshold={0.5}
+          ListEmptyComponent={
+            <View className="justify-center items-center flex-1">
+              <Icon as={Smile} size="xl" />
+            </View>
+          }
           ListFooterComponent={
             isFetchingNextPage ? (
               <Box className="py-4 items-center">
@@ -87,7 +96,7 @@ export function TaskDashboard() {
               </Box>
             ) : (
               <Box className="py-4 items-center">
-                <Text> You&apos;ve reached the end </Text>
+                <Text> You have reached the end </Text>
               </Box>
             )
           }

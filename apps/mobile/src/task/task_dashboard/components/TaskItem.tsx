@@ -6,15 +6,19 @@ import { Icon, EditIcon, ChevronLeftIcon, TrashIcon, ChevronRightIcon } from '@/
 import { Box } from '@/components/ui/box';
 import useDeleteTask from '@/task/hooks/useDeleteTask';
 import { useRouter } from 'expo-router';
+import { Toast, ToastTitle, useToast } from '@/components/ui/toast';
 
 interface TaskItemProps {
   task: Task;
+  refetch: () => void;
 }
 
-export function TaskItem({ task }: TaskItemProps) {
+export function TaskItem({ task, refetch }: TaskItemProps) {
   const [showOptions, setShowOptions] = useState(false);
   const router = useRouter();
-  const isCompleted = task.subtasks.length > 0 && task.subtasks.every((sub) => sub.is_done);
+  const toast = useToast();
+  const isCompleted =
+    task.subtasks.length > 0 && task.subtasks.every((sub) => sub.completed == sub.estimate);
   const { mutate: DeleteMutate } = useDeleteTask(task.id);
   const toggleOptions = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -55,7 +59,22 @@ export function TaskItem({ task }: TaskItemProps) {
           )}
 
           <TouchableOpacity
-            onPress={() => DeleteMutate()}
+            onPress={() =>
+              DeleteMutate(undefined, {
+                onSuccess: () => {
+                  refetch();
+                  toast.show({
+                    placement: 'top',
+                    duration: 3000,
+                    render: () => (
+                      <Toast action="success" variant="solid">
+                        <ToastTitle>Task Deleted Successfully</ToastTitle>
+                      </Toast>
+                    ),
+                  });
+                },
+              })
+            }
             className="px-4 justify-center items-center flex-row bg-white h-full"
           >
             <Icon as={TrashIcon} className="text-red-600 w-4 h-4 mr-1" />
