@@ -1,8 +1,16 @@
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
-from pydantic_ai import Agent, ModelMessage, ModelResponse, TextPart, ToolCallPart, models
+from pydantic_ai import (
+    Agent,
+    ModelMessage,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    models,
+)
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from src.exceptions import DatabaseError, ServiceError
 from src.models.chat import ChatMessage, Role
@@ -37,11 +45,15 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
         user_id=user_id,
     )
 
-    async def mock_llm_behavior(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    async def mock_llm_behavior(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> ModelResponse:
         subtask: dict[str, str | None | list[str]] = {
             "id": "id",
             "title": "subtask title",
             "description": "subtask desc",
+            "estimate": "2",
+            "completed": "1",
             "depends_on": [],
         }
         # if initial turn, make llm req a tool call
@@ -59,6 +71,7 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
                             "roadmap": {
                                 "title": "Test Task",
                                 "description": None,
+                                "due_at": datetime.now(UTC),
                                 "subtasks": [subtask],
                             }
                         },
@@ -67,6 +80,7 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
             )
         # for subsequent calls (after the tool runs), stop execution by returning text
         return ModelResponse(parts=[TextPart(content="yada yada nothing impt here")])
+
     llm_svc: LLMService = LLMService()
     agent: Agent[AgentDeps, str] = llm_svc.agent
     mock_model = FunctionModel(function=mock_llm_behavior)

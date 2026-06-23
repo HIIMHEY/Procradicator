@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class CreateSubtask(BaseModel):
     id: str = Field(
-        ..., description="A unique identifier for this subtask, e.g., 'buy-lumber'"
+        ..., description="Unique kebab-case string identifier"
     )
     title: str
     description: str | None = None
@@ -16,9 +16,14 @@ class CreateSubtask(BaseModel):
         description="An integer estimate for the time in minutes needed to complete the sub-task",
         gt=0,
     )
+    completed: int = Field(
+        ...,
+        description="The integer amount of time (minutes) spent completing the subtask, must be equal to estimate or 0",
+        ge=0,
+    )
     depends_on: list[str] = Field(
         default_factory=list,
-        description="List of ids that must be finished before this one starts",
+        description="List of subtask ids that must be finished before this one starts",
     )
 
 

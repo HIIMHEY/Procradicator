@@ -52,8 +52,7 @@ class LLMService:
             of actionable tasks.
             STRICT SCHEMA ENFORCEMENT:
             You must output data that match the schema for 'generate_task_tool' exactly.
-            Use 'id'.
-            Never use 'uuid'. This must be a unique slug (e.g., "setup-env").
+            Use 'id'. This must be a unique slug (e.g., "setup-env").
             Use 'depends_on'.
             Title is mandatory. Description is optional but helpful.
             NEVER use the word 'dependencies'. This is a list of 'id' strings.
