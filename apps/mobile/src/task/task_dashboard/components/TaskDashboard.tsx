@@ -13,7 +13,6 @@ import { Task } from '../../schema';
 import { TaskItem } from './TaskItem';
 import { TaskListSkeleton } from './TaskListSkeleton';
 import { useRouter } from 'expo-router';
-import { Heading } from '@/components/ui/heading';
 import { ErrorFallback } from '../../components/ErrorFallback';
 import { Smile } from 'lucide-react-native';
 
