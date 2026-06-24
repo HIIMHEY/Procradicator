@@ -1,4 +1,4 @@
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import DragList, { DragListRenderItemInfo } from 'react-native-draglist';
 import { Box } from '@/components/ui/box';
@@ -44,8 +44,7 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
     reset,
     formState: { errors },
   } = useForm<ModifyTaskData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(ModifyTaskSchema as any), //ok as this is a known issue: https://github.com/react-hook-form/resolvers/issues/813
+    resolver: zodResolver(ModifyTaskSchema as never) as Resolver<ModifyTaskData>, //ok as this is a known issue: https://github.com/react-hook-form/resolvers/issues/813
     defaultValues: { title: '', description: '', subtasks: [], due_at: dayjs().toISOString() },
   });
   useEffect(() => {
