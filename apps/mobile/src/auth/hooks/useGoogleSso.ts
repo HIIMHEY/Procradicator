@@ -1,8 +1,8 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import type { UserRead } from '../schemas';
 import { ssoCallbackMessageSchema } from '../schemas';
-import type { UserRead } from '../types';
 import { fetchCurrentUser } from './useCurrentUser';
 
 type GoogleAuthorizeResponse = {

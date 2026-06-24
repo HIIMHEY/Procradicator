@@ -1,5 +1,5 @@
+import type { SsoCallbackMessage } from '@/auth/schemas';
 import { ssoCallbackMessageSchema } from '@/auth/schemas';
-import type { SsoCallbackMessage } from '@/auth/types';
 import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
 import { API_ROUTES } from '@/config/env';

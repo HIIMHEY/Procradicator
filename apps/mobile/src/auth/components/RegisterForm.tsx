@@ -12,8 +12,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { type Href, useRouter } from 'expo-router';
 import { Controller, type Resolver, useForm } from 'react-hook-form';
 import { useRegister } from '../hooks/useRegister';
+import type { RegisterInput } from '../schemas';
 import { registerSchema } from '../schemas';
-import type { RegisterInput } from '../types';
 import { AuthScreenLayout } from './AuthScreenLayout';
 import { GoogleSsoSection } from './GoogleSsoSection';
 

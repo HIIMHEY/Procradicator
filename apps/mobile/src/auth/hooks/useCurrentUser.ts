@@ -1,7 +1,7 @@
 import { API_ROUTES } from '@/config/env';
 import { useQuery } from '@tanstack/react-query';
+import type { UserRead } from '../schemas';
 import { userReadSchema } from '../schemas';
-import type { UserRead } from '../types';
 
 export const fetchCurrentUser = async (): Promise<UserRead | null> => {
   const response = await fetch(API_ROUTES.AUTH.ME, {
