@@ -1,5 +1,6 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { StatusCodes } from 'http-status-codes';
 
 const deleteTask = async (id: string) => {
   const res = await fetch(`${API_ROUTES.TASKS.BASE}/${id}`, {
@@ -8,6 +9,7 @@ const deleteTask = async (id: string) => {
     credentials: 'include',
   });
   if (!res.ok) throw new Error(String(res.status));
+  if (res.status == StatusCodes.NO_CONTENT) return {};
   return res.json();
 };
 
@@ -16,7 +18,7 @@ export default function useDeleteTask(id: string) {
   return useMutation({
     mutationFn: () => deleteTask(id),
     onSettled: () => {
-      client.invalidateQueries({ queryKey: ['task', id] });
+      client.invalidateQueries({ queryKey: ['task', 'task-list', id] });
     },
   });
 }

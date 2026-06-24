@@ -1,10 +1,11 @@
-from unittest.mock import AsyncMock, MagicMock
+import json
+from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import pytest
-from pydantic_ai import Agent, ModelMessage, ModelResponse, TextPart, ToolCallPart, models
+from pydantic_ai import ModelMessage, ModelResponse, TextPart, models
 from pydantic_ai.models.function import AgentInfo, FunctionModel
-from src.exceptions import DatabaseError, ServiceError
+from src.exceptions import DependencyUnavailableError
 from src.models.chat import ChatMessage, Role
 from src.services.llm import AgentDeps, LLMService
 
@@ -14,63 +15,63 @@ models.ALLOW_MODEL_REQUESTS = False
 
 @pytest.mark.anyio
 async def test_gen_task_tool_handles_db_disconn() -> None:
-    mock_task_svc: MagicMock = AsyncMock()
-    mock_chat_svc: MagicMock = AsyncMock()
+    mock_task_svc = AsyncMock()
+    mock_chat_svc = AsyncMock()
     session_id: UUID = uuid4()
-    # sim unexpected error
-    db_err: DatabaseError = DatabaseError("database connection was lost")
-    svc_err: ServiceError = ServiceError(f"Could not generate roadmap: {str(db_err)}")
-    svc_err.__cause__ = db_err
-    mock_task_svc.create_roadmap.side_effect = svc_err
+    user_id: UUID = uuid4()
+
+    #yes we now use this service-layer errors
+    mock_task_svc.create_roadmap.side_effect = DependencyUnavailableError(
+        "database connection was lost"
+    )
+
     mock_chat_svc.get_history.return_value = []
+
     mock_chat_svc.add_message.return_value = ChatMessage(
         id=uuid4(),
         session_id=session_id,
         role=Role.ASSISTANT,
         content="Mocked Response",
     )
-    user_id: UUID = uuid4()
-    deps: AgentDeps = AgentDeps(
+
+    payloadstr = json.dumps(
+        {
+            "clarification": None,
+            "roadmap": {
+                "title": "Test Task",
+                "description": "A test roadmap",
+                "due_at": "2026-06-23T19:49:29.629Z",
+                "subtasks": [
+                    {
+                        "id": "subtask-id",
+                        "title": "subtask title",
+                        "description": "subtask desc",
+                        "estimate": 2,
+                        "completed": 0,
+                        "depends_on": [],
+                    }
+                ],
+            },
+        }
+    )
+
+    async def mock_llm_behavior(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> ModelResponse:
+
+        return ModelResponse(parts=[TextPart(content=payloadstr)])
+
+    llm_svc = LLMService()
+    mock_model = FunctionModel(function=mock_llm_behavior)
+
+    deps = AgentDeps(
         task_svc=mock_task_svc,
         chat_svc=mock_chat_svc,
         session_id=session_id,
         user_id=user_id,
     )
 
-    async def mock_llm_behavior(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        subtask: dict[str, str | None | list[str]] = {
-            "id": "id",
-            "title": "subtask title",
-            "description": "subtask desc",
-            "depends_on": [],
-        }
-        # if initial turn, make llm req a tool call
-        if not any(
-            isinstance(part, ToolCallPart)
-            for message in messages
-            if isinstance(message, ModelResponse)
-            for part in message.parts
-        ):
-            return ModelResponse(
-                parts=[
-                    ToolCallPart(
-                        tool_name="generate_task_tool",
-                        args={
-                            "roadmap": {
-                                "title": "Test Task",
-                                "description": None,
-                                "subtasks": [subtask],
-                            }
-                        },
-                    )
-                ]
-            )
-        # for subsequent calls (after the tool runs), stop execution by returning text
-        return ModelResponse(parts=[TextPart(content="yada yada nothing impt here")])
-    llm_svc: LLMService = LLMService()
-    agent: Agent[AgentDeps, str] = llm_svc.agent
-    mock_model = FunctionModel(function=mock_llm_behavior)
-    with agent.override(model=mock_model, deps=deps):
+    with llm_svc.agent.override(model=mock_model, deps=deps):
         await llm_svc.handle_chat(
             session_id=session_id,
             user_id=user_id,
@@ -78,8 +79,9 @@ async def test_gen_task_tool_handles_db_disconn() -> None:
             task_svc=mock_task_svc,
             chat_svc=mock_chat_svc,
         )
+
     mock_task_svc.create_roadmap.assert_called_once()
     assert mock_task_svc.create_roadmap.call_args.args[1] == user_id
     mock_chat_svc.link_task_to_session.assert_not_called()
-    # user message and assistant error message saved
+
     assert mock_chat_svc.add_message.call_count == 2

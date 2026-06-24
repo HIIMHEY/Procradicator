@@ -15,6 +15,7 @@ import {
   FormControlErrorIcon,
 } from '@/components/ui/form-control';
 import { Textarea, TextareaInput } from '@/components/ui/textarea';
+import dayjs from 'dayjs';
 
 interface SubtaskInputProps {
   mode: TaskModifyMode;
@@ -100,9 +101,11 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
 
       <Box className="flex-row justify-between items-center my-2">
         <Checkbox
-          value={value.id || new Date().toISOString()}
-          isChecked={!!value?.is_done}
-          onChange={(bool: boolean) => updateField('is_done', bool)}
+          value={value.id || dayjs().toISOString()}
+          isChecked={String(value?.completed) === String(value?.estimate) && value?.completed != 0}
+          onChange={(bool: boolean) =>
+            updateField('completed', bool ? String(value?.estimate || '0') : '0')
+          }
           size="md"
         >
           <CheckboxLabel className="ml-2 text-sm text-slate-600">Mark as completed</CheckboxLabel>

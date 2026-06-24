@@ -5,12 +5,14 @@ export const SubtaskSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
   next_subtask: z.array(z.uuid()),
-  is_done: z.boolean(),
+  completed: z.int(),
+  estimate: z.int(),
 });
 
 export const TaskSchema = z.object({
   id: z.uuid(),
   title: z.string(),
+  due_at: z.iso.datetime(),
   description: z.string().optional(),
   subtasks: z.array(SubtaskSchema),
 });
@@ -31,7 +33,7 @@ export const ModifySubtaskSchema = z.object({
     .number('Must be a number!')
     .int('Must be a whole number! 1,2,3...')
     .positive('Time must be positive!'),
-  is_done: z.boolean(),
+  completed: z.coerce.number().int().nonnegative(),
   depends_on: z.array(z.string()),
 });
 
@@ -39,7 +41,8 @@ export const ModifyTaskSchema = z.object({
   id: z.uuid().optional(), //only present for edits
   title: z.string().trim().min(1, 'Title is required').max(200, 'Title too long'),
   description: z.string().trim().max(500, 'Description too long').optional(),
-  subtasks: z.array(ModifySubtaskSchema).min(1, "Must have at least 1 subtask!"),
+  due_at: z.iso.datetime(),
+  subtasks: z.array(ModifySubtaskSchema).min(1, 'Must have at least 1 subtask!'),
 });
 
 export const TaskModifyModeEnum = z.enum(['Create', 'Edit']);
