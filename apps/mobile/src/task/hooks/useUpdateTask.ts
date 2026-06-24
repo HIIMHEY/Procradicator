@@ -20,7 +20,7 @@ export default function useUpdateTask(id: string) {
   return useMutation({
     mutationFn: updateTask(id),
     onSettled: () => {
-      client.invalidateQueries({ queryKey: ['task','task-list', id] });
+      client.invalidateQueries({ queryKey: ['task', 'task-list', id] });
     },
   });
 }
