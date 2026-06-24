@@ -4,13 +4,11 @@ import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-//useEffect runs extra code after react renders screen
 
 export default function Index() {
   const router = useRouter(); //Moves user between screens
   const { data: currentUser, isError, isPending } = useCurrentUser();
   useEffect(() => {
-    //If currentUser is non null (logged in), send to /task
     if (currentUser) {
       router.replace('/tasks');
     }

@@ -1,12 +1,16 @@
 import { Button, ButtonText } from '@/components/ui/button';
+import {
+  FormControl,
+  FormControlError,
+  FormControlErrorText,
+  FormControlLabel,
+  FormControlLabelText,
+} from '@/components/ui/form-control';
 import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
+import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import { Controller, type Resolver, useForm } from 'react-hook-form';
-//Controller connects custom UI components to React Hook form
 import { useLogin } from '../hooks/useLogin';
 import { loginSchema } from '../schemas';
 import type { LoginInput } from '../types';
@@ -15,8 +19,8 @@ import { GoogleSsoSection } from './GoogleSsoSection';
 
 export function LoginForm() {
   const router = useRouter();
-  const loginMutation = useLogin();
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const toast = useToast();
+  const { mutateAsync: login, isPending: isLoggingIn } = useLogin();
   const {
     control,
     handleSubmit,
@@ -29,18 +33,37 @@ export function LoginForm() {
     },
   });
   const onSubmit = handleSubmit(async (values) => {
-    setSubmitError(null);
     try {
-      await loginMutation.mutateAsync(values); //calls mutation fn login(values)
+      await login(values);
+      toast.show({
+        placement: 'top',
+        duration: 3000,
+        render: () => (
+          <Toast action="success" variant="solid">
+            <ToastTitle>Login Successful</ToastTitle>
+          </Toast>
+        ),
+      });
       router.replace('/tasks');
     } catch {
-      setSubmitError('Invalid username or password.');
+      toast.show({
+        placement: 'top',
+        duration: 3000,
+        render: () => (
+          <Toast action="error" variant="solid">
+            <ToastTitle>Login Failed</ToastTitle>
+            <ToastDescription>Invalid username or password.</ToastDescription>
+          </Toast>
+        ),
+      });
     }
   });
   return (
     <AuthScreenLayout title="Login" showBackButton>
-      <VStack className="gap-2">
-        <Text className="text-sm font-semibold text-slate-600">Username</Text>
+      <FormControl isInvalid={!!errors.username}>
+        <FormControlLabel>
+          <FormControlLabelText>Username</FormControlLabelText>
+        </FormControlLabel>
         <Controller
           control={control}
           name="username"
@@ -57,13 +80,15 @@ export function LoginForm() {
             </Input>
           )}
         />
-        {errors.username ? (
-          <Text className="text-sm text-red-600">{errors.username.message}</Text>
-        ) : null}
-      </VStack>
+        <FormControlError>
+          <FormControlErrorText>{errors.username?.message}</FormControlErrorText>
+        </FormControlError>
+      </FormControl>
 
-      <VStack className="gap-2">
-        <Text className="text-sm font-semibold text-slate-600">Password</Text>
+      <FormControl isInvalid={!!errors.password}>
+        <FormControlLabel>
+          <FormControlLabelText>Password</FormControlLabelText>
+        </FormControlLabel>
         <Controller
           control={control}
           name="password"
@@ -79,22 +104,20 @@ export function LoginForm() {
             </Input>
           )}
         />
-        {errors.password ? (
-          <Text className="text-sm text-red-600">{errors.password.message}</Text>
-        ) : null}
-      </VStack>
-
-      {submitError ? <Text className="text-center text-sm text-red-600">{submitError}</Text> : null}
+        <FormControlError>
+          <FormControlErrorText>{errors.password?.message}</FormControlErrorText>
+        </FormControlError>
+      </FormControl>
 
       <Button
         accessibilityLabel="Submit login"
         size="lg"
         onPress={onSubmit}
-        isDisabled={loginMutation.isPending}
+        isDisabled={isLoggingIn}
         className="mt-2 w-full rounded-lg bg-black"
       >
         <ButtonText className="text-base font-semibold text-white">
-          {loginMutation.isPending ? 'Logging in...' : 'Login'}
+          {isLoggingIn ? 'Logging in...' : 'Login'}
         </ButtonText>
       </Button>
 

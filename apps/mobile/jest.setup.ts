@@ -38,3 +38,14 @@ jest.mock('nativewind', () => ({
     toggleColorScheme: jest.fn(),
   }),
 }));
+
+jest.mock('@legendapp/motion', () => {
+  const { View } = jest.requireActual('react-native');
+
+  return {
+    AnimatePresence: View,
+    Motion: {
+      View,
+    },
+  };
+});
