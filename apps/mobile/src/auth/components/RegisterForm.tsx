@@ -20,7 +20,7 @@ import { AuthScreenLayout } from './AuthScreenLayout';
 export function RegisterForm() {
   const router = useRouter();
   const toast = useToast();
-  const registerMutation = useRegister();
+  const { mutateAsync: register, isPending: isRegistering } = useRegister();
   const {
     control,
     handleSubmit,
@@ -35,7 +35,7 @@ export function RegisterForm() {
   });
   const onSubmit = handleSubmit(async (values) => {
     try {
-      await registerMutation.mutateAsync(values);
+      await register(values);
       toast.show({
         placement: 'top',
         duration: 3000,
@@ -84,11 +84,9 @@ export function RegisterForm() {
             </Input>
           )}
         />
-        {errors.email ? (
-          <FormControlError>
-            <FormControlErrorText>{errors.email.message}</FormControlErrorText>
-          </FormControlError>
-        ) : null}
+        <FormControlError>
+          <FormControlErrorText>{errors.email?.message}</FormControlErrorText>
+        </FormControlError>
       </FormControl>
 
       <FormControl isInvalid={!!errors.username}>
@@ -111,11 +109,9 @@ export function RegisterForm() {
             </Input>
           )}
         />
-        {errors.username ? (
-          <FormControlError>
-            <FormControlErrorText>{errors.username.message}</FormControlErrorText>
-          </FormControlError>
-        ) : null}
+        <FormControlError>
+          <FormControlErrorText>{errors.username?.message}</FormControlErrorText>
+        </FormControlError>
       </FormControl>
 
       <FormControl isInvalid={!!errors.password}>
@@ -137,22 +133,20 @@ export function RegisterForm() {
             </Input>
           )}
         />
-        {errors.password ? (
-          <FormControlError>
-            <FormControlErrorText>{errors.password.message}</FormControlErrorText>
-          </FormControlError>
-        ) : null}
+        <FormControlError>
+          <FormControlErrorText>{errors.password?.message}</FormControlErrorText>
+        </FormControlError>
       </FormControl>
 
       <Button
         accessibilityLabel="Submit registration"
         size="lg"
         onPress={onSubmit}
-        isDisabled={registerMutation.isPending}
+        isDisabled={isRegistering}
         className="mt-2 w-full rounded-lg bg-black"
       >
         <ButtonText className="text-base font-semibold text-white">
-          {registerMutation.isPending ? 'Creating account...' : 'Register'}
+          {isRegistering ? 'Creating account...' : 'Register'}
         </ButtonText>
       </Button>
     </AuthScreenLayout>

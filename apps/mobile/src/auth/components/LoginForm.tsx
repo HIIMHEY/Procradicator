@@ -19,7 +19,7 @@ import { AuthScreenLayout } from './AuthScreenLayout';
 export function LoginForm() {
   const router = useRouter();
   const toast = useToast();
-  const loginMutation = useLogin();
+  const { mutateAsync: login, isPending: isLoggingIn } = useLogin();
   const {
     control,
     handleSubmit,
@@ -33,7 +33,7 @@ export function LoginForm() {
   });
   const onSubmit = handleSubmit(async (values) => {
     try {
-      await loginMutation.mutateAsync(values);
+      await login(values);
       toast.show({
         placement: 'top',
         duration: 3000,
@@ -79,11 +79,9 @@ export function LoginForm() {
             </Input>
           )}
         />
-        {errors.username ? (
-          <FormControlError>
-            <FormControlErrorText>{errors.username.message}</FormControlErrorText>
-          </FormControlError>
-        ) : null}
+        <FormControlError>
+          <FormControlErrorText>{errors.username?.message}</FormControlErrorText>
+        </FormControlError>
       </FormControl>
 
       <FormControl isInvalid={!!errors.password}>
@@ -105,22 +103,20 @@ export function LoginForm() {
             </Input>
           )}
         />
-        {errors.password ? (
-          <FormControlError>
-            <FormControlErrorText>{errors.password.message}</FormControlErrorText>
-          </FormControlError>
-        ) : null}
+        <FormControlError>
+          <FormControlErrorText>{errors.password?.message}</FormControlErrorText>
+        </FormControlError>
       </FormControl>
 
       <Button
         accessibilityLabel="Submit login"
         size="lg"
         onPress={onSubmit}
-        isDisabled={loginMutation.isPending}
+        isDisabled={isLoggingIn}
         className="mt-2 w-full rounded-lg bg-black"
       >
         <ButtonText className="text-base font-semibold text-white">
-          {loginMutation.isPending ? 'Logging in...' : 'Login'}
+          {isLoggingIn ? 'Logging in...' : 'Login'}
         </ButtonText>
       </Button>
     </AuthScreenLayout>
