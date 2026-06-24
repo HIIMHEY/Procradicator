@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const loginSchema = z.object({
   username: z
     .string()
-    .trim() //removes whitespace before validation
+    .trim()
     .min(1, 'Username is required.')
     .max(100, 'Username must be at most 100 characters.'),
   password: z
@@ -35,6 +35,21 @@ export const userReadSchema = z.object({
   created_at: z.string().optional(),
 });
 
+export const ssoCallbackMessageSchema = z.discriminatedUnion('status', [
+  z.object({
+    type: z.literal('procradicator:sso-complete'),
+    provider: z.literal('google'),
+    status: z.literal('success'),
+  }),
+  z.object({
+    type: z.literal('procradicator:sso-complete'),
+    provider: z.literal('google'),
+    status: z.literal('error'),
+    message: z.string().min(1),
+  }),
+]);
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type UserRead = z.infer<typeof userReadSchema>;
+export type SsoCallbackMessage = z.infer<typeof ssoCallbackMessageSchema>;

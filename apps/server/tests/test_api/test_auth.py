@@ -1,6 +1,7 @@
 from collections.abc import Generator
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 import pytest
@@ -193,3 +194,12 @@ def test_google_authorize_returns_authorization_url() -> None:
     response = TestClient(app).get("/auth/google/authorize")
     assert response.status_code == 200
     assert "authorization_url" in response.json()
+
+
+def test_google_authorize_uses_frontend_callback_redirect_url() -> None:
+    response = TestClient(app).get("/auth/google/authorize")
+    assert response.status_code == 200
+    authorization_url = response.json()["authorization_url"]
+    assert isinstance(authorization_url, str)
+    query: dict[str, list[str]] = parse_qs(urlparse(authorization_url).query)
+    assert query["redirect_uri"] == ["http://localhost:8081/auth/sso/callback"]

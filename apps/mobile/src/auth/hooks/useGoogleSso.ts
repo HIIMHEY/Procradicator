@@ -1,28 +1,40 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { userReadSchema } from '../schemas';
+import { ssoCallbackMessageSchema } from '../schemas';
 import type { UserRead } from '../types';
+import { fetchCurrentUser } from './useCurrentUser';
 
 type GoogleAuthorizeResponse = {
   authorization_url?: unknown;
 };
 
-const POLL_INTERVAL_MS = 500; //call /auth/me every 0.5s
-const SSO_TIMEOUT_MS = 15_000;
+const SSO_TIMEOUT_MS = 60_000;
+const POPUP_CLOSED_CHECK_MS = 1000;
+const GOOGLE_SSO_POPUP_NAME = 'procradicator-google-sso';
+const GOOGLE_SSO_POPUP_FEATURES = 'width=500,height=700';
 
-const wait = (milliseconds: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
+const getFrontendCallbackUrl = (): string => {
+  if (typeof window === 'undefined' || !window.location?.origin) {
+    throw new Error('Google login is only available on web right now.');
+  }
+  return `${window.location.origin}/auth/sso/callback`;
+};
 
-//Gets Google login URL from backend
-const readAuthorizationUrl = async (): Promise<string> => {
-  const response = await fetch(API_ROUTES.AUTH.GOOGLE_AUTHORIZE, {
-    method: 'GET',
-    credentials: 'include',
-  });
+const buildUrlWithRedirectUri = (url: string, redirectUri: string): string => {
+  const parsedUrl = new URL(url);
+  parsedUrl.searchParams.set('redirect_uri', redirectUri);
+  return parsedUrl.toString();
+};
+
+const readAuthorizationUrl = async (redirectUri: string): Promise<string> => {
+  const response = await fetch(
+    buildUrlWithRedirectUri(API_ROUTES.AUTH.GOOGLE_AUTHORIZE, redirectUri),
+    {
+      method: 'GET',
+      credentials: 'include',
+    },
+  );
   if (!response.ok) {
     throw new Error('Could not start Google login.');
   }
@@ -33,65 +45,71 @@ const readAuthorizationUrl = async (): Promise<string> => {
   return data.authorization_url;
 };
 
-//Checks whether the backend has finished logging the user in via /auth/me
-//A 401 means the OAuth callback has not completed yet
-const readCurrentUserAfterSso = async (): Promise<UserRead | null> => {
-  const response = await fetch(API_ROUTES.AUTH.ME, {
-    method: 'GET',
-    credentials: 'include',
+const waitForSsoMessage = (popup: Window, expectedOrigin: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    let completed = false;
+    const finish = (callback: () => void): void => {
+      if (completed) {
+        return;
+      }
+      completed = true;
+      globalThis.clearTimeout(timeoutId);
+      globalThis.clearInterval(popupClosedIntervalId);
+      window.removeEventListener('message', handleMessage);
+      callback();
+    };
+    const handleMessage = (event: MessageEvent): void => {
+      if (event.origin !== expectedOrigin || event.source !== popup) {
+        return;
+      }
+      const parsedMessage = ssoCallbackMessageSchema.safeParse(event.data);
+      if (!parsedMessage.success) {
+        return;
+      }
+      const message = parsedMessage.data;
+      if (message.status === 'success') {
+        finish(resolve);
+        return;
+      }
+      finish(() => reject(new Error(message.message)));
+    };
+    const timeoutId = globalThis.setTimeout(() => {
+      finish(() => reject(new Error('Google login timed out. Please try again.')));
+    }, SSO_TIMEOUT_MS);
+    const popupClosedIntervalId = globalThis.setInterval(() => {
+      if (popup.closed) {
+        finish(() => reject(new Error('Google login was cancelled or did not complete.')));
+      }
+    }, POPUP_CLOSED_CHECK_MS);
+    window.addEventListener('message', handleMessage);
   });
-  if (response.status === 401) {
-    return null; //Google login not finished yet
-  }
-  if (!response.ok) {
-    throw new Error('Could not check Google login.');
-  }
-  const data = await response.json();
-  return userReadSchema.parse(data);
-};
 
-//Opens Google and polls /auth/me while the popup remains open
 const startGoogleSso = async (): Promise<UserRead> => {
-  const authorizationUrl = await readAuthorizationUrl();
-  let popupClosed = false;
-  let popupError: Error | null = null;
-  //Opens the popup, then continues running while loop.
-  void WebBrowser.openAuthSessionAsync(authorizationUrl, API_ROUTES.AUTH.GOOGLE_CALLBACK)
-    //Runs later when openAuthSessionAsync returns result, result is what happened to popup
-    .then((result) => {
-      if (result.type !== 'success') {
-        popupClosed = true;
-      }
-    })
-    //If opening popup results in error
-    .catch((error: unknown) => {
-      popupError = error instanceof Error ? error : new Error('Could not open Google login.');
-    });
-  const deadline = Date.now() + SSO_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const currentUser = await readCurrentUserAfterSso();
-    if (currentUser) {
-      try {
-        WebBrowser.dismissAuthSession(); //Close popup
-      } catch {
-        //The popup may already be closed or dismissal may be unavailable
-      }
-      return currentUser;
-    }
-    if (popupError) {
-      throw popupError;
-    }
-    if (popupClosed) {
-      throw new Error('Google login was cancelled or did not complete.');
-    }
-    await wait(POLL_INTERVAL_MS);
+  const frontendCallbackUrl = getFrontendCallbackUrl();
+  if (typeof window.open !== 'function') {
+    throw new Error('Google login is only available in a browser.');
+  }
+  const popup = window.open('', GOOGLE_SSO_POPUP_NAME, GOOGLE_SSO_POPUP_FEATURES);
+  if (!popup) {
+    throw new Error('Could not open Google login popup. Please allow popups and try again.');
   }
   try {
-    WebBrowser.dismissAuthSession();
-  } catch {
-    //Nothing else is required if the popup cannot be dismissed
+    const authorizationUrl = await readAuthorizationUrl(frontendCallbackUrl);
+    popup.location.href = authorizationUrl;
+    await waitForSsoMessage(popup, window.location.origin);
+    const currentUser = await fetchCurrentUser();
+    if (!currentUser) {
+      throw new Error('Google login completed, but no user session was found.');
+    }
+    return currentUser;
+  } catch (error) {
+    try {
+      popup.close();
+    } catch {
+      // Popup may already be closed.
+    }
+    throw error;
   }
-  throw new Error('Google login timed out. Please try again.');
 };
 
 export function useGoogleSso() {
@@ -99,9 +117,8 @@ export function useGoogleSso() {
   const router = useRouter();
   return useMutation({
     mutationFn: startGoogleSso,
-    onSuccess: async (currentUser) => {
+    onSuccess: (currentUser) => {
       queryClient.setQueryData(['auth', 'me'], currentUser);
-      await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       router.replace('/tasks');
     },
   });

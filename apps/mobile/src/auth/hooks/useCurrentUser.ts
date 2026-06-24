@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { userReadSchema } from '../schemas';
 import type { UserRead } from '../types';
 
-const fetchCurrentUser = async (): Promise<UserRead | null> => {
+export const fetchCurrentUser = async (): Promise<UserRead | null> => {
   const response = await fetch(API_ROUTES.AUTH.ME, {
     method: 'GET',
     credentials: 'include',

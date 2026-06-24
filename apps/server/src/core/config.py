@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     access_cookie_secure: bool = Field(default=True)
     google_oauth_client_id: str = Field(default="")
     google_oauth_client_secret: SecretStr = Field(default=SecretStr(""))
+    google_oauth_redirect_url: str = Field(
+        default="http://localhost:8081/auth/sso/callback"
+    )
     oauth_state_secret: SecretStr = Field(default=SecretStr(DEFAULT_OAUTH_STATE_SECRET))
     oauth_cookie_secure: bool = Field(default=True)
     model_config = SettingsConfigDict(env_file=".env")

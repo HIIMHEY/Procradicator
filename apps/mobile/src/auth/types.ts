@@ -1,1 +1,1 @@
-export type { LoginInput, RegisterInput, UserRead } from './schemas';
+export type { LoginInput, RegisterInput, SsoCallbackMessage, UserRead } from './schemas';

@@ -10,7 +10,7 @@ type GoogleSsoSectionProps = {
 };
 
 export function GoogleSsoSection({ prompt }: GoogleSsoSectionProps) {
-  const googleSso = useGoogleSso();
+  const { mutate: continueWithGoogle, isPending: isOpeningGoogle, error } = useGoogleSso();
   return (
     <VStack className="gap-3">
       <Box className="mx-8 h-px bg-slate-900" />
@@ -19,20 +19,20 @@ export function GoogleSsoSection({ prompt }: GoogleSsoSectionProps) {
         accessibilityLabel="Continue with Google"
         size="lg"
         onPress={() => {
-          googleSso.mutate(); //calls mutation fn startGoogleSso
+          continueWithGoogle();
         }}
-        isDisabled={googleSso.isPending}
+        isDisabled={isOpeningGoogle}
         className="w-full rounded-lg bg-black"
       >
         <HStack className="items-center justify-center gap-3">
           <ButtonText className="text-xl font-bold text-white">G</ButtonText>
           <ButtonText className="text-base font-semibold text-white">
-            {googleSso.isPending ? 'Opening Google...' : 'Continue with Google'}
+            {isOpeningGoogle ? 'Opening Google...' : 'Continue with Google'}
           </ButtonText>
         </HStack>
       </Button>
-      {googleSso.error instanceof Error ? (
-        <Text className="text-center text-sm text-red-600">{googleSso.error.message}</Text>
+      {error instanceof Error ? (
+        <Text className="text-center text-sm text-red-600">{error.message}</Text>
       ) : null}
     </VStack>
   );

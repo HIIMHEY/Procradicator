@@ -1,10 +1,13 @@
-﻿import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { Box } from '@/components/ui/box';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
+import { Text } from '@/components/ui/text';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Platform, UIManager } from 'react-native';
-import '../global.css';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import '../global.css';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -24,14 +27,40 @@ export default function RootLayout() {
         },
       }),
   );
-
   return (
     <GluestackUIProvider>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView>
-          <Stack screenOptions={{ headerShown: false }} />
+          <ProtectedStack />
         </GestureHandlerRootView>
       </QueryClientProvider>
     </GluestackUIProvider>
+  );
+}
+
+function ProtectedStack() {
+  const { data: currentUser, isPending } = useCurrentUser();
+  const isLoggedIn = !!currentUser;
+  if (isPending) {
+    return (
+      <Box className="flex-1 items-center justify-center bg-white px-8">
+        <Text className="text-base text-slate-600">Loading...</Text>
+      </Box>
+    );
+  }
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={!isLoggedIn}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="auth/sso/callback" />
+      </Stack.Protected>
+      <Stack.Protected guard={isLoggedIn}>
+        <Stack.Screen name="tasks/index" />
+        <Stack.Screen name="tasks/create" />
+        <Stack.Screen name="tasks/[id]/edit" />
+      </Stack.Protected>
+    </Stack>
   );
 }

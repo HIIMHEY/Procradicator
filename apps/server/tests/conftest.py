@@ -23,5 +23,8 @@ def pytest_configure(config: Config) -> None:
     os.environ.setdefault("ACCESS_COOKIE_SECURE", "False")
     os.environ.setdefault("GOOGLE_OAUTH_CLIENT_ID", "test-google-client-id")
     os.environ.setdefault("GOOGLE_OAUTH_CLIENT_SECRET", "test-google-client-secret")
+    os.environ.setdefault(
+        "GOOGLE_OAUTH_REDIRECT_URL", "http://localhost:8081/auth/sso/callback"
+    )
     os.environ.setdefault("OAUTH_STATE_SECRET", "test-only-oauth-state-secret-32-bytes")
     os.environ.setdefault("OAUTH_COOKIE_SECURE", "False")
