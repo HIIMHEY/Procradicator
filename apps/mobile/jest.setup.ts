@@ -1,4 +1,6 @@
-﻿jest.mock('@tanstack/devtools-event-client', () => {
+/// <reference types="jest" />
+
+jest.mock('@tanstack/devtools-event-client', () => {
   class EventClient {
     getPluginId() {
       return 'form-devtools';
