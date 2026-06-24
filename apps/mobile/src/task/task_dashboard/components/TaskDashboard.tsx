@@ -1,26 +1,24 @@
-import { FlatList, ActivityIndicator } from 'react-native';
-import { Box } from '@/components/ui/box';
-import { Text } from '@/components/ui/text';
-import { Button, ButtonText, ButtonIcon } from '@/components/ui/button';
-import { HStack } from '@/components/ui/hstack';
-import { VStack } from '@/components/ui/vstack';
-import { AddIcon } from '@/components/ui/icon';
-import useReadTask from '../../hooks/useReadTasks';
-import { TaskListSkeleton } from './TaskListSkeleton';
 import { useLogout } from '@/auth/hooks/useLogout';
+import { Box } from '@/components/ui/box';
+import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
+import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
+import { AddIcon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/toast';
+import { VStack } from '@/components/ui/vstack';
+import { useRouter } from 'expo-router';
+import { ActivityIndicator, FlatList } from 'react-native';
+import { ErrorFallback } from '../../components/ErrorFallback';
+import useReadTask from '../../hooks/useReadTasks';
 import { Task } from '../../schema';
 import { TaskItem } from './TaskItem';
-import { useRouter } from 'expo-router';
-import { Heading } from '@/components/ui/heading';
-import { ErrorFallback } from '../../components/ErrorFallback';
+import { TaskListSkeleton } from './TaskListSkeleton';
 
 export function TaskDashboard() {
   const router = useRouter();
+  const toast = useToast();
   const logoutMutation = useLogout();
-  const handleLogout = async () => {
-    await logoutMutation.mutateAsync();
-    router.replace('/');
-  };
   const {
     data,
     isPending,
@@ -33,9 +31,27 @@ export function TaskDashboard() {
   } = useReadTask();
   const tasks: Task[] = data?.pages.flatMap((page) => page.data) ?? [];
 
+  const handleLogout = async () => {
+    try {
+      await logoutMutation.mutateAsync();
+      router.replace('/');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not log out.';
+      toast.show({
+        placement: 'top',
+        duration: 3000,
+        render: () => (
+          <Toast action="error" variant="solid">
+            <ToastTitle>Logout Failed</ToastTitle>
+            <ToastDescription>{message}</ToastDescription>
+          </Toast>
+        ),
+      });
+    }
+  };
+
   return (
     <Box className="flex-1 bg-slate-50 px-6 pt-12 items-center">
-
       <HStack className="justify-end mb-8 w-full">
         <Button
           size="sm"
@@ -47,8 +63,6 @@ export function TaskDashboard() {
           <ButtonText className="text-white text-xs font-medium">
             {logoutMutation.isPending ? 'Logging out...' : 'Log out'}
           </ButtonText>
-        >
-          <ButtonText className="text-white text-xs font-medium">Log out</ButtonText>
         </Button>
       </HStack>
 
@@ -59,7 +73,7 @@ export function TaskDashboard() {
       <Button
         size="lg"
         onPress={() => router.replace('/tasks/create')}
-        className=" bg-indigo-600 rounded-xl py-3.5 mb-8 shadow-sm active:bg-indigo-700"
+        className="bg-indigo-600 rounded-xl py-3.5 mb-8 shadow-sm active:bg-indigo-700"
       >
         <ButtonIcon as={AddIcon} className="text-white mr-2" />
         <ButtonText className="text-white font-semibold">Create Task</ButtonText>

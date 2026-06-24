@@ -5,16 +5,16 @@ import type { RegisterInput, UserRead } from '../types';
 
 type ApiErrorResponse = {
   detail?: string | unknown[];
-}; //FasAPI can return errors that is not my own string errors
+};
 
 const readErrorMessage = async (response: Response, fallback: string): Promise<string> => {
-  try {
-    const data = (await response.json()) as ApiErrorResponse;
-    if (typeof data.detail === 'string') {
-      return data.detail;
-    }
-  } catch {
-    // Keep the user-facing fallback if the backend sends no JSON body.
+  const contentType = response.headers.get('content-type');
+  if (!contentType?.includes('application/json')) {
+    return fallback;
+  }
+  const data = (await response.json()) as ApiErrorResponse;
+  if (typeof data.detail === 'string') {
+    return data.detail;
   }
   return fallback;
 };

@@ -6,7 +6,7 @@ import type { UserRead } from '../types';
 const fetchCurrentUser = async (): Promise<UserRead | null> => {
   const response = await fetch(API_ROUTES.AUTH.ME, {
     method: 'GET',
-    credentials: 'include', //sends cookies with this request
+    credentials: 'include',
   });
   if (response.status === 401) {
     return null;
@@ -20,7 +20,6 @@ const fetchCurrentUser = async (): Promise<UserRead | null> => {
 
 export function useCurrentUser() {
   return useQuery({
-    //Stores result of fetchCurrentUser under the label ['auth', 'me']
     queryKey: ['auth', 'me'],
     queryFn: fetchCurrentUser,
     retry: false,

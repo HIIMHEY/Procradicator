@@ -27,8 +27,8 @@ export function AuthScreenLayout({
   const router = useRouter();
   return (
     <ScrollView
-      contentInsetAdjustmentBehavior="automatic" //adjust spacing around system areas
-      keyboardShouldPersistTaps="handled" //buttons behave nicely when keyboard is open
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
       className="flex-1 bg-white"
       contentContainerClassName="flex-grow"
     >

@@ -1,11 +1,17 @@
 import { Button, ButtonText } from '@/components/ui/button';
+import {
+  FormControl,
+  FormControlError,
+  FormControlErrorText,
+  FormControlLabel,
+  FormControlLabelText,
+} from '@/components/ui/form-control';
 import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
+import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type Href, useRouter } from 'expo-router';
-import { useState } from 'react';
 import { Controller, type Resolver, useForm } from 'react-hook-form';
+//Controller connects custom UI components to React Hook form
 import { useRegister } from '../hooks/useRegister';
 import { registerSchema } from '../schemas';
 import type { RegisterInput } from '../types';
@@ -13,8 +19,8 @@ import { AuthScreenLayout } from './AuthScreenLayout';
 
 export function RegisterForm() {
   const router = useRouter();
+  const toast = useToast();
   const registerMutation = useRegister();
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     control,
     handleSubmit,
@@ -28,18 +34,39 @@ export function RegisterForm() {
     },
   });
   const onSubmit = handleSubmit(async (values) => {
-    setSubmitError(null);
     try {
       await registerMutation.mutateAsync(values);
+      toast.show({
+        placement: 'top',
+        duration: 3000,
+        render: () => (
+          <Toast action="success" variant="solid">
+            <ToastTitle>Account Created</ToastTitle>
+          </Toast>
+        ),
+      });
       router.replace('/login' as Href);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Could not create account.');
+      const message = error instanceof Error ? error.message : 'Could not create account.';
+
+      toast.show({
+        placement: 'top',
+        duration: 3000,
+        render: () => (
+          <Toast action="error" variant="solid">
+            <ToastTitle>Registration Failed</ToastTitle>
+            <ToastDescription>{message}</ToastDescription>
+          </Toast>
+        ),
+      });
     }
   });
   return (
     <AuthScreenLayout title="Register" showBackButton>
-      <VStack className="gap-2">
-        <Text className="text-sm font-semibold text-slate-600">Email</Text>
+      <FormControl isInvalid={!!errors.email}>
+        <FormControlLabel>
+          <FormControlLabelText>Email</FormControlLabelText>
+        </FormControlLabel>
         <Controller
           control={control}
           name="email"
@@ -57,11 +84,17 @@ export function RegisterForm() {
             </Input>
           )}
         />
-        {errors.email ? <Text className="text-sm text-red-600">{errors.email.message}</Text> : null}
-      </VStack>
+        {errors.email ? (
+          <FormControlError>
+            <FormControlErrorText>{errors.email.message}</FormControlErrorText>
+          </FormControlError>
+        ) : null}
+      </FormControl>
 
-      <VStack className="gap-2">
-        <Text className="text-sm font-semibold text-slate-600">Username</Text>
+      <FormControl isInvalid={!!errors.username}>
+        <FormControlLabel>
+          <FormControlLabelText>Username</FormControlLabelText>
+        </FormControlLabel>
         <Controller
           control={control}
           name="username"
@@ -79,12 +112,16 @@ export function RegisterForm() {
           )}
         />
         {errors.username ? (
-          <Text className="text-sm text-red-600">{errors.username.message}</Text>
+          <FormControlError>
+            <FormControlErrorText>{errors.username.message}</FormControlErrorText>
+          </FormControlError>
         ) : null}
-      </VStack>
+      </FormControl>
 
-      <VStack className="gap-2">
-        <Text className="text-sm font-semibold text-slate-600">Password</Text>
+      <FormControl isInvalid={!!errors.password}>
+        <FormControlLabel>
+          <FormControlLabelText>Password</FormControlLabelText>
+        </FormControlLabel>
         <Controller
           control={control}
           name="password"
@@ -92,7 +129,7 @@ export function RegisterForm() {
             <Input size="lg" className="rounded-md border border-slate-900 bg-white">
               <InputField
                 placeholder="Password"
-                secureTextEntry //hides password text
+                secureTextEntry
                 value={value}
                 onBlur={onBlur}
                 onChangeText={onChange}
@@ -101,11 +138,11 @@ export function RegisterForm() {
           )}
         />
         {errors.password ? (
-          <Text className="text-sm text-red-600">{errors.password.message}</Text>
+          <FormControlError>
+            <FormControlErrorText>{errors.password.message}</FormControlErrorText>
+          </FormControlError>
         ) : null}
-      </VStack>
-
-      {submitError ? <Text className="text-center text-sm text-red-600">{submitError}</Text> : null}
+      </FormControl>
 
       <Button
         accessibilityLabel="Submit registration"

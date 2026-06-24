@@ -1,12 +1,16 @@
 import { Button, ButtonText } from '@/components/ui/button';
+import {
+  FormControl,
+  FormControlError,
+  FormControlErrorText,
+  FormControlLabel,
+  FormControlLabelText,
+} from '@/components/ui/form-control';
 import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
+import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import { Controller, type Resolver, useForm } from 'react-hook-form';
-//Controller connects custom UI components to React Hook form
 import { useLogin } from '../hooks/useLogin';
 import { loginSchema } from '../schemas';
 import type { LoginInput } from '../types';
@@ -14,8 +18,8 @@ import { AuthScreenLayout } from './AuthScreenLayout';
 
 export function LoginForm() {
   const router = useRouter();
+  const toast = useToast();
   const loginMutation = useLogin();
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     control,
     handleSubmit,
@@ -28,18 +32,37 @@ export function LoginForm() {
     },
   });
   const onSubmit = handleSubmit(async (values) => {
-    setSubmitError(null);
     try {
       await loginMutation.mutateAsync(values);
+      toast.show({
+        placement: 'top',
+        duration: 3000,
+        render: () => (
+          <Toast action="success" variant="solid">
+            <ToastTitle>Login Successful</ToastTitle>
+          </Toast>
+        ),
+      });
       router.replace('/tasks');
     } catch {
-      setSubmitError('Invalid username or password.');
+      toast.show({
+        placement: 'top',
+        duration: 3000,
+        render: () => (
+          <Toast action="error" variant="solid">
+            <ToastTitle>Login Failed</ToastTitle>
+            <ToastDescription>Invalid username or password.</ToastDescription>
+          </Toast>
+        ),
+      });
     }
   });
   return (
     <AuthScreenLayout title="Login" showBackButton>
-      <VStack className="gap-2">
-        <Text className="text-sm font-semibold text-slate-600">Username</Text>
+      <FormControl isInvalid={!!errors.username}>
+        <FormControlLabel>
+          <FormControlLabelText>Username</FormControlLabelText>
+        </FormControlLabel>
         <Controller
           control={control}
           name="username"
@@ -57,12 +80,16 @@ export function LoginForm() {
           )}
         />
         {errors.username ? (
-          <Text className="text-sm text-red-600">{errors.username.message}</Text>
+          <FormControlError>
+            <FormControlErrorText>{errors.username.message}</FormControlErrorText>
+          </FormControlError>
         ) : null}
-      </VStack>
+      </FormControl>
 
-      <VStack className="gap-2">
-        <Text className="text-sm font-semibold text-slate-600">Password</Text>
+      <FormControl isInvalid={!!errors.password}>
+        <FormControlLabel>
+          <FormControlLabelText>Password</FormControlLabelText>
+        </FormControlLabel>
         <Controller
           control={control}
           name="password"
@@ -79,11 +106,11 @@ export function LoginForm() {
           )}
         />
         {errors.password ? (
-          <Text className="text-sm text-red-600">{errors.password.message}</Text>
+          <FormControlError>
+            <FormControlErrorText>{errors.password.message}</FormControlErrorText>
+          </FormControlError>
         ) : null}
-      </VStack>
-
-      {submitError ? <Text className="text-center text-sm text-red-600">{submitError}</Text> : null}
+      </FormControl>
 
       <Button
         accessibilityLabel="Submit login"

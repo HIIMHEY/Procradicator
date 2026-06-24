@@ -7,7 +7,7 @@ export function LandingScreen() {
   return (
     <AuthScreenLayout title="Procradicator" subtitle="Break tasks into focused sessions.">
       <Button
-        accessibilityLabel="Go to register" //label for tests and accessbility tools
+        accessibilityLabel="Go to register"
         size="lg"
         onPress={() => router.navigate('/register' as Href)}
         className="w-full rounded-lg bg-black"
