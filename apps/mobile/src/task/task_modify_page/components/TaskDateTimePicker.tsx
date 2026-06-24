@@ -13,7 +13,7 @@ interface TaskDateTimePickerProps {
 export function TaskDateTimePicker({ value, onChange }: TaskDateTimePickerProps) {
   const [showPicker, setShowPicker] = useState(false);
 
-  const displayString = value ? dayjs(value).format('DD-MM-YYYY HH:mm') : 'Select date & time...';
+  const displayString = value ? dayjs(value).format('DD/MM/YYYY HH:mm') : 'Select date & time...';
 
   return (
     <Box className="w-full mb-4 px-1 relative">

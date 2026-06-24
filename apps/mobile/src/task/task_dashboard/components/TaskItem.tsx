@@ -7,6 +7,7 @@ import { Box } from '@/components/ui/box';
 import useDeleteTask from '@/task/hooks/useDeleteTask';
 import { useRouter } from 'expo-router';
 import { Toast, ToastTitle, useToast } from '@/components/ui/toast';
+import { Button, ButtonText } from '@/components/ui/button';
 
 interface TaskItemProps {
   task: Task;
@@ -27,11 +28,18 @@ export function TaskItem({ task }: TaskItemProps) {
   return (
     <HStack className="w-full border border-black rounded-2xl mb-4 overflow-hidden bg-white min-h-[70px] items-stretch">
       <Box className="flex-1 justify-center px-4 py-3 border-r border-black">
-        <Text
-          className={`text-black text-base font-medium ${showOptions ? 'line-clamp-2' : 'truncate'}`}
+        <Button
+          variant="outline"
+          size="md"
+          action="primary"
+          onPress={() => router.navigate(`/tasks/${task.id}/`)}
         >
-          {task.title}
-        </Text>
+          <ButtonText
+            className={`text-black text-base font-medium ${showOptions ? 'line-clamp-2' : 'truncate'}`}
+          >
+            {task.title}
+          </ButtonText>
+        </Button>
       </Box>
 
       <TouchableOpacity
