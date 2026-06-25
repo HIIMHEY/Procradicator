@@ -26,7 +26,6 @@ class TaskRepo(BaseRepo[Task]):
     ) -> None:
         super().__init__(Task, session)
 
-    # TODO: got to stanadise what is roadmap and what is task
     async def get_roadmap(self, task_id: UUID) -> Task:
         logger.debug(f"Fetching roadmap graph for Task: {task_id}")
         try:
@@ -59,6 +58,7 @@ class TaskRepo(BaseRepo[Task]):
                 title=roadmap.title,
                 description=roadmap.description,
                 user_id=user_id,
+                due_at=roadmap.due_at
                 # Saves who owns the task to DB
                 # (Needed since TaskService does not create Task directly
                 # unlike ChatSession)
@@ -73,7 +73,7 @@ class TaskRepo(BaseRepo[Task]):
                     title=st_schema.title,
                     description=st_schema.description,
                     task_id=main_task.id,
-                    completed=0,
+                    completed=st_schema.completed,
                     estimate=st_schema.estimate,
                 )
                 self.session.add(new_subtask)

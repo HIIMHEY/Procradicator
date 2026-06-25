@@ -19,7 +19,7 @@ const readTask = async (id: string) => {
 
 export default function useReadTask(id: string, options: readTaskOptions) {
   return useQuery({
-    queryKey: ['task', id],
+    queryKey: ['task', 'detail', id],
     queryFn: () => readTask(id),
     enabled: options.isEnabled,
   });
