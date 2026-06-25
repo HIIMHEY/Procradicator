@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from pydantic_ai import Agent, AgentRunResult, ModelMessage
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.models.groq import GroqModel
+from pydantic_ai.providers.groq import GroqProvider
 
 from src.constants.messages import (
     ERR_CRITICAL,
@@ -27,9 +27,6 @@ from src.services.chat import ChatService
 from src.services.task import TaskService
 from src.utils import chat_hist_mapper
 
-# from pydantic_ai.models.ollama import OllamaModel
-# from pydantic_ai.providers.ollama import OllamaProvider
-
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -43,15 +40,10 @@ class AgentDeps:
 
 class LLMService:
     def __init__(self) -> None:
-        # self.model = OllamaModel(
-        #     model_name=settings.model_name,
-        #     provider=OllamaProvider(base_url=settings.ollama_base_url),
-        # )
-        self.model = OpenAIChatModel(
+        #turns out they had one for groq the whole time
+        self.model = GroqModel(
             model_name=settings.model_name,
-            provider=OpenAIProvider(
-                base_url=settings.base_url, api_key=settings.groq_api_key
-            ),
+            provider=GroqProvider(api_key=settings.groq_api_key),
         )
 
         self.agent = Agent(
