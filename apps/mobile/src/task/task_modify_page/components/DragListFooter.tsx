@@ -25,9 +25,9 @@ export function DragListFooter({
       <Button
         disabled={isDisabled}
         onPress={handleSubmit}
-        className="bg-emerald-700 rounded-full py-2.5 px-6"
+        className={'rounded-full py-2.5 px-6  disabled:bg-gray-600 bg-emerald-700'}
       >
-        <ButtonText className="text-white text-sm font-semibold">Done</ButtonText>
+        <ButtonText className=" text-white text-sm font-semibold">Done</ButtonText>
         {isPending ? <Spinner size="small" color="white" /> : <Icon as={CheckIcon} color="white" />}
       </Button>
     </Box>

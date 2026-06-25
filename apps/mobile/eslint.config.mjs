@@ -23,8 +23,8 @@ export default [
       '**/android/**',
       '**/.config.mjs',
       '**/components/ui/**',
-      '**/example/**'
-    ]
+      '**/example/**',
+    ],
   },
 
   {
@@ -63,6 +63,15 @@ export default [
 
   prettierConfig,
   {
-    ignores: ['node_modules/', '.expo/', 'dist/', 'ios/', 'android/', '*.config.mjs', 'components/ui/', 'example/'],
+    ignores: [
+      'node_modules/',
+      '.expo/',
+      'dist/',
+      'ios/',
+      'android/',
+      '*.config.mjs',
+      'components/ui/',
+      'example/',
+    ],
   },
 ];

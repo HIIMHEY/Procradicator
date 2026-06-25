@@ -10,6 +10,8 @@ import { Input, InputField } from '@/components/ui/input';
 import { Textarea, TextareaInput } from '@/components/ui/textarea';
 import { ModifyTaskData } from '@/task/schema';
 import { Control, Controller, FieldErrors } from 'react-hook-form';
+import { TaskDateTimePicker } from './TaskDateTimePicker';
+import dayjs from 'dayjs';
 
 interface DragListHeaderInputProps {
   control: Control<ModifyTaskData>;
@@ -65,6 +67,13 @@ export function DragListHeader({ control, errors }: DragListHeaderInputProps) {
           </FormControlError>
         )}
       </FormControl>
+      <Controller
+        control={control}
+        name="due_at"
+        render={({ field: { onChange, value } }) => (
+          <TaskDateTimePicker onChange={onChange} value={dayjs(value).toISOString()} />
+        )}
+      />
     </Box>
   );
 }

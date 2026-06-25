@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -23,10 +24,13 @@ def task_payload() -> dict[str, object]:
     return {
         "title": "Build a study plan",
         "description": "Make it less cursed",
+        "due_at": str(datetime.now(UTC)),
         "subtasks": [
             {
                 "id": "pick-topic",
                 "title": "Pick topic",
+                "estimate": "2",
+                "completed": "1",
                 "description": None,
                 "depends_on": [],
             }
@@ -60,7 +64,9 @@ class RecordingTaskService:
             user_id=user_id,
         )
 
-    async def list_roadmaps_for_user(self, user_id: UUID, page: int, limit: int) -> list[Task]:
+    async def list_roadmaps_for_user(
+        self, user_id: UUID, page: int, limit: int
+    ) -> list[Task]:
         self.list_user_id = user_id
         self.page = page
         self.limit = limit

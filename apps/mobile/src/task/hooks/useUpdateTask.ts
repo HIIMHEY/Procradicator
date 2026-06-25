@@ -1,6 +1,7 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ModifyTaskData } from '../schema';
+import { StatusCodes } from 'http-status-codes';
 
 const updateTask = (id: string) => async (values: ModifyTaskData) => {
   const res = await fetch(`${API_ROUTES.TASKS.BASE}/${id}`, {
@@ -10,6 +11,7 @@ const updateTask = (id: string) => async (values: ModifyTaskData) => {
     credentials: 'include',
   });
   if (!res.ok) throw new Error(String(res.status));
+  if (res.status == StatusCodes.NO_CONTENT) return {};
   return res.json();
 };
 
@@ -18,7 +20,7 @@ export default function useUpdateTask(id: string) {
   return useMutation({
     mutationFn: updateTask(id),
     onSettled: () => {
-      client.invalidateQueries({ queryKey: ['task', id] });
+      client.invalidateQueries({ queryKey: ['task', 'task-list', id] });
     },
   });
 }
