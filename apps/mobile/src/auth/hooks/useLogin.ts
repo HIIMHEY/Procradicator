@@ -1,6 +1,6 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { LoginInput } from '../types';
+import type { LoginInput } from '../schemas';
 
 const login = async ({ username, password }: LoginInput): Promise<void> => {
   const formBody = new URLSearchParams();

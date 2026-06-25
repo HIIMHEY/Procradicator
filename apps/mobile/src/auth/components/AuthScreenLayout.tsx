@@ -5,7 +5,6 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-//Anything react can render type
 import { ScrollView } from 'react-native';
 
 type AuthScreenLayoutProps = {
@@ -13,9 +12,6 @@ type AuthScreenLayoutProps = {
   subtitle?: string;
   showBackButton?: boolean;
   children: ReactNode;
-  //Register/login button for landing page
-  //username/password field, submit button for login page
-  //email/username/password field for register page
 };
 
 export function AuthScreenLayout({

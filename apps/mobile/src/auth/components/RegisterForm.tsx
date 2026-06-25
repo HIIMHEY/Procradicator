@@ -11,11 +11,11 @@ import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/t
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type Href, useRouter } from 'expo-router';
 import { Controller, type Resolver, useForm } from 'react-hook-form';
-//Controller connects custom UI components to React Hook form
 import { useRegister } from '../hooks/useRegister';
+import type { RegisterInput } from '../schemas';
 import { registerSchema } from '../schemas';
-import type { RegisterInput } from '../types';
 import { AuthScreenLayout } from './AuthScreenLayout';
+import { GoogleSsoSection } from './GoogleSsoSection';
 
 export function RegisterForm() {
   const router = useRouter();
@@ -48,7 +48,6 @@ export function RegisterForm() {
       router.replace('/login' as Href);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not create account.';
-
       toast.show({
         placement: 'top',
         duration: 3000,
@@ -149,6 +148,8 @@ export function RegisterForm() {
           {isRegistering ? 'Creating account...' : 'Register'}
         </ButtonText>
       </Button>
+
+      <GoogleSsoSection prompt="or register with" />
     </AuthScreenLayout>
   );
 }

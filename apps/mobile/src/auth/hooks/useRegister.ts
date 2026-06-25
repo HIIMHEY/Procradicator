@@ -1,7 +1,7 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation } from '@tanstack/react-query';
+import type { RegisterInput, UserRead } from '../schemas';
 import { userReadSchema } from '../schemas';
-import type { RegisterInput, UserRead } from '../types';
 
 type ApiErrorResponse = {
   detail?: string | unknown[];
