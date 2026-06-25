@@ -38,6 +38,20 @@ jest.mock('expo-router', () => {
 beforeEach(() => {
   mockUseCurrentUser.mockReset();
 });
+
+test('shows auth loading state while login status is still being checked', () => {
+  mockUseCurrentUser.mockReturnValue({
+    data: undefined,
+    isPending: true,
+    isLoading: true,
+  });
+  renderWithProviders(<RootLayout />);
+  expect(screen.getByLabelText('Checking your session')).toBeTruthy();
+  expect(screen.getByText('Checking your session...')).toBeTruthy();
+  expect(screen.queryByText('login')).toBeNull();
+  expect(screen.queryByText('tasks/index')).toBeNull();
+});
+
 test('logged-out users only get public auth routes', () => {
   mockUseCurrentUser.mockReturnValue({
     data: null,
