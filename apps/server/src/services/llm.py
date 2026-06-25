@@ -54,7 +54,6 @@ class LLMService:
             ),
         )
 
-        
         self.agent = Agent(
             model=self.model,
             deps_type=AgentDeps,
