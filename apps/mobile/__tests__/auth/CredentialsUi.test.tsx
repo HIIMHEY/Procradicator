@@ -11,6 +11,7 @@ const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
 const mockFetch = jest.fn();
+const mockStartGoogleSso = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
@@ -20,11 +21,24 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
+jest.mock(
+  '@/auth/hooks/useGoogleSso',
+  () => ({
+    useGoogleSso: () => ({
+      mutate: mockStartGoogleSso,
+      mutateAsync: mockStartGoogleSso,
+      isPending: false,
+    }),
+  }),
+  { virtual: true },
+);
+
 beforeEach(() => {
   mockNavigate.mockReset();
   mockReplace.mockReset();
   mockBack.mockReset();
   mockFetch.mockReset();
+  mockStartGoogleSso.mockReset();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
@@ -126,9 +140,18 @@ test('register form rejects credentials above backend length limits', async () =
   expect(mockFetch).not.toHaveBeenCalled();
 });
 
-test('login and register forms do not show oauth buttons', () => {
+test('login form shows Google SSO button', () => {
   renderWithProviders(<LoginForm />);
-  expect(screen.queryByText(/oauth/i)).toBeNull();
+  expect(screen.getByText('Continue with Google')).toBeTruthy();
+});
+
+test('register form shows Google SSO button', () => {
   renderWithProviders(<RegisterForm />);
-  expect(screen.queryByText(/oauth/i)).toBeNull();
+  expect(screen.getByText('Continue with Google')).toBeTruthy();
+});
+
+test('pressing Google SSO button starts the SSO flow', async () => {
+  renderWithProviders(<LoginForm />);
+  fireEvent.press(screen.getByLabelText('Continue with Google'));
+  await waitFor(() => expect(mockStartGoogleSso).toHaveBeenCalledTimes(1));
 });

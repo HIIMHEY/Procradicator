@@ -12,9 +12,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { Controller, type Resolver, useForm } from 'react-hook-form';
 import { useLogin } from '../hooks/useLogin';
+import type { LoginInput } from '../schemas';
 import { loginSchema } from '../schemas';
-import type { LoginInput } from '../types';
 import { AuthScreenLayout } from './AuthScreenLayout';
+import { GoogleSsoSection } from './GoogleSsoSection';
 
 export function LoginForm() {
   const router = useRouter();
@@ -119,6 +120,8 @@ export function LoginForm() {
           {isLoggingIn ? 'Logging in...' : 'Login'}
         </ButtonText>
       </Button>
+
+      <GoogleSsoSection prompt="or login with" />
     </AuthScreenLayout>
   );
 }

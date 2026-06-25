@@ -13,5 +13,7 @@ export const API_ROUTES = {
     LOGIN: `${BASE_URL}/auth/login`,
     LOGOUT: `${BASE_URL}/auth/logout`,
     ME: `${BASE_URL}/auth/me`,
+    GOOGLE_AUTHORIZE: `${BASE_URL}/auth/google/authorize`,
+    GOOGLE_CALLBACK: `${BASE_URL}/auth/google/callback`,
   },
 };
