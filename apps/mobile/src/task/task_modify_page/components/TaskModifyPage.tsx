@@ -69,37 +69,37 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
   return (
     <Box className="w-full h-screen max-h-screen flex flex-col overflow-hidden relative">
       <NavigationBar />
-      <DragListHeader control={control} errors={errors} />
-
-      {isError ? (
-        <ErrorFallback message={error?.message} onRetry={refetch} />
-      ) : (
-        <View className="flex-1 w-full overflow-y-scroll">
-          {currSubtasks.length === 0 ? (
-            <EmptyTaskPlaceholder />
-          ) : (
-            <DragList
-              data={fields}
-              keyExtractor={(item) => item.id}
-              onReordered={handleReorderSubtask}
-              renderItem={({ onDragStart, isActive, index }) => {
-                return (
-                  <SubtaskNode
-                    mode={mode}
-                    control={control}
-                    index={index}
-                    onDragTrigger={onDragStart}
-                    onDelete={() => handleDeleteSubtask(index)}
-                    errors={errors.subtasks?.[index]}
-                    isLast={index === fields.length - 1}
-                    isActive={isActive}
-                  />
-                );
-              }}
-            />
-          )}
+      <View className="flex-1 w-full overflow-y-scroll">
+        <View className="z-50">
+          <DragListHeader control={control} errors={errors} />
         </View>
-      )}
+
+        {isError ? (
+          <ErrorFallback message={error?.message} onRetry={refetch} />
+        ) : currSubtasks.length === 0 ? (
+          <EmptyTaskPlaceholder />
+        ) : (
+          <DragList
+            data={fields}
+            keyExtractor={(item) => item.id}
+            onReordered={handleReorderSubtask}
+            renderItem={({ onDragStart, isActive, index }) => {
+              return (
+                <SubtaskNode
+                  mode={mode}
+                  control={control}
+                  index={index}
+                  onDragTrigger={onDragStart}
+                  onDelete={() => handleDeleteSubtask(index)}
+                  errors={errors.subtasks?.[index]}
+                  isLast={index === fields.length - 1}
+                  isActive={isActive}
+                />
+              );
+            }}
+          />
+        )}
+      </View>
 
       <DragListFooter
         isDisabled={currSubtasks.length === 0}

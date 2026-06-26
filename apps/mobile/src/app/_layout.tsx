@@ -62,6 +62,8 @@ function ProtectedStack() {
         <Stack.Screen name="tasks/index" />
         <Stack.Screen name="tasks/create" />
         <Stack.Screen name="tasks/[id]/edit" />
+        <Stack.Screen name="tasks/[id]/index" />
+        <Stack.Screen name="focus/[id]/index" />
       </Stack.Protected>
     </Stack>
   );
