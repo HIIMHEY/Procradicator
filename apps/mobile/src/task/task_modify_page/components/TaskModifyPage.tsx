@@ -1,8 +1,9 @@
-import { useForm, useFieldArray, Resolver } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import DragList, { DragListRenderItemInfo } from 'react-native-draglist';
 import { Box } from '@/components/ui/box';
-import { SubtaskNode } from './SubtaskNode';
+import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/toast';
+import { ErrorFallback } from '@/task/components/ErrorFallback';
+import useCreateTask from '@/task/hooks/useCreateTask';
+import useReadTask from '@/task/hooks/useReadTask';
+import useUpdateTask from '@/task/hooks/useUpdateTask';
 import {
   ModifySubtaskData,
   ModifyTaskData,
@@ -10,20 +11,19 @@ import {
   Subtask,
   TaskModifyMode,
 } from '@/task/schema';
-import { DragListHeader } from './DragListHeader';
-import { DragListFooter } from './DragListFooter';
-import { View } from 'react-native';
-import { NavigationBar } from './NavigationBar';
-import { EmptyTaskPlaceholder } from './EmptyPlaceholder';
-import { useToast, Toast, ToastTitle, ToastDescription } from '@/components/ui/toast';
-import useCreateTask from '@/task/hooks/useCreateTask';
-import useUpdateTask from '@/task/hooks/useUpdateTask';
-import { useLocalSearchParams } from 'expo-router';
-import useReadTask from '@/task/hooks/useReadTask';
-import { useEffect } from 'react';
-import { ErrorFallback } from '@/task/components/ErrorFallback';
-import { TaskLoadingSkeleton } from './TaskLoadingSkeleton';
+import { zodResolver } from '@hookform/resolvers/zod';
 import dayjs from 'dayjs';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
+import { Resolver, useFieldArray, useForm } from 'react-hook-form';
+import { View } from 'react-native';
+import DragList, { DragListRenderItemInfo } from 'react-native-draglist';
+import { DragListFooter } from './DragListFooter';
+import { DragListHeader } from './DragListHeader';
+import { EmptyTaskPlaceholder } from './EmptyPlaceholder';
+import { NavigationBar } from './NavigationBar';
+import { SubtaskNode } from './SubtaskNode';
+import { TaskLoadingSkeleton } from './TaskLoadingSkeleton';
 
 interface ModifyTaskPageProps {
   mode: TaskModifyMode;
@@ -175,7 +175,7 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
 
   return (
     <Box className="w-full h-screen max-h-screen flex flex-col overflow-hidden relative">
-      <NavigationBar />
+      <NavigationBar taskId={mode === 'Edit' ? id : undefined} />
       <DragListHeader control={control} errors={errors} />
 
       {isError ? (

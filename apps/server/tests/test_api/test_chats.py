@@ -38,6 +38,26 @@ class RecordingChatService:
         return ChatSession(id=uuid4(), user_id=user_id)
 
 
+class RecordingLinkedChatService:
+    def __init__(self) -> None:
+        self.created_session: ChatSession | None = None
+        self.linked_task_id: UUID | None = None
+        self.linked_session_id: UUID | None = None
+        self.linked_user_id: UUID | None = None
+
+    async def create_session(self, user_id: UUID) -> ChatSession:
+        self.created_session = ChatSession(id=uuid4(), user_id=user_id)
+        return self.created_session
+
+    async def link_task_to_session(
+        self, task_id: UUID, session_id: UUID, user_id: UUID
+    ) -> ChatSession:
+        self.linked_task_id = task_id
+        self.linked_session_id = session_id
+        self.linked_user_id = user_id
+        return ChatSession(id=session_id, user_id=user_id, task_id=task_id)
+
+
 class ForbiddenChatService:
     async def get_session(self, session_id: UUID, user_id: UUID) -> ChatSession:
         raise ForbiddenError("chat session belongs to another user")
@@ -46,6 +66,13 @@ class ForbiddenChatService:
         self, session_id: UUID, user_id: UUID, limit: int = 20
     ) -> Sequence[ChatMessage]:
         raise ForbiddenError("chat session belongs to another user")
+
+
+class ForbiddenLinkedChatService(RecordingLinkedChatService):
+    async def link_task_to_session(
+        self, task_id: UUID, session_id: UUID, user_id: UUID
+    ) -> ChatSession:
+        raise ForbiddenError("task belongs to another user")
 
 
 class ForbiddenLLMService:
@@ -95,4 +122,31 @@ def test_other_users_chat_resource_returns_403(
         response = getattr(client, method)(path)
     else:
         response = getattr(client, method)(path, json=json_body)
+    assert response.status_code == 403
+
+
+def test_create_chat_session_can_link_owned_task() -> None:
+    user = logged_in_user()
+    task_id = uuid4()
+    chat_service = RecordingLinkedChatService()
+    app.dependency_overrides[current_active_user] = lambda: user
+    app.dependency_overrides[ChatService] = lambda: chat_service
+    response = TestClient(app).post(
+        "/chats/sessions",
+        json={"task_id": str(task_id)},
+    )
+    assert response.status_code == 201
+    assert chat_service.linked_task_id == task_id
+    assert chat_service.created_session is not None
+    assert chat_service.linked_session_id == chat_service.created_session.id
+    assert chat_service.linked_user_id == user.id
+
+
+def test_create_chat_session_with_other_users_task_returns_403() -> None:
+    app.dependency_overrides[current_active_user] = lambda: logged_in_user()
+    app.dependency_overrides[ChatService] = lambda: ForbiddenLinkedChatService()
+    response = TestClient(app).post(
+        "/chats/sessions",
+        json={"task_id": str(uuid4())},
+    )
     assert response.status_code == 403
