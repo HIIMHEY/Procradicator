@@ -1,20 +1,20 @@
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID
 
-from pydantic_ai import Agent, AgentRunResult, ModelMessage
+from pydantic_ai import Agent, AgentRunResult, ModelMessage, NativeOutput
 from pydantic_ai.models.groq import GroqModel
 from pydantic_ai.providers.groq import GroqProvider
 
 from src.constants.messages import (
     ERR_CRITICAL,
     ERR_DATABASE_UNAVAIL,
-    ERR_EMPTY_RESPONSE,
     ERR_MISSING_REF,
     ROADMAP_CREATED_TEMPLATE,
 )
-from src.constants.prompts import CREATE_INSTRUCTIONS
+from src.constants.prompts import CREATE_INSTRUCTIONS, DATETIME_PROMPT
 from src.core.config import settings
 from src.exceptions import (
     DependencyUnavailableError,
@@ -22,7 +22,8 @@ from src.exceptions import (
 )
 from src.models.chat import ChatMessage, Role
 from src.models.task import Task
-from src.schemas.llm import LLMResponse
+from src.schemas.llm import ChatResponse
+from src.schemas.task import CreateTask
 from src.services.chat import ChatService
 from src.services.task import TaskService
 from src.utils import chat_hist_mapper
@@ -40,7 +41,7 @@ class AgentDeps:
 
 class LLMService:
     def __init__(self) -> None:
-        #turns out they had one for groq the whole time
+        # turns out they had one for groq the whole time
         self.model = GroqModel(
             model_name=settings.model_name,
             provider=GroqProvider(api_key=settings.groq_api_key),
@@ -49,7 +50,15 @@ class LLMService:
         self.agent = Agent(
             model=self.model,
             deps_type=AgentDeps,
-            output_type=LLMResponse,
+            output_type=NativeOutput(
+                [ChatResponse, CreateTask],
+                name="llm_response",
+                description=(
+                    "Choose between asking a clarification question "
+                    "or creating the roadmap."
+                ),
+                strict=True,
+            ),
             instructions=(CREATE_INSTRUCTIONS),
             system_prompt=(),
             retries=3,
@@ -80,33 +89,27 @@ class LLMService:
             user_id=user_id,
         )
 
+        now: str = str(datetime.now(UTC))
         reply: str = ""
 
         try:
-            result: AgentRunResult[LLMResponse] = await self.agent.run(
-                user_input, deps=deps, message_history=pydantic_history
+            result: AgentRunResult[ChatResponse | CreateTask] = await self.agent.run(
+                user_input,
+                deps=deps,
+                message_history=pydantic_history,
+                instructions=DATETIME_PROMPT.format(now=now),
             )
-            response_data: LLMResponse = result.output
+            response: ChatResponse | CreateTask = result.output
 
-            if response_data.clarification and response_data.roadmap:
-                # if ambiguous we clarify
-                logger.warning("LLM generated ambiguous response")
-                reply = response_data.clarification
-
-            elif response_data.clarification:
-                reply = response_data.clarification
-
-            elif response_data.roadmap:
-                task: Task = await task_svc.create_roadmap(
-                    response_data.roadmap, user_id
-                )
-                await chat_svc.link_task_to_session(task.id, session_id, user_id)
-                reply = ROADMAP_CREATED_TEMPLATE.format(
-                    title=task.title, count=len(response_data.roadmap.subtasks)
-                )
-            else:
-                logger.error("LLM returned an empty response")
-                reply = ERR_EMPTY_RESPONSE
+            match response:
+                case ChatResponse():
+                    reply = response.msg
+                case CreateTask():
+                    task: Task = await task_svc.create_roadmap(response, user_id)
+                    await chat_svc.link_task_to_session(task.id, session_id, user_id)
+                    reply = ROADMAP_CREATED_TEMPLATE.format(
+                        title=task.title, count=len(response.subtasks)
+                    )
 
         except ItemNotFoundError as e:
             logger.error(
