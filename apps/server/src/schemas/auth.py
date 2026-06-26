@@ -12,6 +12,6 @@ class RegisterRequest(BaseModel):
     username: str = Field(
         min_length=1,
         max_length=100,
-        pattern=r"\S",
+        pattern=r"\S", #Must have at least one character that is not a whitespace.
         description="Unique username and at least one non-whitespace character for the user",
     )

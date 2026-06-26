@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.auth.fastapi_users.backend import auth_backend
+from src.auth.fastapi_users.oauth import get_google_oauth_router
 from src.auth.fastapi_users.setup import current_active_user, fastapi_users
 from src.exceptions import (
     DuplicateItemError,
@@ -17,8 +18,9 @@ from src.services.user import UserService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 router.include_router(fastapi_users.get_auth_router(auth_backend))
-#Already includes built in POST /auth/login and logout routes
-
+# Already includes built in POST /auth/login and logout routes
+router.include_router(get_google_oauth_router(), prefix="/google")
+# Already includes built in GET /auth/google/login and callback routes
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(
@@ -52,6 +54,6 @@ async def register(
 # Return the currently logged-in user
 @router.get("/me", response_model=UserRead)
 async def get_current_user(
-    current_user: Annotated[User, Depends(current_active_user)], 
+    current_user: Annotated[User, Depends(current_active_user)],
 ) -> UserRead:
     return UserRead.model_validate(current_user)

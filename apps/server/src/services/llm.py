@@ -3,20 +3,32 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
-from pydantic_ai import Agent, AgentRunResult, ModelMessage, ModelRetry, RunContext
+from pydantic_ai import Agent, AgentRunResult, ModelMessage
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-# from pydantic_ai.models.ollama import OllamaModel
-# from pydantic_ai.providers.ollama import OllamaProvider
+from src.constants.messages import (
+    ERR_CRITICAL,
+    ERR_DATABASE_UNAVAIL,
+    ERR_EMPTY_RESPONSE,
+    ERR_MISSING_REF,
+    ROADMAP_CREATED_TEMPLATE,
+)
+from src.constants.prompts import CREATE_INSTRUCTIONS
 from src.core.config import settings
-from src.exceptions import DatabaseError, ResourceNotFoundError, ServiceError
+from src.exceptions import (
+    DependencyUnavailableError,
+    ItemNotFoundError,
+)
 from src.models.chat import ChatMessage, Role
 from src.models.task import Task
-from src.schemas.task import CreateTask
+from src.schemas.llm import LLMResponse
 from src.services.chat import ChatService
 from src.services.task import TaskService
 from src.utils import chat_hist_mapper
+
+# from pydantic_ai.models.ollama import OllamaModel
+# from pydantic_ai.providers.ollama import OllamaProvider
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -37,79 +49,20 @@ class LLMService:
         # )
         self.model = OpenAIChatModel(
             model_name=settings.model_name,
-            provider=OpenAIProvider(base_url=settings.base_url, api_key=settings.groq_api_key),
+            provider=OpenAIProvider(
+                base_url=settings.base_url, api_key=settings.groq_api_key
+            ),
         )
 
-        # TODO: move the prompt to txt file in prompts folder n create txt file loader
+        
         self.agent = Agent(
             model=self.model,
             deps_type=AgentDeps,
-            output_type=str,
-            instructions=(
-                """
-            ROLE: You are the "Procradicator AI Planner," a specialized logic engine
-            that converts vague human goals into a strict Directed Acyclic Graph (DAG)
-            of actionable tasks.
-            STRICT SCHEMA ENFORCEMENT:
-            You must output data that match the schema for 'generate_task_tool' exactly.
-            Use 'temp_id'.
-            Never use 'id' or 'uuid'. This must be a unique slug (e.g., "setup-env").
-            Use 'depends_on'.
-            Title is mandatory. Description is optional but helpful.
-            NEVER use the word 'dependencies'. This is a list of 'temp_id' strings.
-            ERROR PREVENTION: If a task has no prerequisites,
-            'depends_on' must be an empty list [].
-
-            OPERATIONAL WORKFLOW:
-            1. ANALYZE: Review the user's input.
-            2. VALIDATE: Do you have enough detail to create at least 3-5 distinct,
-            chronological subtasks? Is each subtask such that it is completable within
-            hour?
-            3. INTERACT: If NO, ask ONE concise question (e.g. "What tools are you using?"
-            or "What is your deadline?"). DO NOT PROVIDE THE ROADMAP UNTIL THIS IS
-            ANSWERED.
-            4. EXECUTE: If YES, call 'generate_task_tool' immediately.
-
-            LOGIC CONSTRAINTS:
-            Every 'depends_on' entry must refer to a 'temp_id' that exists within the
-            same task set. Tasks must be "atomic"—small enough that a user doesn't
-            procrastinate starting them. Direct output to the tool only; do not add
-            conversational "here is your roadmap" fluff when calling the tool.
-                          """
-            ),
+            output_type=LLMResponse,
+            instructions=(CREATE_INSTRUCTIONS),
             system_prompt=(),
             retries=3,
         )
-
-        @self.agent.tool
-        async def generate_task_tool(ctx: RunContext[AgentDeps], roadmap: CreateTask) -> str | None:
-            try:
-                logger.info("TOOL CALL")
-                task: Task = await ctx.deps.task_svc.create_roadmap(roadmap, ctx.deps.user_id)
-                if not task.id:
-                    raise ValueError()
-                await ctx.deps.chat_svc.link_task_to_session(
-                    task.id, ctx.deps.session_id, ctx.deps.user_id #Check if user ownership is right
-                )
-                return (
-                    f"SUCCESS: Task '{task.title}' created with {len(roadmap.subtasks)} subtasks."  # noqa: E501
-                )
-
-            except ValueError as e:
-                raise ModelRetry(
-                    f"Value Error: {str(e)}. Check your structure and ensure your fields for tasks and subtasks are correct."  # noqa: E501
-                ) from e
-            except ServiceError as e:
-                match e.__cause__:
-                    case ResourceNotFoundError():
-                        raise ModelRetry(
-                            f"Not Found: {str(e)}. Ensure all dependencies exist in your list."
-                        ) from e
-                    case DatabaseError():
-                        # if fatal DB error, stop retrying
-                        return f"Encountered a database issue: {str(e)}"
-                    case _:
-                        return f"An unexpected error occured: {str(e)}"
 
     async def handle_chat(
         self,
@@ -123,21 +76,61 @@ class LLMService:
             session_id, user_id, role=Role.USER, content=user_input
         )  # user input
 
-        db_history: Sequence[ChatMessage] = await chat_svc.get_history(session_id, user_id)
-        pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(db_history)
+        db_history: Sequence[ChatMessage] = await chat_svc.get_history(
+            session_id, user_id
+        )
+        pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(
+            db_history
+        )
         deps: AgentDeps = AgentDeps(
             task_svc=task_svc,
             chat_svc=chat_svc,
             session_id=session_id,
             user_id=user_id,
-        ) #AI now knows/can check which user is logged in
-
-        result: AgentRunResult[str] = await self.agent.run(
-            user_input, deps=deps, message_history=pydantic_history
         )
 
-        res: ChatMessage = await chat_svc.add_message(
-            session_id, user_id, role=Role.ASSISTANT, content=result.output
-        )  # agent input
+        reply: str = ""
 
+        try:
+            result: AgentRunResult[LLMResponse] = await self.agent.run(
+                user_input, deps=deps, message_history=pydantic_history
+            )
+            response_data: LLMResponse = result.output
+
+            if response_data.clarification and response_data.roadmap:
+                # if ambiguous we clarify
+                logger.warning("LLM generated ambiguous response")
+                reply = response_data.clarification
+
+            elif response_data.clarification:
+                reply = response_data.clarification
+
+            elif response_data.roadmap:
+                task: Task = await task_svc.create_roadmap(
+                    response_data.roadmap, user_id
+                )
+                await chat_svc.link_task_to_session(task.id, session_id, user_id)
+                reply = ROADMAP_CREATED_TEMPLATE.format(
+                    title=task.title, count=len(response_data.roadmap.subtasks)
+                )
+            else:
+                logger.error("LLM returned an empty response")
+                reply = ERR_EMPTY_RESPONSE
+
+        except ItemNotFoundError as e:
+            logger.error(
+                f"Roadmap build failed due to missing reference subtask tracking: {e}"
+            )
+            reply = ERR_MISSING_REF
+
+        except DependencyUnavailableError as e:
+            logger.error(f"DB unavailable during roadmap save: {e}")
+            reply = ERR_DATABASE_UNAVAIL
+
+        except Exception as e:
+            logger.critical(f"Critical LLM execution: {str(e)}", exc_info=True)
+            reply = reply = ERR_CRITICAL
+        res: ChatMessage = await chat_svc.add_message(
+            session_id, user_id, role=Role.ASSISTANT, content=reply
+        )
         return res

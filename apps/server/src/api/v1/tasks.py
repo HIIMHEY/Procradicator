@@ -18,7 +18,7 @@ from src.services.task import TaskService
 router = APIRouter(prefix="/tasks", tags=["Task"])
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_task(
     payload: CreateTask,
     task_svc: Annotated[TaskService, Depends()],
@@ -48,7 +48,7 @@ async def list_tasks(
 ) -> list[GetTask]:
     try:
         tasks: list[Task] = await task_svc.list_roadmaps_for_user(current_user.id, page, limit)
-        return [GetTask.model_validate(task) for task in tasks] 
+        return [GetTask.model_validate(task) for task in tasks]
     except DependencyUnavailableError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

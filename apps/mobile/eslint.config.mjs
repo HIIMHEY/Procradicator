@@ -6,7 +6,6 @@ import reactPlugin from 'eslint-plugin-react';
 import reactNative from 'eslint-plugin-react-native';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
-import { version } from 'typescript';
 
 /**@type {any} */
 const reactNativeAny = reactNative;
@@ -15,6 +14,18 @@ const reactNativeAny = reactNative;
 export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/.expo/**',
+      '**/dist/**',
+      '**/ios/**',
+      '**/android/**',
+      '**/.config.mjs',
+      '**/components/ui/**',
+      '**/example/**',
+    ],
+  },
 
   {
     files: ['metro.config.js', '*.config.js'],
@@ -52,6 +63,15 @@ export default [
 
   prettierConfig,
   {
-    ignores: ['node_modules/', '.expo/', 'dist/', 'ios/', 'android/', '*.config.mjs'],
+    ignores: [
+      'node_modules/',
+      '.expo/',
+      'dist/',
+      'ios/',
+      'android/',
+      '*.config.mjs',
+      'components/ui/',
+      'example/',
+    ],
   },
 ];

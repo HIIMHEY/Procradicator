@@ -5,15 +5,25 @@ from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 from src.core.config import settings
 
-# NOTE: MODELS HAVE TO BE IMPORTED TO BE DETECTED BY ALEMIC
+# NOTE: MODELS HAVE TO BE IMPORTED TO BE DETECTED BY ALEMBIC
 from src.models import (
     ChatMessage,  # noqa: F401
     ChatSession,  # noqa: F401
+    OAuthAccount,  # noqa: F401
     Subtask,  # noqa: F401
     SubtaskDependency,  # noqa: F401
     Task,  # noqa: F401
     User,  # noqa: F401
 )
+
+SQLModel.metadata.naming_convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+# standardise, fix inconsistencies in alembic code
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -50,8 +60,9 @@ def run_migrations_offline() -> None:
 
     """
     # tell alembic to use our DB_URL
-    config.set_main_option("sqlalchemy.url", settings.test_db_url)
-    url = config.get_main_option("sqlalchemy.url", settings.test_db_url)
+    escaped_db_url = settings.test_db_url.replace("%", "%%")
+    config.set_main_option("sqlalchemy.url", escaped_db_url)
+    url = config.get_main_option("sqlalchemy.url", escaped_db_url)
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -71,7 +82,8 @@ def run_migrations_online() -> None:
 
     """
     # tell alembic to use our DB_URL
-    config.set_main_option("sqlalchemy.url", settings.db_url)
+    escaped_db_url = settings.db_url.replace("%", "%%")
+    config.set_main_option("sqlalchemy.url", escaped_db_url)
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

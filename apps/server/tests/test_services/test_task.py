@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -13,10 +14,13 @@ def create_task_payload() -> CreateTask:
     return CreateTask(
         title="Build a study plan",
         description=None,
+        due_at=datetime.now(UTC),
         subtasks=[
             CreateSubtask(
-                temp_id="pick-topic",
+                id="pick-topic",
                 title="Pick topic",
+                estimate=2,
+                completed=1,
                 description=None,
                 depends_on=[],
             )
@@ -40,7 +44,9 @@ class RecordingTaskRepo:
             user_id=user_id,
         )
 
-    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
+    async def list_by_user_id(
+        self, user_id: UUID, offset: int, limit: int
+    ) -> list[Task]:
         self.list_user_id = user_id
         self.offset = offset
         self.limit = limit

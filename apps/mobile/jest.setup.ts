@@ -1,4 +1,6 @@
-﻿jest.mock('@tanstack/devtools-event-client', () => {
+/// <reference types="jest" />
+
+jest.mock('@tanstack/devtools-event-client', () => {
   class EventClient {
     getPluginId() {
       return 'form-devtools';
@@ -28,4 +30,24 @@
   }
 
   return { EventClient };
+});
+
+jest.mock('nativewind', () => ({
+  ...jest.requireActual('nativewind'),
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+    toggleColorScheme: jest.fn(),
+  }),
+}));
+
+jest.mock('@legendapp/motion', () => {
+  const { View } = jest.requireActual('react-native');
+
+  return {
+    AnimatePresence: View,
+    Motion: {
+      View,
+    },
+  };
 });
