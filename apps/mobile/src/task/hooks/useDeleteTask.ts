@@ -18,7 +18,8 @@ export default function useDeleteTask(id: string) {
   return useMutation({
     mutationFn: () => deleteTask(id),
     onSettled: () => {
-      client.invalidateQueries({ queryKey: ['task', 'task-list', id] });
+      client.invalidateQueries({ queryKey: ['task', 'list'] });
+      client.invalidateQueries({ queryKey: ['task', 'detail', id] });
     },
   });
 }

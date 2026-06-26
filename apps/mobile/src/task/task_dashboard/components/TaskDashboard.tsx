@@ -106,6 +106,7 @@ export function TaskDashboard() {
           onEndReachedThreshold={0.5}
           ListEmptyComponent={
             <View className="justify-center items-center flex-1">
+              {/*The somehow when I try to put text here it gives me an error so a smile it shall be*/}
               <Icon as={Smile} size="xl" />
             </View>
           }
