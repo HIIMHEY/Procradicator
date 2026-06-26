@@ -91,7 +91,7 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
                     control={control}
                     index={idx}
                     onDragTrigger={onDragStart}
-                    onDelete={() => handleDeleteSubtask(idx, item.id)}
+                    onDelete={() => handleDeleteSubtask(item.id)}
                     errors={errors.subtasks?.[idx]}
                     isLast={idx === fields.length - 1}
                     isActive={isActive}

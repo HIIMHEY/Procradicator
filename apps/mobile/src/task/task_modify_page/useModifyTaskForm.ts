@@ -24,7 +24,6 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
     control,
     handleSubmit,
     setValue,
-    getValues,
     watch,
     reset,
     formState: { errors },
@@ -33,8 +32,11 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
     defaultValues: { title: '', description: '', subtasks: [], due_at: dayjs().toISOString() },
   });
 
+  // NOTE: all logic assumes a linear chain
+  // TODO: update to generalised logic
+
   //subtasks is a field that is an array
-  const { fields, append, remove, move } = useFieldArray({
+  const { fields, append } = useFieldArray({
     control,
     name: 'subtasks',
     keyName: 'rhf_id',
@@ -56,8 +58,7 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
   }, [data, mode, reset]);
 
   const handleAddSubtask = () => {
-    const genTempId = `temp-${Date.now()}`;
-    // VV this logic would need to be changed for more complex roadmaps VV
+    const genTempId = `temp-${dayjs().toISOString()}`;
     const lastSubtask = currSubtasks[currSubtasks.length - 1];
     append({
       id: genTempId,
@@ -69,27 +70,35 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
     });
   };
 
-  const handleDeleteSubtask = (idx: number, itemId: string) => {
-    setValue(
-      'subtasks',
-      currSubtasks.map((s) => ({ ...s, depends_on: s.depends_on.filter((id) => id !== itemId) })),
-      { shouldValidate: true },
-    );
-    remove(idx);
+  const handleDeleteSubtask = (itemId: string) => {
+    const remainderSubtasks = currSubtasks.filter((item) => item.id !== itemId);
+    const updatedSubtasks = remainderSubtasks.map((subtask, idx) => {
+      if (subtask.depends_on.includes(itemId)) {
+        return {
+          ...subtask,
+          depends_on: idx === 0 ? [] : [remainderSubtasks[idx - 1].id],
+        };
+      }
+      return subtask;
+    });
+    setValue('subtasks', updatedSubtasks, { shouldValidate: true });
   };
 
   const handleReorderSubtask = (fromIdx: number, toIdx: number) => {
-    const currVals = getValues('subtasks') || [];
     //cause apparently it can be currVals.length, like bruh
     //See: https://github.com/fivecar/react-native-draglist#:~:text=toIndex%20reflects%20the,data.length%5D).
-    toIdx = Math.min(toIdx, currVals.length - 1);
-    if (toIdx == fromIdx) return;
-    move(fromIdx, toIdx);
-    const updatedDepArray = currVals.map((subtask: ModifySubtaskData, idx: number) => {
+    toIdx = Math.min(toIdx, currSubtasks.length - 1);
+    if (toIdx === fromIdx) return;
+
+    const reorderedSubtasks = [...currSubtasks];
+    const [movedSubtask] = reorderedSubtasks.splice(fromIdx, 1);
+    reorderedSubtasks.splice(toIdx, 0, movedSubtask);
+
+    const updatedSubtasks = reorderedSubtasks.map((subtask: ModifySubtaskData, idx: number) => {
       if (idx === 0) return { ...subtask, depends_on: [] };
-      return { ...subtask, depends_on: [currVals[idx - 1].id] };
+      return { ...subtask, depends_on: [reorderedSubtasks[idx - 1].id] };
     });
-    setValue('subtasks', updatedDepArray, { shouldValidate: true });
+    setValue('subtasks', updatedSubtasks, { shouldValidate: true });
   };
 
   const onSubmit = handleSubmit((payload: ModifyTaskData) => {
