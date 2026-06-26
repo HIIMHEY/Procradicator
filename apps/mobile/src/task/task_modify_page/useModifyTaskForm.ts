@@ -1,12 +1,15 @@
 import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ModifySubtaskData, ModifyTaskData, ModifyTaskSchema, TaskModifyMode } from '@/task/schema';
+import { ModifyTaskData, ModifyTaskSchema, TaskModifyMode } from '@/task/schema';
 import useCreateTask from '@/task/hooks/useCreateTask';
 import useUpdateTask from '@/task/hooks/useUpdateTask';
 import useReadTask from '@/task/hooks/useReadTask';
 import { useEffect } from 'react';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import { buildDepMap, formatSubtasks } from './utils';
+
+dayjs.extend(utc);
 
 interface UseModifyTaskFormProps {
   id: string;
@@ -23,7 +26,6 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
   const {
     control,
     handleSubmit,
-    setValue,
     watch,
     reset,
     formState: { errors },
@@ -36,12 +38,12 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
   // TODO: update to generalised logic
 
   //subtasks is a field that is an array
-  const { fields, append } = useFieldArray({
+  const { fields, append, move, remove } = useFieldArray({
     control,
     name: 'subtasks',
     keyName: 'rhf_id',
   });
-  const currSubtasks = watch('subtasks');
+  const currSubtasks = watch('subtasks') || [];
 
   //populate form with extant task data
   useEffect(() => {
@@ -51,7 +53,7 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
         id: data.id || '',
         title: data.title || '',
         description: data.description || '',
-        due_at: data.due_at ? dayjs(data.due_at).toISOString() : dayjs().toISOString(),
+        due_at: data.due_at ? dayjs.utc(data.due_at).toISOString() : dayjs().utc().toISOString(),
         subtasks: formatSubtasks(data.subtasks, depMap),
       });
     }
@@ -70,18 +72,8 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
     });
   };
 
-  const handleDeleteSubtask = (itemId: string) => {
-    const remainderSubtasks = currSubtasks.filter((item) => item.id !== itemId);
-    const updatedSubtasks = remainderSubtasks.map((subtask, idx) => {
-      if (subtask.depends_on.includes(itemId)) {
-        return {
-          ...subtask,
-          depends_on: idx === 0 ? [] : [remainderSubtasks[idx - 1].id],
-        };
-      }
-      return subtask;
-    });
-    setValue('subtasks', updatedSubtasks, { shouldValidate: true });
+  const handleDeleteSubtask = (idx: number) => {
+    remove(idx);
   };
 
   const handleReorderSubtask = (fromIdx: number, toIdx: number) => {
@@ -90,20 +82,22 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
     toIdx = Math.min(toIdx, currSubtasks.length - 1);
     if (toIdx === fromIdx) return;
 
-    const reorderedSubtasks = [...currSubtasks];
-    const [movedSubtask] = reorderedSubtasks.splice(fromIdx, 1);
-    reorderedSubtasks.splice(toIdx, 0, movedSubtask);
-
-    const updatedSubtasks = reorderedSubtasks.map((subtask: ModifySubtaskData, idx: number) => {
-      if (idx === 0) return { ...subtask, depends_on: [] };
-      return { ...subtask, depends_on: [reorderedSubtasks[idx - 1].id] };
-    });
-    setValue('subtasks', updatedSubtasks, { shouldValidate: true });
+    move(fromIdx, toIdx);
   };
 
   const onSubmit = handleSubmit((payload: ModifyTaskData) => {
+    const subtasks = (payload.subtasks || []).map((subtask, idx, arr) => ({
+      ...subtask,
+      depends_on: idx === 0 ? [] : [arr[idx - 1].id],
+    }));
+
+    const finalPayload = {
+      ...payload,
+      subtasks,
+    };
+
     const mutate = mode === 'Edit' ? updateMutate : createMutate;
-    mutate(payload, {
+    mutate(finalPayload, {
       onError: onError,
       onSuccess: onSuccess,
     });

@@ -79,21 +79,19 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
             <EmptyTaskPlaceholder />
           ) : (
             <DragList
-              data={currSubtasks}
+              data={fields}
               keyExtractor={(item) => item.id}
               onReordered={handleReorderSubtask}
-              renderItem={({ item, onDragStart, isActive }) => {
-                const idx = fields.findIndex((field) => field.id === item.id);
-                if (idx === -1) return null;
+              renderItem={({ onDragStart, isActive, index }) => {
                 return (
                   <SubtaskNode
                     mode={mode}
                     control={control}
-                    index={idx}
+                    index={index}
                     onDragTrigger={onDragStart}
-                    onDelete={() => handleDeleteSubtask(item.id)}
-                    errors={errors.subtasks?.[idx]}
-                    isLast={idx === fields.length - 1}
+                    onDelete={() => handleDeleteSubtask(index)}
+                    errors={errors.subtasks?.[index]}
+                    isLast={index === fields.length - 1}
                     isActive={isActive}
                   />
                 );
