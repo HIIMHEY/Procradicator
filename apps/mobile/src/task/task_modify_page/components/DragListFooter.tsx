@@ -23,7 +23,7 @@ export function DragListFooter({
         <Icon as={AddIcon} color="white" />
       </Button>
       <Button
-        disabled={isDisabled}
+        disabled={isDisabled || isPending}
         onPress={handleSubmit}
         className={'rounded-full py-2.5 px-6  disabled:bg-gray-600 bg-emerald-700'}
       >
