@@ -13,7 +13,7 @@ from src.exceptions import (
 )
 from src.models.chat import ChatMessage, ChatSession
 from src.models.user import User
-from src.schemas.chat import CreateMessage
+from src.schemas.chat import CreateMessage, CreateSession
 from src.services.chat import ChatService
 from src.services.llm import LLMService
 from src.services.task import TaskService
@@ -25,14 +25,29 @@ router = APIRouter(prefix="/chats", tags=["Chat"])
 async def create_session(
     chat_svc: Annotated[ChatService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
+    payload: CreateSession | None = None,
 ) -> dict[str, UUID]:
     try:
         session: ChatSession = await chat_svc.create_session(current_user.id)
+        if payload and payload.task_id:
+            session = await chat_svc.link_task_to_session(
+                payload.task_id, session.id, current_user.id
+            )
         return {"session_id": session.id}
     except DuplicateItemError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Chat session creation violated a uniqueness constraint",
+        ) from e
+    except ForbiddenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Task access forbidden",
+        ) from e
+    except ItemNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
         ) from e
     except DependencyUnavailableError as e:
         raise HTTPException(
