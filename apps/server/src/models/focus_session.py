@@ -5,16 +5,13 @@ from enum import StrEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 
-class FocusSessionStatus(StrEnum):
-    ACTIVE = "ACTIVE"
+class FocusSessionState(StrEnum):
+    WORKING = "WORKING"
+    WORK_COMPLETE = "WORK_COMPLETE"
     RESTING = "RESTING"
+    REST_COMPLETE = "REST_COMPLETE"
     COMPLETED = "COMPLETED"
     ABANDONED = "ABANDONED"
-
-
-class FocusSessionMode(StrEnum):
-    WORK = "WORK"
-    REST = "REST"
 
 
 class FocusSessionLogEvent(StrEnum):
@@ -38,8 +35,7 @@ class FocusSession(SQLModel, table=True):
         index=True,
         ondelete="SET NULL",
     )
-    status: FocusSessionStatus = Field(default=FocusSessionStatus.ACTIVE)
-    mode: FocusSessionMode = Field(default=FocusSessionMode.WORK)
+    state: FocusSessionState = Field(default=FocusSessionState.WORKING)
     work_duration_minutes: int = Field(default=1)
     rest_duration_minutes: int = Field(default=15)
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

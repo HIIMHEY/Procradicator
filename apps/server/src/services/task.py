@@ -4,8 +4,8 @@ from uuid import UUID
 
 from fastapi import Depends
 
-from src.exceptions import DatabaseError, ForbiddenError, ServiceError
-from src.models.task import Task
+from src.exceptions import DatabaseError, ForbiddenError, ItemNotFoundError, ServiceError
+from src.models.task import Subtask, Task
 from src.repositories.task import TaskRepo
 from src.schemas.task import CreateTask, UpdateTask
 from src.utils.service_exception_mapper import map_service_exception
@@ -50,12 +50,83 @@ class TaskService:
         )  # Check if owner is indeed the current logged-in user
         return task
 
+    async def get_owned_subtask(self, subtask_id: UUID, user_id: UUID) -> Subtask:
+        try:
+            subtask: Subtask = await self.task_repo.get_subtask(subtask_id)
+        except DatabaseError as e:
+            logger.error(f"Subtask read failed: {str(e)}")
+            raise map_service_exception(e) from e
+
+        await self.get_roadmap(subtask.task_id, user_id)
+        return subtask
+
+    async def get_subtask_for_task(
+        self,
+        task_id: UUID,
+        subtask_id: UUID,
+        user_id: UUID,
+    ) -> Subtask:
+        task: Task = await self.get_roadmap(task_id, user_id)
+        subtask: Subtask | None = next(
+            (task_subtask for task_subtask in task.subtasks if task_subtask.id == subtask_id),
+            None,
+        )
+        if subtask is None:
+            raise ItemNotFoundError("Subtask not found")
+        return subtask
+
+    async def complete_subtask_for_task(
+        self,
+        task_id: UUID,
+        subtask_id: UUID,
+        user_id: UUID,
+    ) -> Subtask:
+        await self.get_subtask_for_task(task_id, subtask_id, user_id)
+        try:
+            return await self.task_repo.complete_subtask(subtask_id)
+        except DatabaseError as e:
+            logger.error(f"Subtask completion failed: {str(e)}")
+            raise map_service_exception(e) from e
+
+    async def get_next_incomplete_subtask(
+        self,
+        task_id: UUID,
+        current_subtask_id: UUID,
+        user_id: UUID,
+    ) -> Subtask | None:
+        task: Task = await self.get_roadmap(task_id, user_id)
+        current_subtask: Subtask | None = next(
+            (subtask for subtask in task.subtasks if subtask.id == current_subtask_id),
+            None,
+        )
+
+        if current_subtask is None:
+            raise ItemNotFoundError("Current subtask not found")
+
+        for next_subtask in current_subtask.next_subtask:
+            if next_subtask.completed < next_subtask.estimate:
+                return next_subtask
+
+        ordered_subtasks: list[Subtask] = sorted(
+            task.subtasks,
+            key=lambda subtask: subtask.created_at,
+        )
+
+        return next(
+            (
+                subtask
+                for subtask in ordered_subtasks
+                if subtask.id != current_subtask_id and subtask.completed < subtask.estimate
+            ),
+            None,
+        )
+
     async def list_roadmaps_for_user(self, user_id: UUID, page: int, limit: int) -> list[Task]:
-        #This function calculates pagination and asks the repo for only the current user’s tasks
+        # This function calculates pagination and asks the repo for only the current user’s tasks
         offset: int = (page - 1) * limit
         try:
-            return await self.task_repo.list_by_user_id(user_id, offset, limit) 
-            #Fetching task owned by this user only based on curr pagination
+            return await self.task_repo.list_by_user_id(user_id, offset, limit)
+            # Fetching task owned by this user only based on curr pagination
         except DatabaseError as e:
             logger.error(f"Task roadmap list failed: {str(e)}")
             raise map_service_exception(e) from e

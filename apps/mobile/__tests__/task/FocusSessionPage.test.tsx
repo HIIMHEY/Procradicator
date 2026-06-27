@@ -28,13 +28,12 @@ const activeFocusSession: FocusSession = {
   id: SESSION_ID,
   task_id: TASK_ID,
   current_subtask_id: SUBTASK_ID,
-  status: 'ACTIVE',
-  mode: 'WORK',
+  state: 'WORKING',
   work_duration_minutes: 1,
   rest_duration_minutes: 15,
   started_at: '2026-06-27T00:00:00Z',
   updated_at: '2026-06-27T00:00:00Z',
-  phase_started_at: '2026-06-27T00:00:00Z',
+  phase_started_at: null,
   completed_at: null,
   abandoned_at: null,
   current_subtask: {
@@ -77,7 +76,7 @@ test('renders the focus timer and subtask details', async () => {
   expect(screen.getByText('Complete the implementation section.')).toBeTruthy();
   expect(screen.getByText('work : rest')).toBeTruthy();
   expect(screen.getByText('1:15')).toBeTruthy();
-  expect(mockFetch).toHaveBeenCalledWith(API_ROUTES.FOCUS_SESSIONS.BASE, {
+  expect(mockFetch).toHaveBeenCalledWith(API_ROUTES.FOCUS.BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -93,7 +92,7 @@ test('opens the exit reason UI when the bottom arrow is pressed', async () => {
   await openExitForm();
   expect(screen.getByText('Give up?')).toBeTruthy();
   expect(screen.getByLabelText('Close exit form')).toBeTruthy();
-  expect(mockFetch).toHaveBeenLastCalledWith(API_ROUTES.FOCUS_SESSIONS.EXIT_ATTEMPT(SESSION_ID), {
+  expect(mockFetch).toHaveBeenLastCalledWith(API_ROUTES.FOCUS.ACTION(SESSION_ID, 'exit_attempt'), {
     method: 'POST',
     credentials: 'include',
   });
@@ -114,7 +113,7 @@ test('requires a reason before abandoning', async () => {
 test('sends the abandon reason to the backend', async () => {
   const abandonedFocusSession: FocusSession = {
     ...activeFocusSession,
-    status: 'ABANDONED',
+    state: 'ABANDONED',
     abandoned_at: '2026-06-27T00:01:00Z',
     updated_at: '2026-06-27T00:01:00Z',
   };
@@ -132,7 +131,7 @@ test('sends the abandon reason to the backend', async () => {
   await waitFor(() => {
     expect(mockNavigate).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
-  expect(mockFetch).toHaveBeenLastCalledWith(API_ROUTES.FOCUS_SESSIONS.ABANDON(SESSION_ID), {
+  expect(mockFetch).toHaveBeenLastCalledWith(API_ROUTES.FOCUS.ACTION(SESSION_ID, 'abandon'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -148,6 +147,7 @@ test('resumes an active work session with elapsed time deducted', async () => {
     createJsonResponse({
       ...activeFocusSession,
       work_duration_minutes: 25,
+      state: 'WORKING',
       phase_started_at: '2026-06-27T00:00:00Z',
     }),
   );
@@ -159,8 +159,7 @@ test('shows Start when a resting session has already finished rest', async () =>
   mockFetch.mockResolvedValueOnce(
     createJsonResponse({
       ...activeFocusSession,
-      status: 'RESTING',
-      mode: 'REST',
+      state: 'REST_COMPLETE',
       phase_started_at: null,
     }),
   );

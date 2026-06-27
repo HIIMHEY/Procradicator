@@ -50,31 +50,6 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error fetching roadmap {task_id}: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
-    async def get_task_by_subtask_id(self, subtask_id: UUID) -> Task:
-        logger.debug(f"Fetching task for subtask: {subtask_id}")
-        try:
-            statement: SelectOfScalar[Task] = (
-                select(Task)
-                .join(Subtask)
-                .where(col(Subtask.id) == subtask_id)
-                .options(
-                    selectinload(Task.subtasks).selectinload(Subtask.next_subtask)  # type: ignore
-                )
-            )
-            result: Task | None = (await self.session.exec(statement)).first()
-
-            if not result:
-                raise ResourceNotFoundError("task not found for subtask")
-
-            return result
-        except SQLAlchemyError as e:
-            await self.session.rollback()
-            logger.error(
-                f"Error fetching task for subtask {subtask_id}: {str(e)}",
-                exc_info=True,
-            )
-            raise map_db_exception(e) from e
-
     async def get_subtask(self, subtask_id: UUID) -> Subtask:
         logger.debug(f"Fetching subtask: {subtask_id}")
         try:
@@ -110,33 +85,6 @@ class TaskRepo(BaseRepo[Task]):
                 exc_info=True,
             )
             raise map_db_exception(e) from e
-
-    async def get_next_incomplete_subtask(
-        self,
-        task_id: UUID,
-        current_subtask_id: UUID,
-    ) -> Subtask | None:
-        task: Task = await self.get_roadmap(task_id)
-        current_subtask: Subtask | None = next(
-            (subtask for subtask in task.subtasks if subtask.id == current_subtask_id),
-            None,
-        )
-
-        if current_subtask:
-            for next_subtask in current_subtask.next_subtask:
-                if next_subtask.completed < next_subtask.estimate:
-                    return next_subtask
-
-        ordered_subtasks: list[Subtask] = sorted(
-            task.subtasks,
-            key=lambda subtask: subtask.created_at,
-        )
-
-        for subtask in ordered_subtasks:
-            if subtask.id != current_subtask_id and subtask.completed < subtask.estimate:
-                return subtask
-
-        return None
 
     async def create_roadmap_graph(self, roadmap: CreateTask, user_id: UUID) -> Task:
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")

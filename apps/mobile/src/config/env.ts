@@ -4,15 +4,12 @@ const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).
 
 export const API_ROUTES = {
   CHAT_SESSION: {},
-  FOCUS_SESSIONS: {
-    BASE: `${BASE_URL}/focus-sessions`,
-    ACTIVE: `${BASE_URL}/focus-sessions/active`,
-    DETAIL: (sessionId: string) => `${BASE_URL}/focus-sessions/${sessionId}`,
-    EXIT_ATTEMPT: (sessionId: string) => `${BASE_URL}/focus-sessions/${sessionId}/exit-attempt`,
-    WORK_COMPLETE: (sessionId: string) => `${BASE_URL}/focus-sessions/${sessionId}/work-complete`,
-    REST_COMPLETE: (sessionId: string) => `${BASE_URL}/focus-sessions/${sessionId}/rest-complete`,
-    RESUME: (sessionId: string) => `${BASE_URL}/focus-sessions/${sessionId}/resume`,
-    ABANDON: (sessionId: string) => `${BASE_URL}/focus-sessions/${sessionId}/abandon`,
+  FOCUS: {
+    BASE: `${BASE_URL}/focus`,
+    ACTIVE: `${BASE_URL}/focus/active`,
+    DETAIL: (sessionId: string) => `${BASE_URL}/focus/${sessionId}`,
+    ACTION: (sessionId: string, action: string) =>
+      `${BASE_URL}/focus/${sessionId}?action=${action}`,
   },
   TASKS: {
     BASE: `${BASE_URL}/tasks`,

@@ -13,7 +13,7 @@ from src.models.focus_session import (
     FocusSession,
     FocusSessionLog,
     FocusSessionLogEvent,
-    FocusSessionStatus,
+    FocusSessionState,
 )
 from src.utils.db_exception_mapper import map_db_exception
 
@@ -36,10 +36,12 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
         try:
             statement: SelectOfScalar[FocusSession] = select(FocusSession).where(
                 col(FocusSession.user_id) == user_id,
-                col(FocusSession.status).in_(
+                col(FocusSession.state).in_(
                     [
-                        FocusSessionStatus.ACTIVE,
-                        FocusSessionStatus.RESTING,
+                        FocusSessionState.WORKING,
+                        FocusSessionState.WORK_COMPLETE,
+                        FocusSessionState.RESTING,
+                        FocusSessionState.REST_COMPLETE,
                     ]
                 ),
             )
@@ -54,14 +56,15 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
             )
             raise map_db_exception(e) from e
 
-    async def save_session(
-        self,
-        focus_session: FocusSession,
-    ) -> FocusSession:
-        saved_session: FocusSession = await self.upsert(focus_session)
-        return saved_session
 
-    async def add_log(
+class FocusSessionLogRepo(BaseRepo[FocusSessionLog]):
+    def __init__(
+        self,
+        session: Annotated[AsyncSession, Depends(get_async_session)],
+    ) -> None:
+        super().__init__(FocusSessionLog, session)
+
+    async def create_log(
         self,
         focus_session_id: UUID,
         event: FocusSessionLogEvent,
@@ -69,22 +72,11 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
         duration_minutes: int | None = None,
         reason: str | None = None,
     ) -> FocusSessionLog:
-        try:
-            log: FocusSessionLog = FocusSessionLog(
-                focus_session_id=focus_session_id,
-                subtask_id=subtask_id,
-                event=event,
-                duration_minutes=duration_minutes,
-                reason=reason,
-            )
-            self.session.add(log)
-            await self.session.commit()
-            await self.session.refresh(log)
-            return log
-        except SQLAlchemyError as e:
-            await self.session.rollback()
-            logger.error(
-                f"Failed to add focus session log: {str(e)}",
-                exc_info=True,
-            )
-            raise map_db_exception(e) from e
+        log: FocusSessionLog = FocusSessionLog(
+            focus_session_id=focus_session_id,
+            subtask_id=subtask_id,
+            event=event,
+            duration_minutes=duration_minutes,
+            reason=reason,
+        )
+        return await self.upsert(log)
