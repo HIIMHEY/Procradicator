@@ -12,8 +12,8 @@ export function AIButton({ taskId }: AIButtonProps) {
   return (
     <Button
       onPress={() => {
-        if (!taskId) router.navigate(`/tasks/chat`);
-        else router.navigate(`/tasks/${taskId}/chat`);
+        if (!taskId) router.navigate(`/tasks/create/chat`);
+        else router.navigate(`/tasks/${taskId}/edit/chat`);
       }}
       className="bg-indigo-600 rounded-full py-2.5 px-5"
     >

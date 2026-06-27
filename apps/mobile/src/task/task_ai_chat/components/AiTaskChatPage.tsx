@@ -2,13 +2,14 @@ import { Box } from '@/components/ui/box';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Send } from 'lucide-react-native';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Controller } from 'react-hook-form';
 import { MessageRow } from './MessageRow';
 import { NavigationBar } from '@/task/components/NavigationBar';
 import { ManualButton } from './ManualButton';
 import { FlatList } from 'react-native-gesture-handler';
 import { useAiTaskChat } from '../hooks/useAIChat';
+import { Input, InputField } from '@/components/ui/input';
 
 export function AiTaskChatPage() {
   const {
@@ -55,17 +56,21 @@ export function AiTaskChatPage() {
           control={control}
           name="msg"
           render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              placeholder="State your goals..."
-              placeholderTextColor="#A1A1AA"
-              className="h-11 flex-1 rounded-full border border-zinc-200 bg-zinc-50 px-4 text-sm text-zinc-800"
-              editable={!isInputDisabled}
-              onSubmitEditing={handleSend}
-              returnKeyType="send"
-            />
+            <Input
+              isDisabled={isInputDisabled}
+              className="h-11 flex-1 rounded-full border border-zinc-200 bg-zinc-50"
+            >
+              <InputField
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="State your goals..."
+                placeholderTextColor="#A1A1AA"
+                className="px-4 text-sm text-zinc-800"
+                onSubmitEditing={handleSend}
+                returnKeyType="send"
+              />
+            </Input>
           )}
         />
 

@@ -4,7 +4,6 @@ import type { ChatMessage } from '../schemas';
 
 type SendMessageArgs = {
   message: string;
-  
 };
 
 const sendChatMessage =

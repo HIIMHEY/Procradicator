@@ -16,7 +16,7 @@ from src.constants.messages import (
     ROADMAP_CREATED_TEMPLATE,
     ROADMAP_UPDATED_TEMPLATE,
 )
-from src.constants.prompts import CREATE_INSTRUCTIONS, DATETIME_PROMPT, UPDATE_CONTEXT
+from src.constants.prompts import DATETIME_PROMPT, INIT_INSTRUCTIONS, UPDATE_CONTEXT
 from src.core.config import settings
 from src.exceptions import (
     DependencyUnavailableError,
@@ -61,7 +61,7 @@ class LLMService:
                 ),
                 strict=True,
             ),
-            instructions=(CREATE_INSTRUCTIONS),
+            instructions=(INIT_INSTRUCTIONS),
             system_prompt=(),
             retries=3,
         )
