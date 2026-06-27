@@ -65,9 +65,11 @@ test('logged-out users only get public auth routes', () => {
   expect(screen.getByText('auth/sso/callback')).toBeTruthy();
   expect(screen.queryByText('tasks/index')).toBeNull();
   expect(screen.queryByText('tasks/create')).toBeNull();
+  expect(screen.queryByText('tasks/create/chat')).toBeNull();
   expect(screen.queryByText('tasks/[id]/edit')).toBeNull();
+  expect(screen.queryByText('tasks/[id]/edit/chat')).toBeNull();
   expect(screen.queryByText('tasks/[id]')).toBeNull();
-  expect(screen.queryByText('tasks/[id]/chat')).toBeNull();
+  expect(screen.queryByText('focus/[id]/index')).toBeNull();
 });
 
 test('logged-in users get protected task routes', () => {
@@ -86,9 +88,11 @@ test('logged-in users get protected task routes', () => {
   renderWithProviders(<RootLayout />);
   expect(screen.getByText('tasks/index')).toBeTruthy();
   expect(screen.getByText('tasks/create')).toBeTruthy();
+  expect(screen.getByText('tasks/create/chat')).toBeTruthy();
   expect(screen.getByText('tasks/[id]/edit')).toBeTruthy();
+  expect(screen.getByText('tasks/[id]/edit/chat')).toBeTruthy();
   expect(screen.getByText('tasks/[id]')).toBeTruthy();
-  expect(screen.getByText('tasks/[id]/chat')).toBeTruthy();
+  expect(screen.getByText('focus/[id]/index')).toBeTruthy();
   expect(screen.queryByText('login')).toBeNull();
   expect(screen.queryByText('register')).toBeNull();
 });
