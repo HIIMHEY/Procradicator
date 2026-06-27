@@ -12,6 +12,7 @@ const mockFetch = jest.fn();
 const mockTaskId = '11111111-1111-4111-8111-111111111111';
 const mockSessionId = '22222222-2222-4222-8222-222222222222';
 const mockMessageId = '33333333-3333-4333-8333-333333333333';
+const mockHistoryUrl = `${API_ROUTES.CHAT.HISTORY(mockSessionId)}?page=1&limit=20`;
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({
@@ -41,7 +42,7 @@ beforeEach(() => {
         }),
       );
     }
-    if (url === API_ROUTES.CHAT.HISTORY(mockSessionId) && options?.method === 'GET') {
+    if (url === mockHistoryUrl && options?.method === 'GET') {
       return Promise.resolve(jsonResponse([]));
     }
     if (url === API_ROUTES.CHAT.MESSAGE(mockSessionId) && options?.method === 'POST') {
@@ -64,7 +65,6 @@ beforeEach(() => {
 test('renders the chat controls and creates a session linked to the task', async () => {
   renderWithProviders(<AiTaskChatPage />);
   expect(screen.getByText('Manual Mode')).toBeTruthy();
-  expect(screen.getByPlaceholderText('User Chat Message Input field')).toBeTruthy();
   await waitFor(() =>
     expect(mockFetch).toHaveBeenCalledWith(API_ROUTES.CHAT.CREATE_SESSION, {
       method: 'POST',
@@ -77,8 +77,9 @@ test('renders the chat controls and creates a session linked to the task', async
       }),
     }),
   );
+  expect(await screen.findByPlaceholderText('State your goals...')).toBeTruthy();
   await waitFor(() =>
-    expect(mockFetch).toHaveBeenCalledWith(API_ROUTES.CHAT.HISTORY(mockSessionId), {
+    expect(mockFetch).toHaveBeenCalledWith(mockHistoryUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -92,7 +93,7 @@ test('Manual Mode navigates to the existing manual edit screen', async () => {
   renderWithProviders(<AiTaskChatPage />);
   await waitFor(() =>
     expect(mockFetch).toHaveBeenCalledWith(
-      API_ROUTES.CHAT.HISTORY(mockSessionId),
+      mockHistoryUrl,
       expect.objectContaining({
         method: 'GET',
       }),
@@ -105,7 +106,7 @@ test('Manual Mode navigates to the existing manual edit screen', async () => {
 test('sends the user message to the linked chat session', async () => {
   renderWithProviders(<AiTaskChatPage />);
   await waitFor(() =>
-    expect(mockFetch).toHaveBeenCalledWith(API_ROUTES.CHAT.HISTORY(mockSessionId), {
+    expect(mockFetch).toHaveBeenCalledWith(mockHistoryUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -113,7 +114,7 @@ test('sends the user message to the linked chat session', async () => {
       credentials: 'include',
     }),
   );
-  const input = screen.getByPlaceholderText('User Chat Message Input field');
+  const input = screen.getByPlaceholderText('State your goals...');
   fireEvent.changeText(input, 'Reduce this roadmap to three subtasks');
   fireEvent(input, 'submitEditing');
   await waitFor(() =>
