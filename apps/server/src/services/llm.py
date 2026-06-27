@@ -22,7 +22,7 @@ from src.exceptions import (
     DependencyUnavailableError,
     ItemNotFoundError,
 )
-from src.models.chat import ChatMessage, Role
+from src.models.chat import ChatMessage, ChatSession, Role
 from src.models.task import Task
 from src.schemas.llm import ChatResponse
 from src.schemas.task import CreateTask, GetTask, UpdateTask
@@ -49,7 +49,7 @@ class LLMService:
             provider=GroqProvider(api_key=settings.groq_api_key),
         )
 
-        self.agent = Agent(
+        self.agent: Agent[AgentDeps, ChatResponse | CreateTask | UpdateTask] = Agent(
             model=self.model,
             deps_type=AgentDeps,
             output_type=NativeOutput(
@@ -79,7 +79,7 @@ class LLMService:
                 session_id, user_id, role=Role.USER, content=user_input
             )  # user input
 
-            session = await chat_svc.get_session(session_id, user_id)
+            session: ChatSession = await chat_svc.get_session(session_id, user_id)
             linked_task_id: UUID | None = session.task_id
 
             db_history: Sequence[ChatMessage] = await chat_svc.get_history(
@@ -109,6 +109,7 @@ class LLMService:
 
             now: str = str(datetime.now(UTC))
             reply: str = ""
+            role: Role = Role.ASSISTANT
 
             result: AgentRunResult[ChatResponse | CreateTask | UpdateTask] = (
                 await self.agent.run(
@@ -128,6 +129,7 @@ class LLMService:
                     reply = ROADMAP_CREATED_TEMPLATE.format(
                         title=task.title, count=len(response.subtasks)
                     )
+                    role = Role.TOOL
                 case UpdateTask():
                     if linked_task_id:
                         await task_svc.update_roadmap(linked_task_id, response, user_id)
@@ -138,6 +140,7 @@ class LLMService:
                         reply = ROADMAP_UPDATED_TEMPLATE.format(
                             title=task.title, count=len(response.subtasks)
                         )
+                        role = Role.TOOL
 
         except ItemNotFoundError as e:
             logger.error(
@@ -154,6 +157,6 @@ class LLMService:
             reply = reply = ERR_CRITICAL
         finally:
             res: ChatMessage = await chat_svc.add_message(
-                session_id, user_id, role=Role.ASSISTANT, content=reply
+                session_id, user_id, role=role, content=reply
             )
         return res

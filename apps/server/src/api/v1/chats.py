@@ -85,11 +85,12 @@ async def get_session(
 async def get_history(
     session_id: UUID,
     limit: int,
+    page: int,
     chat_svc: Annotated[ChatService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
 ) -> Sequence[ChatMessage]:
     try:
-        return await chat_svc.get_history(session_id, current_user.id, limit)
+        return await chat_svc.get_history(session_id, current_user.id, limit, page)
     except ForbiddenError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

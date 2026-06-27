@@ -10,7 +10,7 @@ interface MessageRowProps {
 }
 
 export function MessageRow({ message, taskId }: MessageRowProps) {
-  if (message.content.startsWith('Task:')) {
+  if (message.role == 'TOOL') {
     return <GeneratedCard message={message.content} taskId={taskId} />;
   }
 
