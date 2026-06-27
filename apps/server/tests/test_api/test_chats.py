@@ -63,7 +63,7 @@ class ForbiddenChatService:
         raise ForbiddenError("chat session belongs to another user")
 
     async def get_history(
-        self, session_id: UUID, user_id: UUID, limit: int = 20
+        self, session_id: UUID, user_id: UUID, limit: int = 20, page: int = 1
     ) -> Sequence[ChatMessage]:
         raise ForbiddenError("chat session belongs to another user")
 
@@ -107,7 +107,7 @@ def test_create_chat_session_passes_current_user_id_to_service() -> None:
     ("method", "path", "json_body"),
     [
         ("get", f"/chats/sessions/{uuid4()}", None),
-        ("get", f"/chats/sessions/{uuid4()}/history?limit=20", None),
+        ("get", f"/chats/sessions/{uuid4()}/history?limit=20&page=1", None),
         ("post", f"/chats/sessions/{uuid4()}/messages", {"msg": "hello"}),
     ],
 )
