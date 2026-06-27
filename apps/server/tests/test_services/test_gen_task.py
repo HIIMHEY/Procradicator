@@ -9,7 +9,7 @@ from pydantic_ai import (
 )
 from src.constants.messages import ERR_DATABASE_UNAVAIL
 from src.exceptions import DependencyUnavailableError
-from src.models.chat import ChatMessage, Role
+from src.models.chat import ChatMessage, ChatSession, Role
 from src.schemas.task import CreateSubtask, CreateTask
 from src.services.llm import LLMService
 
@@ -25,6 +25,9 @@ async def test_gen_task_handles_db_disconn() -> None:
     session_id = uuid4()
     user_id = uuid4()
 
+    mock_chat_svc.get_session = AsyncMock(
+        return_value=ChatSession(id=session_id, user_id=user_id)
+    )
     mock_chat_svc.get_history = AsyncMock(return_value=[])
     mock_chat_svc.add_message = AsyncMock(
         return_value=ChatMessage(

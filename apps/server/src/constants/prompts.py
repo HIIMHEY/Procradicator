@@ -34,7 +34,7 @@ DATETIME_PROMPT: str = "The current date and time is {now}."
 
 UPDATE_CONTEXT: str = """
 The user is editing an existing task.
-You must return the full updated roadmap, not only the changed subtask.
+If updating the roadmap, return the full updated roadmap not only the changed subtask.
 Preserve the task due_at unless the user explicitly asks to change it.
 Preserve existing UUID subtask ids for subtasks that still exist.
 Use new kebab-case string ids only for newly added subtasks.
