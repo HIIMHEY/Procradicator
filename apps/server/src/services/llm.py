@@ -113,7 +113,7 @@ class LLMService:
 
         try:
             result: AgentRunResult[LLMResponse] = await self.agent.run(
-                llm_input, deps=deps, message_history=pydantic_history
+                instructions=llm_input, deps=deps, message_history=pydantic_history
             )
             response_data: LLMResponse = result.output
 

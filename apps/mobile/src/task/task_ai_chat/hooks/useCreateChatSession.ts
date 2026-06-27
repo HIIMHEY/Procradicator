@@ -8,7 +8,7 @@ const createChatSession = async (taskId: string): Promise<ChatSessionResponse> =
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ task_id: taskId }),
+    body: JSON.stringify(taskId ? { task_id: taskId } : {}),
   });
   if (!res.ok) throw new Error(String(res.status));
   const data = await res.json();

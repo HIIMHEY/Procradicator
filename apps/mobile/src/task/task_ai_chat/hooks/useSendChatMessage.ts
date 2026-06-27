@@ -1,10 +1,10 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ChatMessage } from '../schemas';
-import { ChatMessageSchema } from '../schemas';
 
 type SendMessageArgs = {
   message: string;
+  
 };
 
 const sendChatMessage =
@@ -17,11 +17,10 @@ const sendChatMessage =
       body: JSON.stringify({ msg: message }),
     });
     if (!res.ok) throw new Error(String(res.status));
-    const data = await res.json();
-    return ChatMessageSchema.parse(data);
+    return res.json();
   };
 
-export default function useSendChatMessage(sessionId: string | null, taskId: string) {
+export default function useSendChatMessage(sessionId: string | null) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: sessionId
@@ -32,12 +31,6 @@ export default function useSendChatMessage(sessionId: string | null, taskId: str
     onSettled: () => {
       client.invalidateQueries({
         queryKey: ['chat', 'history', sessionId],
-      });
-      client.invalidateQueries({
-        queryKey: ['task', taskId],
-      });
-      client.invalidateQueries({
-        queryKey: ['task', 'task-list'],
       });
     },
   });

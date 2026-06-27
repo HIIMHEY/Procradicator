@@ -5,7 +5,7 @@ const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).
 export const API_ROUTES = {
   CHAT: {
     CREATE_SESSION: `${BASE_URL}/chats/sessions`,
-    HISTORY: (sessionId: string) => `${BASE_URL}/chats/sessions/${sessionId}/history?limit=20`,
+    HISTORY: (sessionId: string) => `${BASE_URL}/chats/sessions/${sessionId}/history`,
     MESSAGE: (sessionId: string) => `${BASE_URL}/chats/sessions/${sessionId}/messages`,
   },
   TASKS: {
