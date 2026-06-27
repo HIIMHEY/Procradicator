@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { StatusCodes } from 'http-status-codes';
 
 interface readTaskOptions {
-  isEnabled: boolean;
+  isEnabled?: boolean;
 }
 
 const readTask = async (id: string) => {
@@ -17,10 +17,10 @@ const readTask = async (id: string) => {
   return res.json();
 };
 
-export default function useReadTask(id: string, options: readTaskOptions) {
+export default function useReadTask(id: string, options: readTaskOptions = {}) {
   return useQuery({
     queryKey: ['task', 'detail', id],
     queryFn: () => readTask(id),
-    enabled: options.isEnabled,
+    enabled: options.isEnabled ?? true,
   });
 }

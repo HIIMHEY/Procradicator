@@ -25,7 +25,7 @@ export function SubtaskActions({
     <Box className="w-full items-center">
       <Text className="text-sm text-slate-700 font-medium mb-1.5">
         {value?.title || `To do number ${index + 1} ...`}
-        {value?.estimate ? `: ${value.estimate}` : ''}
+        {value?.estimate ? `: ${value.estimate} min` : ''}
       </Text>
 
       <Pressable

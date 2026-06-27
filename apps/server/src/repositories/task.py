@@ -59,10 +59,8 @@ class TaskRepo(BaseRepo[Task]):
                 title=roadmap.title,
                 description=roadmap.description,
                 user_id=user_id,
-                due_at=roadmap.due_at,
-                # Saves who owns the task to DB
-                # (Needed since TaskService does not create Task directly
-                # unlike ChatSession)
+                due_at=roadmap.due_at
+
             )
             self.session.add(main_task)
 
