@@ -17,7 +17,11 @@ export function useAiTaskChat() {
 
   const currMsg = watch('msg');
 
-  const { mutate: createChatSession, isPending: isCreatingChatSession } = useCreateChatSession();
+  const {
+    mutate: createChatSession,
+    isPending: isCreatingChatSession,
+    isError: hasCreateChatSessionFailed,
+  } = useCreateChatSession();
 
   const {
     data: history,
@@ -30,18 +34,19 @@ export function useAiTaskChat() {
     useSendChatMessage(sessionId);
 
   useEffect(() => {
-    if (sessionId || isCreatingChatSession) return;
+    if (sessionId || isCreatingChatSession || hasCreateChatSessionFailed) return;
     createChatSession(taskId, {
       onSuccess: (data) => {
         setSessionId(data.session_id);
       },
     });
-  }, [createChatSession, isCreatingChatSession, sessionId, taskId]);
+  }, [createChatSession, hasCreateChatSessionFailed, isCreatingChatSession, sessionId, taskId]);
 
   const visibleMessages = useMemo(() => {
     const flattened = history?.pages.flatMap((page) => page || []) ?? [];
     const filtered = flattened.filter(
-      (message: ChatMessage) => message.role === 'USER' || message.role === 'ASSISTANT',
+      (message: ChatMessage) =>
+        message.role === 'USER' || message.role === 'ASSISTANT' || message.role === 'TOOL',
     );
     return [...filtered];
   }, [history]);

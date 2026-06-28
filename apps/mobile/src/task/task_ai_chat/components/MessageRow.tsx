@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 
 interface MessageRowProps {
   message: ChatMessage;
-  taskId: string;
+  taskId?: string;
 }
 
 export function MessageRow({ message, taskId }: MessageRowProps) {
