@@ -56,7 +56,7 @@ const createJsonResponse = (data: unknown): Response =>
 const openExitForm = async (): Promise<void> => {
   fireEvent.press(await screen.findByLabelText('Exit focus session'));
   await waitFor(() => {
-    expect(screen.getByPlaceholderText('Textbox Input Field')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Why do you have to go?')).toBeTruthy();
   });
 };
 
@@ -124,7 +124,7 @@ test('sends the abandon reason to the backend', async () => {
   renderWithProviders(<FocusSessionPage />);
   await openExitForm();
   fireEvent.changeText(
-    screen.getByPlaceholderText('Textbox Input Field'),
+    screen.getByPlaceholderText('Why do you have to go?'),
     'I need to handle an urgent issue.',
   );
   fireEvent.press(screen.getByText('Give up?'));
@@ -164,5 +164,5 @@ test('shows Start when a resting session has already finished rest', async () =>
     }),
   );
   renderWithProviders(<FocusSessionPage />);
-  expect(await screen.findByText('Start')).toBeTruthy();
+  expect(await screen.findByText('Start Work')).toBeTruthy();
 });

@@ -1,26 +1,13 @@
-import { API_ROUTES } from '@/config/env';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type {
-  AbandonFocusSessionData,
-  CreateFocusSessionData,
-  FocusSession,
-  FocusSessionAction,
-} from '../schemas';
-import { AbandonFocusSessionSchema, FocusSessionSchema } from '../schemas';
+import type { AbandonFocusSessionData, FocusSession, FocusSessionAction } from '../schemas';
+import { AbandonFocusSessionSchema } from '../schemas';
 import { formatTimer, getSessionRemainingSeconds, getTimerMode, isTimedFocusState } from '../utils';
 
-type FocusSessionActionPayload = AbandonFocusSessionData | undefined;
+import useStartFocusSession from './useStartFocusSession';
+import useUpdateFocusSession from './useUpdateFocusSession';
 
-type FocusSessionActionVariables = {
-  sessionId: string;
-  taskId: string;
-  action: FocusSessionAction;
-  payload?: AbandonFocusSessionData;
-};
-
-type UseFocusSessionResult = {
+export type UseFocusSessionResult = {
   abandonReason: string;
   actionErrorMessage: string | null;
   closeExitForm: () => void;
@@ -42,44 +29,11 @@ type UseFocusSessionResult = {
   timerMode: 'work' | 'rest';
 };
 
-const parseFocusSessionResponse = async (response: Response): Promise<FocusSession> => {
-  if (!response.ok) {
-    throw new Error(String(response.status));
-  }
-  const data = await response.json();
-  return FocusSessionSchema.parse(data);
-};
-
-const startFocusSession = async (payload: CreateFocusSessionData): Promise<FocusSession> => {
-  const response = await fetch(API_ROUTES.FOCUS.BASE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(payload),
-  });
-  return parseFocusSessionResponse(response);
-};
-
-const updateFocusSession = async (
-  sessionId: string,
-  action: FocusSessionAction,
-  payload?: FocusSessionActionPayload,
-): Promise<FocusSession> => {
-  const request: RequestInit = {
-    method: 'POST',
-    credentials: 'include',
-  };
-  if (payload !== undefined) {
-    request.headers = { 'Content-Type': 'application/json' };
-    request.body = JSON.stringify(payload);
-  }
-  const response = await fetch(API_ROUTES.FOCUS.ACTION(sessionId, action), request);
-  return parseFocusSessionResponse(response);
-};
-
 export default function useFocusSession(subtaskId: string): UseFocusSessionResult {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const startSessionMutation = useStartFocusSession();
+  const actionMutation = useUpdateFocusSession();
+
   const [focusSession, setFocusSession] = useState<FocusSession | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [hasStartedSession, setHasStartedSession] = useState(false);
@@ -94,21 +48,6 @@ export default function useFocusSession(subtaskId: string): UseFocusSessionResul
     setRemainingSeconds(getSessionRemainingSeconds(session));
     setHasRequestedCompletion(false);
   }, []);
-
-  const startSessionMutation = useMutation({
-    mutationFn: startFocusSession,
-  });
-
-  const actionMutation = useMutation({
-    mutationFn: ({ sessionId, action, payload }: FocusSessionActionVariables) =>
-      updateFocusSession(sessionId, action, payload),
-    onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['focus-session', variables.sessionId] });
-      queryClient.invalidateQueries({ queryKey: ['focus-session', 'active'] });
-      queryClient.invalidateQueries({ queryKey: ['task', variables.taskId] });
-      queryClient.invalidateQueries({ queryKey: ['task', 'task-list'] });
-    },
-  });
 
   const runAction = useCallback(
     (
