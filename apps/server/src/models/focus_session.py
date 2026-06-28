@@ -56,6 +56,7 @@ class FocusSessionLog(SQLModel, table=True):
         default=None,
         foreign_key="subtask.id",
         index=True,
+        ondelete="SET NULL"
     )
     event: FocusSessionLogEvent
     duration_minutes: int | None = None
