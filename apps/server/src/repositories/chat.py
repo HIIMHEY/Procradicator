@@ -30,8 +30,7 @@ class ChatRepo(BaseRepo[ChatMessage]):
             page=page,
             page_size=limit,
         )
-        # order oldest first
-        return results[::1]
+        return results
 
     async def add_message(
         self,
