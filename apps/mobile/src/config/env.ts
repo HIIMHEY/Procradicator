@@ -8,6 +8,13 @@ export const API_ROUTES = {
     HISTORY: (sessionId: string) => `${BASE_URL}/chats/sessions/${sessionId}/history`,
     MESSAGE: (sessionId: string) => `${BASE_URL}/chats/sessions/${sessionId}/messages`,
   },
+  FOCUS: {
+    BASE: `${BASE_URL}/focus`,
+    ACTIVE: `${BASE_URL}/focus?active=true`,
+    DETAIL: (sessionId: string) => `${BASE_URL}/focus/${sessionId}`,
+    ACTION: (sessionId: string, action: string) =>
+      `${BASE_URL}/focus/${sessionId}?action=${action}`,
+  },
   TASKS: {
     BASE: `${BASE_URL}/tasks`,
     DETAIL: (id: string) => `${BASE_URL}/tasks/${id}`,

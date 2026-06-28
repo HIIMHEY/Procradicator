@@ -1,3 +1,5 @@
-export default function Index() {
-  return <>nothing to see here</>;
+import { FocusSessionPage } from '@/task/focus_session/components/FocusSessionPage';
+
+export default function FocusSessionRoute() {
+  return <FocusSessionPage />;
 }

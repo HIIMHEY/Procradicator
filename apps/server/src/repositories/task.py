@@ -22,9 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class TaskRepo(BaseRepo[Task]):
-    def __init__(
-        self, session: Annotated[AsyncSession, Depends(get_async_session)]
-    ) -> None:
+    def __init__(self, session: Annotated[AsyncSession, Depends(get_async_session)]) -> None:
         super().__init__(Task, session)
 
     async def get_roadmap(self, task_id: UUID) -> Task:
@@ -52,6 +50,42 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error fetching roadmap {task_id}: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
+    async def get_subtask(self, subtask_id: UUID) -> Subtask:
+        logger.debug(f"Fetching subtask: {subtask_id}")
+        try:
+            subtask: Subtask | None = await self.session.get(Subtask, subtask_id)
+
+            if not subtask:
+                raise ResourceNotFoundError("subtask not found")
+
+            return subtask
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error(
+                f"Error fetching subtask {subtask_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise map_db_exception(e) from e
+
+    async def complete_subtask(self, subtask_id: UUID) -> Subtask:
+        logger.info(f"Completing subtask: {subtask_id}")
+        try:
+            subtask: Subtask = await self.get_subtask(subtask_id)
+            subtask.completed = subtask.estimate
+
+            self.session.add(subtask)
+            await self.session.commit()
+            await self.session.refresh(subtask)
+
+            return subtask
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error(
+                f"Error completing subtask {subtask_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise map_db_exception(e) from e
+
     async def create_roadmap_graph(self, roadmap: CreateTask, user_id: UUID) -> Task:
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
@@ -59,7 +93,7 @@ class TaskRepo(BaseRepo[Task]):
                 title=roadmap.title,
                 description=roadmap.description,
                 user_id=user_id,
-                due_at=roadmap.due_at
+                due_at=roadmap.due_at,
             )
             self.session.add(main_task)
 
@@ -93,9 +127,7 @@ class TaskRepo(BaseRepo[Task]):
                         )
 
                     self.session.add(
-                        SubtaskDependency(
-                            predecessor_id=pred_id, successor_id=successor_id
-                        )
+                        SubtaskDependency(predecessor_id=pred_id, successor_id=successor_id)
                     )
 
             await self.session.commit()
@@ -109,9 +141,7 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Failed to build task graph: {str(e)}", exc_info=True)
             raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e
 
-    async def list_by_user_id(
-        self, user_id: UUID, offset: int, limit: int
-    ) -> list[Task]:
+    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
         logger.debug(f"Listing tasks for user: {user_id}")
         try:
             statement: SelectOfScalar[Task] = (
@@ -128,9 +158,7 @@ class TaskRepo(BaseRepo[Task]):
             return list(results)
         except SQLAlchemyError as e:
             await self.session.rollback()
-            logger.error(
-                f"Error listing tasks for user {user_id}: {str(e)}", exc_info=True
-            )
+            logger.error(f"Error listing tasks for user {user_id}: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
     async def update_roadmap(self, task_id: UUID, roadmap: UpdateTask) -> None:
@@ -144,17 +172,13 @@ class TaskRepo(BaseRepo[Task]):
             )
             self.session.add(db_task)
 
-            existing_subs: dict[UUID, Subtask] = {
-                sub.id: sub for sub in db_task.subtasks
-            }
+            existing_subs: dict[UUID, Subtask] = {sub.id: sub for sub in db_task.subtasks}
             id_map: dict[UUID | str, UUID] = {}  # maps temp-id / uuid to legit uuid
             incoming_sub_ids: set[UUID] = set()  # new gen sub ids
 
             for st in roadmap.subtasks:
                 clean_id: UUID | str = (
-                    UUID(st.id)
-                    if isinstance(st.id, str) and len(st.id) == 36
-                    else st.id
+                    UUID(st.id) if isinstance(st.id, str) and len(st.id) == 36 else st.id
                 )
 
                 if isinstance(clean_id, UUID) and clean_id in existing_subs:
@@ -192,9 +216,7 @@ class TaskRepo(BaseRepo[Task]):
                         )
                     )
                 ).all()
-                curr_edges = {
-                    (dep.predecessor_id, dep.successor_id): dep for dep in existing_deps
-                }
+                curr_edges = {(dep.predecessor_id, dep.successor_id): dep for dep in existing_deps}
 
             target_edges: set[tuple[UUID, UUID]] = set()
             for st in roadmap.subtasks:
@@ -208,9 +230,7 @@ class TaskRepo(BaseRepo[Task]):
                         else pred_key
                     )
                     if not pred_id:
-                        raise ResourceNotFoundError(
-                            f"Dependency reference '{pred_key}' not found."
-                        )
+                        raise ResourceNotFoundError(f"Dependency reference '{pred_key}' not found.")
                     target_edges.add((pred_id, succ_id))
 
             current_edge_keys = set(curr_edges.keys())

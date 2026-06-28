@@ -9,6 +9,8 @@ from src.core.config import settings
 from src.models import (
     ChatMessage,  # noqa: F401
     ChatSession,  # noqa: F401
+    FocusSession,  # noqa: F401
+    FocusSessionLog,  # noqa: F401
     OAuthAccount,  # noqa: F401
     Subtask,  # noqa: F401
     SubtaskDependency,  # noqa: F401

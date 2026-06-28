@@ -11,7 +11,7 @@ export function EmptyTaskPlaceholder() {
       <Box className="p-4 bg-slate-100/80 rounded-full mb-4 justify-center items-center">
         <Icon as={ListPlus} className="text-slate-400 w-8 h-8" />
       </Box>
-    
+
       <Heading size="md" className="text-slate-700 font-bold mb-1 text-center">
         No Subtasks Yet
       </Heading>
