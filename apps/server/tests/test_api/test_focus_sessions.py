@@ -152,7 +152,7 @@ def test_get_active_focus_session_returns_null_when_none_exists() -> None:
     focus_service = RecordingFocusSessionService()
     app.dependency_overrides[current_active_user] = lambda: user
     app.dependency_overrides[FocusSessionService] = lambda: focus_service
-    response = TestClient(app).get("/focus/active")
+    response = TestClient(app).get("/focus?active=true")
     assert response.status_code == 200
     assert response.json() is None
 

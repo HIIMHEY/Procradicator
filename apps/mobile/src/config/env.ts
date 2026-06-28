@@ -6,7 +6,7 @@ export const API_ROUTES = {
   CHAT_SESSION: {},
   FOCUS: {
     BASE: `${BASE_URL}/focus`,
-    ACTIVE: `${BASE_URL}/focus/active`,
+    ACTIVE: `${BASE_URL}/focus?active=true`,
     DETAIL: (sessionId: string) => `${BASE_URL}/focus/${sessionId}`,
     ACTION: (sessionId: string, action: string) =>
       `${BASE_URL}/focus/${sessionId}?action=${action}`,

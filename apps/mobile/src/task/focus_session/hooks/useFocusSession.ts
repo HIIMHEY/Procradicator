@@ -1,10 +1,17 @@
+import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { startFocusSession, updateFocusSession } from '../api';
-import type { AbandonFocusSessionData, FocusSession, FocusSessionAction } from '../schemas';
-import { AbandonFocusSessionSchema } from '../schemas';
+import type {
+  AbandonFocusSessionData,
+  CreateFocusSessionData,
+  FocusSession,
+  FocusSessionAction,
+} from '../schemas';
+import { AbandonFocusSessionSchema, FocusSessionSchema } from '../schemas';
 import { formatTimer, getSessionRemainingSeconds, getTimerMode, isTimedFocusState } from '../utils';
+
+type FocusSessionActionPayload = AbandonFocusSessionData | undefined;
 
 type FocusSessionActionVariables = {
   sessionId: string;
@@ -33,6 +40,41 @@ type UseFocusSessionResult = {
   startRest: () => void;
   startSessionError: Error | null;
   timerMode: 'work' | 'rest';
+};
+
+const parseFocusSessionResponse = async (response: Response): Promise<FocusSession> => {
+  if (!response.ok) {
+    throw new Error(String(response.status));
+  }
+  const data = await response.json();
+  return FocusSessionSchema.parse(data);
+};
+
+const startFocusSession = async (payload: CreateFocusSessionData): Promise<FocusSession> => {
+  const response = await fetch(API_ROUTES.FOCUS.BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  return parseFocusSessionResponse(response);
+};
+
+const updateFocusSession = async (
+  sessionId: string,
+  action: FocusSessionAction,
+  payload?: FocusSessionActionPayload,
+): Promise<FocusSession> => {
+  const request: RequestInit = {
+    method: 'POST',
+    credentials: 'include',
+  };
+  if (payload !== undefined) {
+    request.headers = { 'Content-Type': 'application/json' };
+    request.body = JSON.stringify(payload);
+  }
+  const response = await fetch(API_ROUTES.FOCUS.ACTION(sessionId, action), request);
+  return parseFocusSessionResponse(response);
 };
 
 export default function useFocusSession(subtaskId: string): UseFocusSessionResult {

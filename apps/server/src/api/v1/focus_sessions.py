@@ -18,35 +18,12 @@ from src.schemas.focus_session import (
     GetFocusSession,
 )
 from src.services.focus_session import FocusSessionService
+from src.utils.focus_session_http import raise_focus_http_exception
 
 router = APIRouter(
     prefix="/focus",
     tags=["Focus"],
 )
-
-
-def raise_focus_http_exception(error: Exception) -> None:
-    if isinstance(error, ForbiddenError):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Focus session access forbidden",
-        ) from error
-    if isinstance(error, ItemNotFoundError):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Focus session not found",
-        ) from error
-    if isinstance(error, InvalidOperationError):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(error),
-        ) from error
-    if isinstance(error, DependencyUnavailableError):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="A required service is unavailable",
-        ) from error
-    raise error
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -69,11 +46,17 @@ async def start_focus_session(
         raise
 
 
-@router.get("/active")
+@router.get("")
 async def get_active_focus_session(
+    active: Annotated[bool, Query()],
     focus_svc: Annotated[FocusSessionService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
 ) -> GetFocusSession | None:
+    if not active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only active focus session lookup is supported",
+        )
     try:
         return await focus_svc.get_active_session(current_user.id)
     except (
