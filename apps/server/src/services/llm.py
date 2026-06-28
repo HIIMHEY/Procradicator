@@ -1,3 +1,4 @@
+import json
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -13,17 +14,18 @@ from src.constants.messages import (
     ERR_DATABASE_UNAVAIL,
     ERR_MISSING_REF,
     ROADMAP_CREATED_TEMPLATE,
+    ROADMAP_UPDATED_TEMPLATE,
 )
-from src.constants.prompts import CREATE_INSTRUCTIONS, DATETIME_PROMPT
+from src.constants.prompts import DATETIME_PROMPT, INIT_INSTRUCTIONS, UPDATE_CONTEXT
 from src.core.config import settings
 from src.exceptions import (
     DependencyUnavailableError,
     ItemNotFoundError,
 )
-from src.models.chat import ChatMessage, Role
+from src.models.chat import ChatMessage, ChatSession, Role
 from src.models.task import Task
 from src.schemas.llm import ChatResponse
-from src.schemas.task import CreateTask
+from src.schemas.task import CreateTask, GetTask, UpdateTask
 from src.services.chat import ChatService
 from src.services.task import TaskService
 from src.utils import chat_hist_mapper
@@ -47,19 +49,19 @@ class LLMService:
             provider=GroqProvider(api_key=settings.groq_api_key),
         )
 
-        self.agent = Agent(
+        self.agent: Agent[AgentDeps, ChatResponse | CreateTask | UpdateTask] = Agent(
             model=self.model,
             deps_type=AgentDeps,
             output_type=NativeOutput(
-                [ChatResponse, CreateTask],
+                [ChatResponse, CreateTask, UpdateTask],
                 name="llm_response",
                 description=(
-                    "Choose between asking a clarification question "
-                    "or creating the roadmap."
+                    "Choose between asking a clarification question, "
+                    "creating the roadmap or updating an existing roadmap"
                 ),
                 strict=True,
             ),
-            instructions=(CREATE_INSTRUCTIONS),
+            instructions=(INIT_INSTRUCTIONS),
             system_prompt=(),
             retries=3,
         )
@@ -72,34 +74,44 @@ class LLMService:
         task_svc: TaskService,
         chat_svc: ChatService,
     ) -> ChatMessage:
-        await chat_svc.add_message(
-            session_id, user_id, role=Role.USER, content=user_input
-        )  # user input
-
-        db_history: Sequence[ChatMessage] = await chat_svc.get_history(
-            session_id, user_id
-        )
-        pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(
-            db_history
-        )
-        deps: AgentDeps = AgentDeps(
-            task_svc=task_svc,
-            chat_svc=chat_svc,
-            session_id=session_id,
-            user_id=user_id,
-        )
-
-        now: str = str(datetime.now(UTC))
-        reply: str = ""
-
+        reply: str = ERR_CRITICAL
+        role: Role = Role.ASSISTANT
         try:
-            result: AgentRunResult[ChatResponse | CreateTask] = await self.agent.run(
-                user_input,
+            await chat_svc.add_message(
+                session_id, user_id, role=Role.USER, content=user_input
+            )  # user input
+
+            session: ChatSession = await chat_svc.get_session(session_id, user_id)
+            linked_task_id: UUID | None = session.task_id
+
+            db_history: Sequence[ChatMessage] = await chat_svc.get_history(session_id, user_id)
+            pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(db_history)
+            deps: AgentDeps = AgentDeps(
+                task_svc=task_svc,
+                chat_svc=chat_svc,
+                session_id=session_id,
+                user_id=user_id,
+            )
+
+            update_context: str = ""
+
+            if linked_task_id:
+                current_task: Task = await task_svc.get_roadmap(linked_task_id, user_id)
+                current_task_payload: dict[str, object] = GetTask.model_validate(
+                    current_task
+                ).model_dump(mode="json")
+
+                update_context = UPDATE_CONTEXT.format(
+                    current_task=json.dumps(current_task_payload)
+                )
+
+            now: str = str(datetime.now(UTC))
+            result: AgentRunResult[ChatResponse | CreateTask | UpdateTask] = await self.agent.run(
                 deps=deps,
                 message_history=pydantic_history,
-                instructions=DATETIME_PROMPT.format(now=now),
+                instructions=DATETIME_PROMPT.format(now=now) + update_context,
             )
-            response: ChatResponse | CreateTask = result.output
+            response: ChatResponse | CreateTask | UpdateTask = result.output
 
             match response:
                 case ChatResponse():
@@ -110,11 +122,19 @@ class LLMService:
                     reply = ROADMAP_CREATED_TEMPLATE.format(
                         title=task.title, count=len(response.subtasks)
                     )
+                    role = Role.TOOL
+                case UpdateTask():
+                    if linked_task_id:
+                        await task_svc.update_roadmap(linked_task_id, response, user_id)
+                        await chat_svc.link_task_to_session(linked_task_id, session_id, user_id)
+                        task: Task = await task_svc.get_roadmap(linked_task_id, user_id)
+                        reply = ROADMAP_UPDATED_TEMPLATE.format(
+                            title=task.title, count=len(response.subtasks)
+                        )
+                        role = Role.TOOL
 
         except ItemNotFoundError as e:
-            logger.error(
-                f"Roadmap build failed due to missing reference subtask tracking: {e}"
-            )
+            logger.error(f"Roadmap build failed due to missing reference subtask tracking: {e}")
             reply = ERR_MISSING_REF
 
         except DependencyUnavailableError as e:
@@ -123,8 +143,9 @@ class LLMService:
 
         except Exception as e:
             logger.critical(f"Critical LLM execution: {str(e)}", exc_info=True)
-            reply = reply = ERR_CRITICAL
-        res: ChatMessage = await chat_svc.add_message(
-            session_id, user_id, role=Role.ASSISTANT, content=reply
-        )
+            reply = ERR_CRITICAL
+        finally:
+            res: ChatMessage = await chat_svc.add_message(
+                session_id, user_id, role=role, content=reply
+            )
         return res

@@ -4,7 +4,6 @@ import { SubtaskNode } from './SubtaskNode';
 import { DragListHeader } from './DragListHeader';
 import { DragListFooter } from './DragListFooter';
 import { View } from 'react-native';
-import { NavigationBar } from './NavigationBar';
 import { EmptyTaskPlaceholder } from './EmptyPlaceholder';
 import { useToast, Toast, ToastTitle, ToastDescription } from '@/components/ui/toast';
 import { useLocalSearchParams } from 'expo-router';
@@ -12,6 +11,8 @@ import { ErrorFallback } from '@/task/components/ErrorFallback';
 import { TaskLoadingSkeleton } from './TaskLoadingSkeleton';
 import { useModifyTaskForm } from '../useModifyTaskForm';
 import { TaskModifyMode } from '@/task/schema';
+import { AIButton } from './AIButton';
+import { NavigationBar } from '@/task/components/NavigationBar';
 
 interface ModifyTaskPageProps {
   mode: TaskModifyMode;
@@ -68,38 +69,38 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
 
   return (
     <Box className="w-full h-screen max-h-screen flex flex-col overflow-hidden relative">
-      <NavigationBar />
-      <DragListHeader control={control} errors={errors} />
-
-      {isError ? (
-        <ErrorFallback message={error?.message} onRetry={refetch} />
-      ) : (
-        <View className="flex-1 w-full overflow-y-scroll">
-          {currSubtasks.length === 0 ? (
-            <EmptyTaskPlaceholder />
-          ) : (
-            <DragList
-              data={fields}
-              keyExtractor={(item) => item.id}
-              onReordered={handleReorderSubtask}
-              renderItem={({ onDragStart, isActive, index }) => {
-                return (
-                  <SubtaskNode
-                    mode={mode}
-                    control={control}
-                    index={index}
-                    onDragTrigger={onDragStart}
-                    onDelete={() => handleDeleteSubtask(index)}
-                    errors={errors.subtasks?.[index]}
-                    isLast={index === fields.length - 1}
-                    isActive={isActive}
-                  />
-                );
-              }}
-            />
-          )}
+      <NavigationBar backurl={'/tasks'} renderRightAction={() => <AIButton taskId={id} />} />
+      <View className="flex-1 w-full overflow-y-scroll">
+        <View className="z-50">
+          <DragListHeader control={control} errors={errors} />
         </View>
-      )}
+
+        {isError ? (
+          <ErrorFallback message={error?.message} onRetry={refetch} />
+        ) : currSubtasks.length === 0 ? (
+          <EmptyTaskPlaceholder />
+        ) : (
+          <DragList
+            data={fields}
+            keyExtractor={(item) => item.id}
+            onReordered={handleReorderSubtask}
+            renderItem={({ onDragStart, isActive, index }) => {
+              return (
+                <SubtaskNode
+                  mode={mode}
+                  control={control}
+                  index={index}
+                  onDragTrigger={onDragStart}
+                  onDelete={() => handleDeleteSubtask(index)}
+                  errors={errors.subtasks?.[index]}
+                  isLast={index === fields.length - 1}
+                  isActive={isActive}
+                />
+              );
+            }}
+          />
+        )}
+      </View>
 
       <DragListFooter
         isDisabled={currSubtasks.length === 0}

@@ -1,5 +1,6 @@
 # success
 ROADMAP_CREATED_TEMPLATE = "Task: '{title}' created with {count} subtasks!"
+ROADMAP_UPDATED_TEMPLATE = "Task: '{title}' updated with {count} subtasks!"
 
 # error
 ERR_EMPTY_RESPONSE = (

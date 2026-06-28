@@ -7,7 +7,7 @@ import useReadTask from '@/task/hooks/useReadTask';
 import { useEffect } from 'react';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
-import { buildDepMap, formatSubtasks } from './utils';
+import { buildDepMap, formatSubtasks } from '../utils';
 
 dayjs.extend(utc);
 

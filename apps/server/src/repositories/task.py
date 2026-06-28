@@ -60,7 +60,6 @@ class TaskRepo(BaseRepo[Task]):
                 description=roadmap.description,
                 user_id=user_id,
                 due_at=roadmap.due_at
-
             )
             self.session.add(main_task)
 

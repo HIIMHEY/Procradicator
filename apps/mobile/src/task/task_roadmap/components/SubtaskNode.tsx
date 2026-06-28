@@ -1,7 +1,7 @@
 import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
 import { ArrowDownIcon, CheckIcon, HelpCircleIcon, Icon } from '@/components/ui/icon';
-import { Subtask } from '../schema';
+import { Subtask } from '../../schema';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'expo-router';
 import { Play } from 'lucide-react-native';

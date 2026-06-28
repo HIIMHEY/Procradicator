@@ -33,7 +33,7 @@ class CreateTask(BaseModel):
 
 
 class UpdateSubTask(BaseModel):
-    id: UUID | str = Field(
+    id: str = Field(
         ..., description="A unique identifier for this subtask, e.g., 'buy-lumber'"
     )
     title: str
@@ -48,7 +48,7 @@ class UpdateSubTask(BaseModel):
         description="The integer amount of time (minutes) spent completing the subtask",
         ge=0,
     )
-    depends_on: list[UUID | str] = Field(
+    depends_on: list[str] = Field(
         default_factory=list,
         description="List of id that must be finished before this one starts",
     )

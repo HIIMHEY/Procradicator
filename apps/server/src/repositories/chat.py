@@ -12,7 +12,7 @@ from src.models.chat import ChatMessage, Role
 
 from .base import BaseRepo
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ChatRepo(BaseRepo[ChatMessage]):
@@ -21,11 +21,13 @@ class ChatRepo(BaseRepo[ChatMessage]):
     ) -> None:
         super().__init__(ChatMessage, session)
 
-    async def get_history(self, session_id: UUID, limit: int = 20) -> Sequence[ChatMessage]:
+    async def get_history(
+        self, session_id: UUID, limit: int = 20, page: int = 1
+    ) -> Sequence[ChatMessage]:
         results, _ = await self.list(
             col(ChatMessage.session_id) == session_id,
             order_by=col(ChatMessage.created_at).desc(),
-            page=1,
+            page=page,
             page_size=limit,
         )
         # order oldest first

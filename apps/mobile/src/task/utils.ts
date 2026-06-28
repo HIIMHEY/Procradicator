@@ -15,7 +15,7 @@ export function buildDepMap(subtasks: Subtask[]): Map<string, string[]> {
   return depMap;
 }
 
-function toposort(subtasks: Subtask[], depMap: Map<string, string[]>): Subtask[] {
+export function toposort(subtasks: Subtask[], depMap: Map<string, string[]>): Subtask[] {
   const sorted: Subtask[] = [];
   const depMapCopy: Map<string, string[]> = new Map<string, string[]>();
   subtasks.forEach((subtask) => {
