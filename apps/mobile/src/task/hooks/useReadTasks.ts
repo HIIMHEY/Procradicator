@@ -16,7 +16,7 @@ const readTask = async ({ pageParam, limit }: { pageParam: number; limit: number
 //inf scroll tasklist
 export default function useReadTask(limit: number = 20) {
   return useInfiniteQuery({
-    queryKey: ['task', 'task-list', limit],
+    queryKey: ['task', 'list', limit],
     queryFn: ({ pageParam }) => readTask({ pageParam, limit }),
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {

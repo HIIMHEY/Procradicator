@@ -18,7 +18,7 @@ export default function useCreateTask() {
   return useMutation({
     mutationFn: createTask,
     onSettled: () => {
-      client.invalidateQueries({ queryKey: ['task', 'task-list'] });
+      client.invalidateQueries({ queryKey: ['task', 'list'] });
     },
   });
 }

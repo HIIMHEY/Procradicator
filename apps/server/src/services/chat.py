@@ -45,7 +45,7 @@ class ChatService:
         except Exception as e:
             logger.error(f"Session read failed: {str(e)}")
             raise ServiceError(f"Could not read session: {str(e)}") from e
-    #Loads one chat session from the database and converts DB or read failures 
+    #Loads one chat session from the database and converts DB or read failures
     # into service-level errors.
 
     async def _read_task(self, task_id: UUID) -> Task:
@@ -92,11 +92,11 @@ class ChatService:
 
     # TODO: get rid of magic no 20
     async def get_history(
-        self, session_id: UUID, user_id: UUID, limit: int = 20
+        self, session_id: UUID, user_id: UUID, limit: int = 20, page: int = 1
     ) -> Sequence[ChatMessage]:
         await self.get_session(session_id, user_id)
         try:
-            return await self.chat_repo.get_history(session_id, limit)
+            return await self.chat_repo.get_history(session_id, limit, page)
         except DatabaseError as e:
             logger.error(f"Session create failed: {str(e)}")
             raise map_service_exception(e) from e

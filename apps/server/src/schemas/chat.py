@@ -1,9 +1,11 @@
+from uuid import UUID
+
 from pydantic import BaseModel
 
-# class CreateSession(BaseModel):
-# TODO: in the future for user management would require this
+
+class CreateSession(BaseModel):
+    task_id: UUID | None = None
 
 
-# i mean we will add more later
 class CreateMessage(BaseModel):
     msg: str

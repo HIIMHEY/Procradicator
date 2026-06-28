@@ -16,7 +16,7 @@ export function TaskDateTimePicker({ value, onChange }: TaskDateTimePickerProps)
   const displayString = value ? dayjs(value).format('DD/MM/YYYY HH:mm') : 'Select date & time...';
 
   return (
-    <Box className="w-full mb-4 px-1 relative">
+    <Box className="w-full pb-4 px-1 relative">
       <Pressable onPress={() => setShowPicker(!showPicker)}>
         <Input isReadOnly={true} className="border border-slate-200 h-12 bg-white rounded-md">
           <InputField
@@ -27,7 +27,7 @@ export function TaskDateTimePicker({ value, onChange }: TaskDateTimePickerProps)
       </Pressable>
 
       {showPicker && (
-        <Box className="top-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white border border-slate-200 rounded-lg p-3 shadow-xl  mt-1">
+        <Box className="absolute z-0 top-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white border border-slate-200 rounded-lg p-3 shadow-xl  pt-1 ">
           <DateTimePicker
             mode="single"
             date={value ? dayjs(value) : dayjs()}

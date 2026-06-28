@@ -84,7 +84,7 @@ def run_migrations_online() -> None:
 
     """
     # tell alembic to use our DB_URL
-    escaped_db_url = settings.test_db_url.replace("%", "%%")
+    escaped_db_url = settings.db_url.replace("%", "%%")
     config.set_main_option("sqlalchemy.url", escaped_db_url)
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
