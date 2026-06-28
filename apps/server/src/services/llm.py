@@ -84,8 +84,14 @@ class LLMService:
             session: ChatSession = await chat_svc.get_session(session_id, user_id)
             linked_task_id: UUID | None = session.task_id
 
-            db_history: Sequence[ChatMessage] = await chat_svc.get_history(session_id, user_id)
-            pydantic_history: Sequence[ModelMessage] = chat_hist_mapper.map_chat_history(db_history)
+            db_history: Sequence[ChatMessage] = (
+                await chat_svc.get_history(session_id, user_id)
+            )[
+                ::-1
+            ]  # oldest first
+            pydantic_history: Sequence[ModelMessage] = (
+                chat_hist_mapper.map_chat_history(db_history)
+            )
             deps: AgentDeps = AgentDeps(
                 task_svc=task_svc,
                 chat_svc=chat_svc,
@@ -106,10 +112,12 @@ class LLMService:
                 )
 
             now: str = str(datetime.now(UTC))
-            result: AgentRunResult[ChatResponse | CreateTask | UpdateTask] = await self.agent.run(
-                deps=deps,
-                message_history=pydantic_history,
-                instructions=DATETIME_PROMPT.format(now=now) + update_context,
+            result: AgentRunResult[ChatResponse | CreateTask | UpdateTask] = (
+                await self.agent.run(
+                    deps=deps,
+                    message_history=pydantic_history,
+                    instructions=DATETIME_PROMPT.format(now=now) + update_context,
+                )
             )
             response: ChatResponse | CreateTask | UpdateTask = result.output
 
@@ -117,16 +125,19 @@ class LLMService:
                 case ChatResponse():
                     reply = response.msg
                 case CreateTask():
-                    task: Task = await task_svc.create_roadmap(response, user_id)
-                    await chat_svc.link_task_to_session(task.id, session_id, user_id)
-                    reply = ROADMAP_CREATED_TEMPLATE.format(
-                        title=task.title, count=len(response.subtasks)
-                    )
-                    role = Role.TOOL
+                    if not linked_task_id:
+                        task: Task = await task_svc.create_roadmap(response, user_id)
+                        await chat_svc.link_task_to_session(task.id, session_id, user_id)
+                        reply = ROADMAP_CREATED_TEMPLATE.format(
+                            title=task.title, count=len(response.subtasks)
+                        )
+                        role = Role.TOOL
                 case UpdateTask():
                     if linked_task_id:
                         await task_svc.update_roadmap(linked_task_id, response, user_id)
-                        await chat_svc.link_task_to_session(linked_task_id, session_id, user_id)
+                        await chat_svc.link_task_to_session(
+                            linked_task_id, session_id, user_id
+                        )
                         task: Task = await task_svc.get_roadmap(linked_task_id, user_id)
                         reply = ROADMAP_UPDATED_TEMPLATE.format(
                             title=task.title, count=len(response.subtasks)
@@ -134,7 +145,9 @@ class LLMService:
                         role = Role.TOOL
 
         except ItemNotFoundError as e:
-            logger.error(f"Roadmap build failed due to missing reference subtask tracking: {e}")
+            logger.error(
+                f"Roadmap build failed due to missing reference subtask tracking: {e}"
+            )
             reply = ERR_MISSING_REF
 
         except DependencyUnavailableError as e:
