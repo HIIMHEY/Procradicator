@@ -36,6 +36,21 @@ FocusSessionActionHandler = Callable[
 ]
 
 
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _required_as_utc(value: datetime | None, field_name: str) -> datetime:
+    converted_value: datetime | None = _as_utc(value)
+    if converted_value is None:
+        raise InvalidOperationError(f"Focus session {field_name} is missing")
+    return converted_value
+
+
 class FocusSessionService:
     def __init__(
         self,
@@ -108,11 +123,11 @@ class FocusSessionService:
             state=focus_session.state,
             work_duration_minutes=focus_session.work_duration_minutes,
             rest_duration_minutes=focus_session.rest_duration_minutes,
-            started_at=focus_session.started_at,
-            updated_at=focus_session.updated_at,
-            phase_started_at=focus_session.phase_started_at,
-            completed_at=focus_session.completed_at,
-            abandoned_at=focus_session.abandoned_at,
+            started_at=_required_as_utc(focus_session.started_at, "started_at"),
+            updated_at=_required_as_utc(focus_session.updated_at, "updated_at"),
+            phase_started_at=_as_utc(focus_session.phase_started_at),
+            completed_at=_as_utc(focus_session.completed_at),
+            abandoned_at=_as_utc(focus_session.abandoned_at),
             current_subtask=(
                 GetSubtask.model_validate(current_subtask) if current_subtask else None
             ),

@@ -101,6 +101,24 @@ async def test_start_reuses_existing_active_session() -> None:
     focus_repo.upsert.assert_not_awaited()
 
 
+async def test_response_treats_db_naive_timestamps_as_utc() -> None:
+    service, focus_repo, _, task_svc = make_service()
+    user_id = uuid4()
+    subtask = make_subtask(uuid4())
+    existing = make_session(user_id, subtask.task_id, subtask.id)
+    existing.started_at = datetime(2026, 6, 28, 15, 6, 14)
+    existing.updated_at = datetime(2026, 6, 28, 15, 6, 15)
+    existing.phase_started_at = datetime(2026, 6, 28, 15, 6, 16)
+    focus_repo.read.return_value = existing
+    task_svc.get_subtask_for_task.return_value = subtask
+    result = await service.get_session(existing.id, user_id)
+    assert result.started_at.tzinfo == UTC
+    assert result.updated_at.tzinfo == UTC
+    assert result.phase_started_at is not None
+    assert result.phase_started_at.tzinfo == UTC
+    assert '"started_at":"2026-06-28T15:06:14Z"' in result.model_dump_json()
+
+
 async def test_start_rejects_other_users_subtask() -> None:
     service, _, _, task_svc = make_service()
     task_svc.get_owned_subtask.side_effect = ForbiddenError("task belongs to another user")
