@@ -51,4 +51,5 @@ def get_google_oauth_router() -> APIRouter:
         ),
         associate_by_email=False,  # Prevents linking google account to existing credentials
         csrf_token_cookie_secure=settings.oauth_cookie_secure,
+        csrf_token_cookie_samesite=settings.oauth_cookie_same_site
     )
