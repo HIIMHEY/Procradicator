@@ -92,6 +92,12 @@ class FocusSessionService:
             raise InvalidOperationError("Focus session has no current subtask")
         return current_subtask_id
 
+    def _current_task_id(self, focus_session: FocusSession) -> UUID:
+        task_id: UUID | None = focus_session.task_id
+        if task_id is None:
+            raise InvalidOperationError("Focus session is no longer linked to a task")
+        return task_id
+
     async def _read_owned_session_model(
         self,
         session_id: UUID,
@@ -110,7 +116,7 @@ class FocusSessionService:
         user_id: UUID,
     ) -> GetFocusSession:
         current_subtask: Subtask | None = None
-        if focus_session.current_subtask_id is not None:
+        if focus_session.task_id is not None and focus_session.current_subtask_id is not None:
             current_subtask = await self.task_svc.get_subtask_for_task(
                 focus_session.task_id,
                 focus_session.current_subtask_id,
@@ -266,8 +272,9 @@ class FocusSessionService:
             "Focus session is not working",
         )
         current_subtask_id: UUID = self._current_subtask_id(focus_session)
+        task_id: UUID = self._current_task_id(focus_session)
         completed_subtask: Subtask = await self.task_svc.complete_subtask_for_task(
-            focus_session.task_id,
+            task_id,
             current_subtask_id,
             user_id,
         )
@@ -296,6 +303,7 @@ class FocusSessionService:
             "Focus session work is not complete",
         )
         current_subtask_id: UUID = self._current_subtask_id(focus_session)
+        self._current_task_id(focus_session)
         now: datetime = datetime.now(UTC)
         focus_session.state = FocusSessionState.RESTING
         focus_session.updated_at = now
@@ -321,6 +329,7 @@ class FocusSessionService:
             "Focus session is not resting",
         )
         current_subtask_id: UUID = self._current_subtask_id(focus_session)
+        task_id: UUID = self._current_task_id(focus_session)
         await self._add_log(
             focus_session.id,
             FocusSessionLogEvent.REST_COMPLETED,
@@ -329,7 +338,7 @@ class FocusSessionService:
         )
         now: datetime = datetime.now(UTC)
         next_subtask: Subtask | None = await self.task_svc.get_next_incomplete_subtask(
-            focus_session.task_id,
+            task_id,
             current_subtask_id,
             user_id,
         )
@@ -367,6 +376,7 @@ class FocusSessionService:
             "Only rest-complete sessions can be resumed",
         )
         self._current_subtask_id(focus_session)
+        self._current_task_id(focus_session)
         now: datetime = datetime.now(UTC)
         focus_session.state = FocusSessionState.WORKING
         focus_session.updated_at = now

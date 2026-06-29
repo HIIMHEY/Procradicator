@@ -28,7 +28,12 @@ class FocusSessionLogEvent(StrEnum):
 class FocusSession(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
-    task_id: uuid.UUID = Field(foreign_key="task.id", index=True)
+    task_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="task.id",
+        index=True,
+        ondelete="SET NULL",
+    )
     current_subtask_id: uuid.UUID | None = Field(
         default=None,
         foreign_key="subtask.id",
@@ -56,7 +61,7 @@ class FocusSessionLog(SQLModel, table=True):
         default=None,
         foreign_key="subtask.id",
         index=True,
-        ondelete="SET NULL"
+        ondelete="SET NULL",
     )
     event: FocusSessionLogEvent
     duration_minutes: int | None = None

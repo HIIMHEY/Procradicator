@@ -7,7 +7,7 @@ type FocusSessionActionPayload = AbandonFocusSessionData | undefined;
 
 type FocusSessionActionVariables = {
   sessionId: string;
-  taskId: string;
+  taskId: string | null;
   action: FocusSessionAction;
   payload?: AbandonFocusSessionData;
 };
@@ -46,7 +46,9 @@ export default function useUpdateFocusSession() {
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['focus-session', variables.sessionId] });
       queryClient.invalidateQueries({ queryKey: ['focus-session', 'active'] });
-      queryClient.invalidateQueries({ queryKey: ['task', variables.taskId] });
+      if (variables.taskId) {
+        queryClient.invalidateQueries({ queryKey: ['task', variables.taskId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['task', 'task-list'] });
     },
   });

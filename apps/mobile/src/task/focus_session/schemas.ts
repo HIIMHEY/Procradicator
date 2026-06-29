@@ -25,7 +25,7 @@ const FocusSessionSubtaskSchema = SubtaskSchema.extend({
 
 export const FocusSessionSchema = z.object({
   id: z.uuid(),
-  task_id: z.uuid(),
+  task_id: z.uuid().nullable(),
   current_subtask_id: z.uuid().nullable(),
   state: FocusSessionStateSchema,
   work_duration_minutes: z.int(),
