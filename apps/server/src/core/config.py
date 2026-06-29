@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     )
     oauth_state_secret: SecretStr = Field(default=SecretStr(DEFAULT_OAUTH_STATE_SECRET))
     oauth_cookie_secure: bool = Field(default=True)
+    oauth_cookie_same_site: Literal['lax', 'strict', 'none'] = Field(default='none')
     model_config = SettingsConfigDict(env_file=".env")
 
 
