@@ -116,7 +116,7 @@ export default function useFocusSession(subtaskId: string): UseFocusSessionResul
       runAction('complete_rest', undefined, (updatedSession) => {
         applySession(updatedSession);
         if (updatedSession.state === 'COMPLETED') {
-          router.navigate(`/tasks/${updatedSession.task_id}`);
+          router.navigate(updatedSession.task_id ? `/tasks/${updatedSession.task_id}` : '/tasks');
         }
       });
     }
@@ -157,7 +157,7 @@ export default function useFocusSession(subtaskId: string): UseFocusSessionResul
     }
     setReasonError('');
     runAction('abandon', result.data, (updatedSession) => {
-      router.navigate(`/tasks/${updatedSession.task_id}`);
+      router.navigate(updatedSession.task_id ? `/tasks/${updatedSession.task_id}` : '/tasks');
     });
   };
 

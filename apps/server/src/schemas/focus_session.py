@@ -37,7 +37,7 @@ class FocusSessionActionPayload(BaseModel):
 
 class GetFocusSession(BaseModel):
     id: UUID
-    task_id: UUID
+    task_id: UUID | None
     current_subtask_id: UUID | None
     state: FocusSessionState
     work_duration_minutes: int
