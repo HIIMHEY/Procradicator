@@ -18,6 +18,7 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-ai>=1.104.0",
     "pydantic-settings>=2.14.1",
+    "pyright>=1.1.411",
     "python-dotenv>=1.2.2",
     "sqlalchemy>=2.0.50",
     "sqlmodel>=0.0.38",
@@ -62,7 +63,24 @@ where = ["."]
 include = ["src*"]
 
 [tool.pyright]
-extraPaths = ["app/server/src"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+include = ["src", "tests"]
+exclude = [
+  "**/__pycache__",
+  ".venv",
+  ".pytest_cache",
+  "build",
+  "dist",
+  "server.egg-info",
+  "alembic/versions",
+  "**/node_modules",
+  "**/.*",
+]
+reportMissingTypeStubs = "none"
+reportUnknownArgumentType = "warning"
+reportUnknownMemberType = "warning"
+reportUnknownVariableType = "warning"
 
 
 [tool.alembic]

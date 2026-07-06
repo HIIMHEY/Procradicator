@@ -1,10 +1,13 @@
-.PHONY: format test lint dev db-rev db-up
+.PHONY: format test lint dev db-rev db-up typechk
 
 format:
 	uv run ruff format src tests
 
 test:
 	uv run pytest
+
+typechk:
+	uv run pyright
 
 lint:
 	uv run ruff check src tests
