@@ -1,304 +1,217 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import pytest
 from src.exceptions import ForbiddenError, InvalidOperationError
-from src.models.focus_session import (
-    FocusSession,
-    FocusSessionLogEvent,
-    FocusSessionState,
-)
+from src.models.focus_session import FocusSession
 from src.models.task import Subtask
-from src.schemas.focus_session import FocusSessionAction, FocusSessionActionPayload
+from src.schemas.focus_session import (
+    CreateFocusSession,
+    RestLogData,
+    UpdateFocusSession,
+    WorkLogData,
+)
 from src.services.focus_session import FocusSessionService
 
 pytestmark = pytest.mark.anyio
 
 
-def make_subtask(
-    task_id: UUID,
-    *,
-    estimate: int = 25,
-    completed: int = 0,
-) -> Subtask:
+def make_subtask(*, est_m: int = 25, is_done: bool = False) -> Subtask:
     return Subtask(
         id=uuid4(),
-        task_id=task_id,
+        task_id=uuid4(),
         title="Subtask",
         description=None,
-        estimate=estimate,
-        completed=completed,
+        est_m=est_m,
+        is_done=is_done,
     )
 
 
 def make_session(
     user_id: UUID,
-    task_id: UUID,
-    subtask_id: UUID | None,
     *,
-    state: FocusSessionState = FocusSessionState.WORKING,
+    work_cycle_m: int = 20,
+    rest_cycle_m: int = 5,
+    end_at: datetime | None = None,
 ) -> FocusSession:
     return FocusSession(
         id=uuid4(),
         user_id=user_id,
-        task_id=task_id,
-        current_subtask_id=subtask_id,
-        state=state,
-        work_duration_minutes=20,
-        rest_duration_minutes=5,
+        work_cycle_m=work_cycle_m,
+        rest_cycle_m=rest_cycle_m,
+        start_at=datetime.now(UTC),
+        end_at=end_at,
     )
 
 
-def make_service() -> tuple[FocusSessionService, AsyncMock, AsyncMock, AsyncMock]:
+def make_service() -> tuple[FocusSessionService, AsyncMock, AsyncMock]:
     focus_repo = AsyncMock()
-    log_repo = AsyncMock()
     task_svc = AsyncMock()
-    focus_repo.get_active_for_user.return_value = None
 
-    async def upsert_focus_session(
-        focus_session: FocusSession,
-    ) -> FocusSession:
-        return focus_session
+    async def upsert_focus_session(session: FocusSession) -> FocusSession:
+        session.id = uuid4()
+        return session
 
     focus_repo.upsert.side_effect = upsert_focus_session
-    service = FocusSessionService(focus_repo, log_repo, task_svc)  # type: ignore[arg-type]
-    return service, focus_repo, log_repo, task_svc
+    service = FocusSessionService(focus_repo, task_svc)  # type: ignore[arg-type]
+    return service, focus_repo, task_svc
 
 
-async def test_start_creates_owned_session_and_log() -> None:
-    service, focus_repo, log_repo, task_svc = make_service()
+async def test_create_creates_session() -> None:
+    service, focus_repo, task_svc = make_service()
     user_id = uuid4()
-    task_id = uuid4()
-    subtask = make_subtask(task_id, estimate=25, completed=5)
-    task_svc.get_owned_subtask.return_value = subtask
-    task_svc.get_subtask_for_task.return_value = subtask
-    result = await service.start_or_resume_session(subtask.id, user_id)
-    assert result.task_id == task_id
-    assert result.current_subtask_id == subtask.id
-    assert result.state == FocusSessionState.WORKING
-    assert result.work_duration_minutes == 20
+    subtask = make_subtask()
+    task_svc.read_subtask.return_value = subtask
+    req = CreateFocusSession(subtask_id=subtask.id, work_cycle_m=20, rest_cycle_m=5)
+    result = await service.create(req, user_id)
+    assert result.work_cycle_m == 20
+    assert result.rest_cycle_m == 5
     focus_repo.upsert.assert_awaited_once()
-    log_repo.create_log.assert_awaited_once_with(
-        result.id,
-        FocusSessionLogEvent.STARTED,
-        subtask_id=subtask.id,
-        duration_minutes=None,
-        reason=None,
-    )
+    task_svc.read_subtask.assert_awaited_once_with(subtask.id, user_id)
 
 
-async def test_start_reuses_existing_active_session() -> None:
-    service, focus_repo, _, task_svc = make_service()
-    user_id = uuid4()
-    subtask = make_subtask(uuid4())
-    existing = make_session(user_id, subtask.task_id, subtask.id)
-    focus_repo.get_active_for_user.return_value = existing
-    task_svc.get_subtask_for_task.return_value = subtask
-    result = await service.start_or_resume_session(uuid4(), user_id)
-    assert result.id == existing.id
-    task_svc.get_owned_subtask.assert_not_awaited()
-    focus_repo.upsert.assert_not_awaited()
-
-
-async def test_response_treats_db_naive_timestamps_as_utc() -> None:
-    service, focus_repo, _, task_svc = make_service()
-    user_id = uuid4()
-    subtask = make_subtask(uuid4())
-    existing = make_session(user_id, subtask.task_id, subtask.id)
-    existing.started_at = datetime(2026, 6, 28, 15, 6, 14)
-    existing.updated_at = datetime(2026, 6, 28, 15, 6, 15)
-    existing.phase_started_at = datetime(2026, 6, 28, 15, 6, 16)
-    focus_repo.read.return_value = existing
-    task_svc.get_subtask_for_task.return_value = subtask
-    result = await service.get_session(existing.id, user_id)
-    assert result.started_at.tzinfo == UTC
-    assert result.updated_at.tzinfo == UTC
-    assert result.phase_started_at is not None
-    assert result.phase_started_at.tzinfo == UTC
-    assert '"started_at":"2026-06-28T15:06:14Z"' in result.model_dump_json()
-
-
-async def test_start_rejects_other_users_subtask() -> None:
-    service, _, _, task_svc = make_service()
-    task_svc.get_owned_subtask.side_effect = ForbiddenError("task belongs to another user")
+async def test_create_rejects_other_users_subtask() -> None:
+    service, _, task_svc = make_service()
+    task_svc.read_subtask.side_effect = ForbiddenError("not yours")
+    req = CreateFocusSession(subtask_id=uuid4(), work_cycle_m=20, rest_cycle_m=5)
     with pytest.raises(ForbiddenError):
-        await service.start_or_resume_session(uuid4(), uuid4())
+        await service.create(req, uuid4())
 
 
-async def test_complete_work_finishes_subtask_without_starting_rest() -> None:
-    service, focus_repo, log_repo, task_svc = make_service()
+async def test_read_active_returns_none() -> None:
+    service, focus_repo, _ = make_service()
+    focus_repo.read_active.return_value = None
+    result = await service.read_active(uuid4())
+    assert result is None
+
+
+async def test_read_active_returns_session() -> None:
+    service, focus_repo, _ = make_service()
     user_id = uuid4()
-    task_id = uuid4()
-    subtask = make_subtask(task_id, completed=5)
-    session = make_session(user_id, task_id, subtask.id)
-    old_phase_started_at = datetime(2020, 1, 1, tzinfo=UTC)
-    session.phase_started_at = old_phase_started_at
+    session = make_session(user_id)
+    focus_repo.read_active.return_value = session
+    result = await service.read_active(user_id)
+    assert result is not None
+    assert result.work_cycle_m == 20
+
+
+async def test_read_forbids_other_user() -> None:
+    service, focus_repo, _ = make_service()
+    session = make_session(uuid4())
     focus_repo.read.return_value = session
-    task_svc.complete_subtask_for_task.return_value = subtask
-    task_svc.get_subtask_for_task.return_value = subtask
-    result = await service.apply_action(
-        session.id,
-        user_id,
-        FocusSessionAction.COMPLETE_WORK,
-        None,
-    )
-    task_svc.complete_subtask_for_task.assert_awaited_once_with(task_id, subtask.id, user_id)
-    assert result.state == FocusSessionState.WORK_COMPLETE
-    assert result.phase_started_at is None
-    log_repo.create_log.assert_awaited_once_with(
-        session.id,
-        FocusSessionLogEvent.WORK_COMPLETED,
+    with pytest.raises(ForbiddenError):
+        await service.read(session.id, uuid4())
+
+
+async def test_read_returns_session() -> None:
+    service, focus_repo, _ = make_service()
+    user_id = uuid4()
+    session = make_session(user_id)
+    focus_repo.read.return_value = session
+    result = await service.read(session.id, user_id)
+    assert result.id == session.id
+
+
+async def test_update_adds_focus_logs() -> None:
+    service, focus_repo, task_svc = make_service()
+    user_id = uuid4()
+    subtask = make_subtask()
+    session = make_session(user_id)
+    focus_repo.read.return_value = session
+    task_svc.read_subtask.return_value = subtask
+    now = datetime.now(UTC)
+    log = WorkLogData(
         subtask_id=subtask.id,
-        duration_minutes=session.work_duration_minutes,
-        reason=None,
+        start_at=now - timedelta(minutes=30),
+        stop_at=now,
     )
+    req = UpdateFocusSession(focus_logs=[log])
+    await service.update(session.id, user_id, req)
+    focus_repo.create_focus_logs.assert_awaited_once()
+    call_args = focus_repo.create_focus_logs.await_args.args
+    assert call_args[1] == [log]
 
 
-async def test_start_rest_transitions_after_completed_work() -> None:
-    service, focus_repo, log_repo, task_svc = make_service()
+async def test_update_adds_rest_logs() -> None:
+    service, focus_repo, _ = make_service()
     user_id = uuid4()
-    task_id = uuid4()
-    subtask = make_subtask(task_id, completed=25)
-    session = make_session(
-        user_id,
-        task_id,
-        subtask.id,
-        state=FocusSessionState.WORK_COMPLETE,
-    )
+    session = make_session(user_id)
     focus_repo.read.return_value = session
-    task_svc.get_subtask_for_task.return_value = subtask
-    result = await service.apply_action(
-        session.id,
-        user_id,
-        FocusSessionAction.START_REST,
-        None,
+    now = datetime.now(UTC)
+    rest_log = RestLogData(
+        start_at=now - timedelta(minutes=5),
+        stop_at=now,
     )
-    assert result.state == FocusSessionState.RESTING
-    assert result.phase_started_at is not None
-    log_repo.create_log.assert_awaited_once_with(
-        session.id,
-        FocusSessionLogEvent.REST_STARTED,
-        subtask_id=subtask.id,
-        duration_minutes=session.rest_duration_minutes,
-        reason=None,
-    )
+    req = UpdateFocusSession(rest_logs=[rest_log])
+    await service.update(session.id, user_id, req)
+    focus_repo.create_rest_logs.assert_awaited_once()
+    call_args = focus_repo.create_rest_logs.await_args.args
+    assert call_args[1] == [rest_log]
 
 
-async def test_complete_rest_moves_to_next_subtask_without_resuming_work() -> None:
-    service, focus_repo, _, task_svc = make_service()
+async def test_update_completes_subtasks() -> None:
+    service, focus_repo, task_svc = make_service()
     user_id = uuid4()
-    task_id = uuid4()
-    current = make_subtask(task_id, completed=25)
-    next_subtask = make_subtask(task_id, estimate=30, completed=10)
-    session = make_session(
-        user_id,
-        task_id,
-        current.id,
-        state=FocusSessionState.RESTING,
-    )
+    subtask = make_subtask()
+    session = make_session(user_id)
     focus_repo.read.return_value = session
-    task_svc.get_next_incomplete_subtask.return_value = next_subtask
-    task_svc.get_subtask_for_task.return_value = next_subtask
-    result = await service.apply_action(
-        session.id,
-        user_id,
-        FocusSessionAction.COMPLETE_REST,
-        None,
-    )
-    assert result.current_subtask_id == next_subtask.id
-    assert result.work_duration_minutes == 20
-    assert result.state == FocusSessionState.REST_COMPLETE
-    assert result.phase_started_at is None
+    task_svc.read_subtask.return_value = subtask
+    req = UpdateFocusSession(completed_subtask_ids=[subtask.id])
+    await service.update(session.id, user_id, req)
+    task_svc.update_done_subtasks.assert_awaited_once_with([subtask.id], user_id)
 
 
-async def test_complete_rest_finishes_session_when_no_subtask_remains() -> None:
-    service, focus_repo, log_repo, task_svc = make_service()
+async def test_update_sets_work_cycles() -> None:
+    service, focus_repo, task_svc = make_service()
     user_id = uuid4()
-    task_id = uuid4()
-    current = make_subtask(task_id, completed=25)
-    session = make_session(
-        user_id,
-        task_id,
-        current.id,
-        state=FocusSessionState.RESTING,
-    )
+    subtask = make_subtask()
+    session = make_session(user_id)
     focus_repo.read.return_value = session
-    task_svc.get_next_incomplete_subtask.return_value = None
-    result = await service.apply_action(
-        session.id,
-        user_id,
-        FocusSessionAction.COMPLETE_REST,
-        None,
-    )
-    assert result.current_subtask_id is None
-    assert result.state == FocusSessionState.COMPLETED
-    assert [call.args[1] for call in log_repo.create_log.await_args_list] == [
-        FocusSessionLogEvent.REST_COMPLETED,
-        FocusSessionLogEvent.COMPLETED,
-    ]
+    task_svc.read_subtask.return_value = subtask
+    req = UpdateFocusSession(work_cycles=3)
+    await service.update(session.id, user_id, req)
+    assert session.work_cycles == 3
 
 
-async def test_resume_session_starts_new_work_phase() -> None:
-    service, focus_repo, log_repo, task_svc = make_service()
+async def test_update_rejects_decreasing_cycles() -> None:
+    service, focus_repo, _ = make_service()
     user_id = uuid4()
-    task_id = uuid4()
-    subtask = make_subtask(task_id)
-    session = make_session(
-        user_id,
-        task_id,
-        subtask.id,
-        state=FocusSessionState.REST_COMPLETE,
-    )
-    session.phase_started_at = None
+    session = make_session(user_id)
+    session.work_cycles = 5
     focus_repo.read.return_value = session
-    task_svc.get_subtask_for_task.return_value = subtask
-    result = await service.apply_action(
-        session.id,
-        user_id,
-        FocusSessionAction.RESUME,
-        None,
-    )
-    assert result.state == FocusSessionState.WORKING
-    assert result.phase_started_at is not None
-    assert result.phase_started_at > datetime(2020, 1, 1, tzinfo=UTC)
-    assert log_repo.create_log.await_args.args[1] == FocusSessionLogEvent.RESUMED
-
-
-async def test_abandon_requires_reason() -> None:
-    service, focus_repo, _, _ = make_service()
-    user_id = uuid4()
-    session = make_session(user_id, uuid4(), uuid4())
-    focus_repo.read.return_value = session
+    req = UpdateFocusSession(work_cycles=3)
     with pytest.raises(InvalidOperationError):
-        await service.apply_action(
-            session.id,
-            user_id,
-            FocusSessionAction.ABANDON,
-            None,
-        )
+        await service.update(session.id, user_id, req)
 
 
-async def test_abandon_records_reason() -> None:
-    service, focus_repo, log_repo, task_svc = make_service()
+async def test_update_abandons_session() -> None:
+    service, focus_repo, _ = make_service()
     user_id = uuid4()
-    task_id = uuid4()
-    subtask = make_subtask(task_id)
-    session = make_session(user_id, task_id, subtask.id)
+    session = make_session(user_id)
     focus_repo.read.return_value = session
-    task_svc.get_subtask_for_task.return_value = subtask
-    result = await service.apply_action(
-        session.id,
-        user_id,
-        FocusSessionAction.ABANDON,
-        FocusSessionActionPayload(reason="I need to stop now"),
-    )
-    assert result.state == FocusSessionState.ABANDONED
-    assert result.abandoned_at is not None
-    log_repo.create_log.assert_awaited_once_with(
-        session.id,
-        FocusSessionLogEvent.ABANDONED,
-        subtask_id=subtask.id,
-        duration_minutes=None,
-        reason="I need to stop now",
-    )
+    req = UpdateFocusSession(abandon_reason="too tired")
+    await service.update(session.id, user_id, req)
+    assert session.end_at is not None
+    assert session.abandon_reason == "too tired"
+
+
+async def test_update_completes_session() -> None:
+    service, focus_repo, _ = make_service()
+    user_id = uuid4()
+    session = make_session(user_id)
+    focus_repo.read.return_value = session
+    req = UpdateFocusSession(total_overtime_s=120)
+    await service.update(session.id, user_id, req)
+    assert session.end_at is not None
+    assert session.total_overtime_s == 120
+
+
+async def test_update_guards_finished_session() -> None:
+    service, focus_repo, _ = make_service()
+    user_id = uuid4()
+    session = make_session(user_id, end_at=datetime.now(UTC))
+    focus_repo.read.return_value = session
+    req = UpdateFocusSession(work_cycles=2)
+    with pytest.raises(InvalidOperationError):
+        await service.update(session.id, user_id, req)

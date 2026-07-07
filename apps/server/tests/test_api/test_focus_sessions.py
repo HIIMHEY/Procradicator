@@ -7,12 +7,11 @@ from fastapi.testclient import TestClient
 from src.auth.fastapi_users.setup import current_active_user
 from src.exceptions import ForbiddenError, InvalidOperationError
 from src.main import app
-from src.models.focus_session import FocusSessionState
 from src.models.user import User
 from src.schemas.focus_session import (
-    FocusSessionAction,
-    FocusSessionActionPayload,
+    CreateFocusSession,
     GetFocusSession,
+    UpdateFocusSession,
 )
 from src.services.focus_session import FocusSessionService
 
@@ -34,105 +33,82 @@ def logged_in_user(user_id: UUID | None = None) -> User:
     )
 
 
-def focus_session_response(
-    user_id: UUID,
-    *,
-    session_id: UUID | None = None,
-    task_id: UUID | None = None,
-    subtask_id: UUID | None = None,
-    state: FocusSessionState = FocusSessionState.WORKING,
-) -> GetFocusSession:
+def focus_session_response(user_id: UUID, **overrides: object) -> GetFocusSession:
     return GetFocusSession(
-        id=session_id or uuid4(),
-        task_id=task_id or uuid4(),
-        current_subtask_id=subtask_id,
-        state=state,
-        work_duration_minutes=25,
-        rest_duration_minutes=5,
-        started_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-        phase_started_at=datetime.now(UTC),
-        completed_at=None,
-        abandoned_at=None,
-        current_subtask=None,
+        id=uuid4(),
+        user_id=user_id,
+        start_at=datetime.now(UTC),
+        end_at=None,
+        work_cycle_m=20,
+        rest_cycle_m=5,
+        work_cycles=0,
+        rest_cycles=0,
+        total_overtime_s=0,
+        abandon_reason=None,
+        **overrides,  # type: ignore[arg-type]
     )
 
 
 class RecordingFocusSessionService:
     def __init__(self) -> None:
-        self.start_subtask_id: UUID | None = None
-        self.start_user_id: UUID | None = None
-        self.action_session_id: UUID | None = None
-        self.action_user_id: UUID | None = None
-        self.action: FocusSessionAction | None = None
-        self.action_reason: str | None = None
+        self.create_req: CreateFocusSession | None = None
+        self.create_user_id: UUID | None = None
+        self.read_session_id: UUID | None = None
+        self.read_user_id: UUID | None = None
+        self.update_session_id: UUID | None = None
+        self.update_user_id: UUID | None = None
+        self.update_req: UpdateFocusSession | None = None
 
-    async def start_or_resume_session(
-        self,
-        subtask_id: UUID,
-        user_id: UUID,
-    ) -> GetFocusSession:
-        self.start_subtask_id = subtask_id
-        self.start_user_id = user_id
-        return focus_session_response(
-            user_id,
-            subtask_id=subtask_id,
-        )
+    async def create(self, req: CreateFocusSession, user_id: UUID) -> GetFocusSession:
+        self.create_req = req
+        self.create_user_id = user_id
+        return focus_session_response(user_id)
 
-    async def get_active_session(
-        self,
-        user_id: UUID,
-    ) -> GetFocusSession | None:
+    async def read_active(self, user_id: UUID) -> GetFocusSession | None:
         return None
 
-    async def apply_action(
+    async def read(self, session_id: UUID, user_id: UUID) -> GetFocusSession:
+        self.read_session_id = session_id
+        self.read_user_id = user_id
+        return focus_session_response(user_id)
+
+    async def update(
         self,
         session_id: UUID,
         user_id: UUID,
-        action: FocusSessionAction,
-        payload: FocusSessionActionPayload | None,
+        req: UpdateFocusSession,
     ) -> GetFocusSession:
-        self.action_session_id = session_id
-        self.action_user_id = user_id
-        self.action = action
-        self.action_reason = payload.reason if payload else None
-        return focus_session_response(
-            user_id,
-            session_id=session_id,
-            state=FocusSessionState.ABANDONED,
-        )
+        self.update_session_id = session_id
+        self.update_user_id = user_id
+        self.update_req = req
+        return focus_session_response(user_id)
 
 
 class ForbiddenFocusSessionService:
-    async def get_session(
-        self,
-        session_id: UUID,
-        user_id: UUID,
-    ) -> GetFocusSession:
+    async def read(self, session_id: UUID, user_id: UUID) -> GetFocusSession:
         raise ForbiddenError("focus session belongs to another user")
 
 
-class InvalidTransitionFocusSessionService:
-    async def apply_action(
+class InvalidFocusSessionService:
+    async def update(
         self,
         session_id: UUID,
         user_id: UUID,
-        action: FocusSessionAction,
-        payload: FocusSessionActionPayload | None,
+        req: UpdateFocusSession,
     ) -> GetFocusSession:
-        raise InvalidOperationError("Only rest-complete sessions can be resumed")
+        raise InvalidOperationError("cannot update a finished session")
 
 
-def test_start_focus_session_requires_login() -> None:
+def test_create_focus_session_requires_login() -> None:
     app.dependency_overrides[FocusSessionService] = lambda: RecordingFocusSessionService()
     response = TestClient(app).post(
         "/focus",
-        json={"subtask_id": str(uuid4())},
+        json={"subtask_id": str(uuid4()), "work_cycle_m": 20, "rest_cycle_m": 5},
     )
     assert response.status_code == 401
 
 
-def test_start_focus_session_passes_subtask_and_user_to_service() -> None:
+def test_create_focus_session_passes_data() -> None:
     user = logged_in_user()
     focus_service = RecordingFocusSessionService()
     subtask_id = uuid4()
@@ -140,38 +116,51 @@ def test_start_focus_session_passes_subtask_and_user_to_service() -> None:
     app.dependency_overrides[FocusSessionService] = lambda: focus_service
     response = TestClient(app).post(
         "/focus",
-        json={"subtask_id": str(subtask_id)},
+        json={"subtask_id": str(subtask_id), "work_cycle_m": 20, "rest_cycle_m": 5},
     )
     assert response.status_code == 201
-    assert focus_service.start_subtask_id == subtask_id
-    assert focus_service.start_user_id == user.id
+    assert focus_service.create_req is not None
+    assert focus_service.create_req.subtask_id == subtask_id
+    assert focus_service.create_user_id == user.id
 
 
-def test_get_active_focus_session_returns_null_when_none_exists() -> None:
+def test_get_active_focus_session_returns_null() -> None:
     user = logged_in_user()
     focus_service = RecordingFocusSessionService()
     app.dependency_overrides[current_active_user] = lambda: user
     app.dependency_overrides[FocusSessionService] = lambda: focus_service
-    response = TestClient(app).get("/focus?active=true")
+    response = TestClient(app).get("/focus/active")
     assert response.status_code == 200
     assert response.json() is None
 
 
-def test_abandon_focus_session_passes_reason_to_service() -> None:
+def test_get_focus_session_returns_session() -> None:
     user = logged_in_user()
     focus_service = RecordingFocusSessionService()
     session_id = uuid4()
     app.dependency_overrides[current_active_user] = lambda: user
     app.dependency_overrides[FocusSessionService] = lambda: focus_service
-    response = TestClient(app).post(
-        f"/focus/{session_id}?action=abandon",
-        json={"reason": "I need to stop now"},
+    response = TestClient(app).get(f"/focus/{session_id}")
+    assert response.status_code == 200
+    assert focus_service.read_session_id == session_id
+    assert focus_service.read_user_id == user.id
+
+
+def test_update_focus_session_passes_data() -> None:
+    user = logged_in_user()
+    focus_service = RecordingFocusSessionService()
+    session_id = uuid4()
+    app.dependency_overrides[current_active_user] = lambda: user
+    app.dependency_overrides[FocusSessionService] = lambda: focus_service
+    response = TestClient(app).patch(
+        f"/focus/{session_id}",
+        json={"work_cycles": 3},
     )
     assert response.status_code == 200
-    assert focus_service.action_session_id == session_id
-    assert focus_service.action_user_id == user.id
-    assert focus_service.action == FocusSessionAction.ABANDON
-    assert focus_service.action_reason == "I need to stop now"
+    assert focus_service.update_session_id == session_id
+    assert focus_service.update_user_id == user.id
+    assert focus_service.update_req is not None
+    assert focus_service.update_req.work_cycles == 3
 
 
 def test_other_users_focus_session_returns_403() -> None:
@@ -181,8 +170,11 @@ def test_other_users_focus_session_returns_403() -> None:
     assert response.status_code == 403
 
 
-def test_invalid_focus_transition_returns_409() -> None:
+def test_invalid_focus_update_returns_409() -> None:
     app.dependency_overrides[current_active_user] = lambda: logged_in_user()
-    app.dependency_overrides[FocusSessionService] = lambda: InvalidTransitionFocusSessionService()
-    response = TestClient(app).post(f"/focus/{uuid4()}?action=resume")
+    app.dependency_overrides[FocusSessionService] = lambda: InvalidFocusSessionService()
+    response = TestClient(app).patch(
+        f"/focus/{uuid4()}",
+        json={"work_cycles": 2},
+    )
     assert response.status_code == 409

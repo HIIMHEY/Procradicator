@@ -36,14 +36,14 @@ async def test_gen_task_handles_db_disconn() -> None:
         )
     )
 
-    mock_task_svc.create_roadmap = AsyncMock(side_effect=DependencyUnavailableError("BOOM!"))
+    mock_task_svc.create_map = AsyncMock(side_effect=DependencyUnavailableError("BOOM!"))
 
     mock_result = MagicMock(spec=AgentRunResult)
     mock_result.output = CreateTask(
         title="Mock roadmap",
         due_at=datetime.now(UTC),
         subtasks=[
-            CreateSubtask(id="id 1", title="mock title", estimate=1, completed=0, depends_on=[])
+            CreateSubtask(id="id 1", title="mock title", est_m=1, is_done=False, depends_on=[])
         ],
     )
 

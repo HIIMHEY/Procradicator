@@ -29,8 +29,8 @@ def task_payload() -> dict[str, object]:
             {
                 "id": "pick-topic",
                 "title": "Pick topic",
-                "estimate": "2",
-                "completed": "1",
+                "est_m": 2,
+                "is_done": False,
                 "description": None,
                 "depends_on": [],
             }
@@ -55,7 +55,7 @@ class RecordingTaskService:
         self.page: int | None = None
         self.limit: int | None = None
 
-    async def create_roadmap(self, payload: CreateTask, user_id: UUID) -> Task:
+    async def create_map(self, payload: CreateTask, user_id: UUID) -> Task:
         self.user_id = user_id
         return Task(
             id=uuid4(),
@@ -64,7 +64,7 @@ class RecordingTaskService:
             user_id=user_id,
         )
 
-    async def list_roadmaps_for_user(self, user_id: UUID, page: int, limit: int) -> list[Task]:
+    async def read_maps(self, user_id: UUID, page: int, limit: int) -> list[Task]:
         self.list_user_id = user_id
         self.page = page
         self.limit = limit
@@ -79,7 +79,7 @@ class RecordingTaskService:
 
 
 class ForbiddenTaskService:
-    async def get_roadmap(self, task_id: UUID, user_id: UUID) -> Task:
+    async def read_map(self, task_id: UUID, user_id: UUID) -> Task:
         raise ForbiddenError("task belongs to another user")
 
 

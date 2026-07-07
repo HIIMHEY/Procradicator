@@ -19,8 +19,8 @@ def create_task_payload() -> CreateTask:
             CreateSubtask(
                 id="pick-topic",
                 title="Pick topic",
-                estimate=2,
-                completed=1,
+                est_m=2,
+                is_done=True,
                 description=None,
                 depends_on=[],
             )
@@ -35,7 +35,7 @@ class RecordingTaskRepo:
         self.offset: int | None = None
         self.limit: int | None = None
 
-    async def create_roadmap_graph(self, roadmap: CreateTask, user_id: UUID) -> Task:
+    async def create_graph(self, roadmap: CreateTask, user_id: UUID) -> Task:
         self.user_id = user_id
         return Task(
             id=uuid4(),
@@ -44,7 +44,7 @@ class RecordingTaskRepo:
             user_id=user_id,
         )
 
-    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
+    async def read_maps(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
         self.list_user_id = user_id
         self.offset = offset
         self.limit = limit
@@ -59,7 +59,7 @@ class RecordingTaskRepo:
 
 
 class OtherUsersTaskRepo:
-    async def get_roadmap(self, task_id: UUID) -> Task:
+    async def read_map(self, task_id: UUID) -> Task:
         return Task(
             id=task_id,
             title="Not yours",
@@ -72,7 +72,7 @@ async def test_create_roadmap_passes_user_id_to_repository() -> None:
     repo = RecordingTaskRepo()
     service = TaskService(repo)  # type: ignore[arg-type]
     user_id = uuid4()
-    task = await service.create_roadmap(create_task_payload(), user_id)
+    task = await service.create_map(create_task_payload(), user_id)
     assert task.user_id == user_id
     assert repo.user_id == user_id
 
@@ -80,14 +80,14 @@ async def test_create_roadmap_passes_user_id_to_repository() -> None:
 async def test_get_roadmap_rejects_other_users_task() -> None:
     service = TaskService(OtherUsersTaskRepo())  # type: ignore[arg-type]
     with pytest.raises(ForbiddenError):
-        await service.get_roadmap(uuid4(), uuid4())
+        await service.read_map(uuid4(), uuid4())
 
 
 async def test_list_roadmaps_for_user_converts_page_limit_to_offset() -> None:
     repo = RecordingTaskRepo()
     service = TaskService(repo)  # type: ignore[arg-type]
     user_id = uuid4()
-    tasks = await service.list_roadmaps_for_user(user_id, page=3, limit=10)
+    tasks = await service.read_maps(user_id, page=3, limit=10)
     assert tasks[0].user_id == user_id
     assert repo.list_user_id == user_id
     assert repo.offset == 20
