@@ -9,16 +9,12 @@ class CreateSubtask(BaseModel):
     id: str = Field(..., description="Unique kebab-case string identifier")
     title: str
     description: str | None = None
-    estimate: int = Field(
+    est_m: int = Field(
         ...,
         description="An integer estimate for the time in minutes needed to complete the sub-task",
         gt=0,
     )
-    completed: int = Field(
-        ...,
-        description="The integer amount of time (minutes) spent completing the subtask, must be equal to estimate or 0",  # noqa: E501
-        ge=0,
-    )
+    is_done: bool = False
     depends_on: list[str] = Field(
         default_factory=list,
         description="List of subtask ids that must be finished before this one starts",
@@ -33,21 +29,15 @@ class CreateTask(BaseModel):
 
 
 class UpdateSubTask(BaseModel):
-    id: str = Field(
-        ..., description="A unique identifier for this subtask, e.g., 'buy-lumber'"
-    )
+    id: str = Field(..., description="A unique identifier for this subtask, e.g., 'buy-lumber'")
     title: str
     description: str | None = None
-    estimate: int = Field(
+    est_m: int = Field(
         ...,
         description="An integer estimate for the time in minutes needed to complete the sub-task",
         gt=0,
     )
-    completed: int = Field(
-        ...,
-        description="The integer amount of time (minutes) spent completing the subtask",
-        ge=0,
-    )
+    is_done: bool = False
     depends_on: list[str] = Field(
         default_factory=list,
         description="List of id that must be finished before this one starts",
@@ -65,8 +55,8 @@ class GetSubtask(BaseModel):
     id: UUID
     title: str
     description: str | None
-    estimate: int
-    completed: int
+    est_m: int
+    is_done: bool
     next_subtask: list[UUID]
     model_config = ConfigDict(from_attributes=True)
 

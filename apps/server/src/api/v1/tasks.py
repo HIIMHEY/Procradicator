@@ -25,7 +25,7 @@ async def create_task(
     current_user: Annotated[User, Depends(current_active_user)],
 ) -> dict[str, UUID | None]:
     try:
-        task: Task = await task_svc.create_roadmap(payload, current_user.id)
+        task: Task = await task_svc.create_map(payload, current_user.id)
         return {"task_id": task.id}
     except DuplicateItemError as e:
         raise HTTPException(
@@ -43,11 +43,11 @@ async def create_task(
 async def list_tasks(
     task_svc: Annotated[TaskService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
-    page: Annotated[int, Query(ge=1)] = 1, #Page at least 1
-    limit: Annotated[int, Query(ge=1, le=100)] = 20, #Limit at least 1, max 100
+    page: Annotated[int, Query(ge=1)] = 1,  # Page at least 1
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,  # Limit at least 1, max 100
 ) -> list[GetTask]:
     try:
-        tasks: list[Task] = await task_svc.list_roadmaps_for_user(current_user.id, page, limit)
+        tasks: list[Task] = await task_svc.read_maps(current_user.id, page, limit)
         return [GetTask.model_validate(task) for task in tasks]
     except DependencyUnavailableError as e:
         raise HTTPException(
@@ -63,7 +63,7 @@ async def get_task(
     current_user: Annotated[User, Depends(current_active_user)],
 ) -> GetTask:
     try:
-        task: Task | None = await task_svc.get_roadmap(task_id, current_user.id)
+        task: Task | None = await task_svc.read_map(task_id, current_user.id)
         return GetTask.model_validate(task)
     except ForbiddenError as e:
         raise HTTPException(
@@ -86,7 +86,7 @@ async def update_task(
     current_user: Annotated[User, Depends(current_active_user)],
 ) -> None:
     try:
-        await task_svc.update_roadmap(task_id, payload, current_user.id)
+        await task_svc.update_map(task_id, payload, current_user.id)
     except ForbiddenError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Task access forbidden"
@@ -112,7 +112,7 @@ async def del_task(
     current_user: Annotated[User, Depends(current_active_user)],
 ) -> None:
     try:
-        await task_svc.del_roadmap(task_id, current_user.id)
+        await task_svc.delete_map(task_id, current_user.id)
     except ForbiddenError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Task access forbidden"
