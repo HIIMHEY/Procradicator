@@ -30,7 +30,7 @@ class ChatService:
     def _ensure_session_owner(self, session: ChatSession, user_id: UUID) -> None:
         if session.user_id != user_id:
             raise ForbiddenError("chat session belongs to another user")
-        #session.user_id is the owner stored in DB, user_id is the current logged-in user.
+        # session.user_id is the owner stored in DB, user_id is the current logged-in user.
 
     def _ensure_task_owner(self, task: Task, user_id: UUID) -> None:
         if task.user_id != user_id:
@@ -45,7 +45,8 @@ class ChatService:
         except Exception as e:
             logger.error(f"Session read failed: {str(e)}")
             raise ServiceError(f"Could not read session: {str(e)}") from e
-    #Loads one chat session from the database and converts DB or read failures
+
+    # Loads one chat session from the database and converts DB or read failures
     # into service-level errors.
 
     async def _read_task(self, task_id: UUID) -> Task:
@@ -57,11 +58,12 @@ class ChatService:
         except Exception as e:
             logger.error(f"Task read failed: {str(e)}")
             raise ServiceError(f"Could not read task: {str(e)}") from e
-    #Same as _read_session but for tasks
+
+    # Same as _read_session but for tasks
 
     async def create_session(self, user_id: UUID) -> ChatSession:
         try:
-            session: ChatSession = ChatSession(user_id=user_id) #Now has one User owner
+            session: ChatSession = ChatSession(user_id=user_id)  # Now has one User owner
             return await self.session_repo.upsert(session)
         except DatabaseError as e:
             logger.error(f"Session create failed: {str(e)}")

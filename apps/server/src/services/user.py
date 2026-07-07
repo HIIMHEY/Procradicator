@@ -26,11 +26,11 @@ class UserService:
     def _normalize_email(self, email: str) -> str:
         return email.strip().lower()
 
-    #Turns google email to a username
+    # Turns google email to a username
     def _oauth_username_base(self, email: str) -> str:
-        #Gets Test.Example from Test.Example@email.com
+        # Gets Test.Example from Test.Example@email.com
         local_part: str = self._normalize_email(email).split("@", maxsplit=1)[0]
-        #Test.Example becomes test-example (basically unsafe char like "." becomes "-")
+        # Test.Example becomes test-example (basically unsafe char like "." becomes "-")
         username: str = re.sub(r"[^a-z0-9]+", "-", local_part).strip("-")
         return username or "user"
 
@@ -49,7 +49,7 @@ class UserService:
             logger.error(f"User lookup by email failed: {str(e)}", exc_info=True)
             raise ServiceError("Could not get user") from e
 
-    #Let say test-ex, test-ex-1... exists alr, then we generate test-ex-1, test-ex-2...
+    # Let say test-ex, test-ex-1... exists alr, then we generate test-ex-1, test-ex-2...
     async def generate_oauth_username(self, email: str) -> str:
         try:
             base_username: str = self._oauth_username_base(email)
@@ -63,7 +63,7 @@ class UserService:
             logger.error(f"OAuth username generation failed: {str(e)}", exc_info=True)
             raise ServiceError("Could not generate OAuth username") from e
 
-    #Google email can create new SSO user only if that email is not already used.
+    # Google email can create new SSO user only if that email is not already used.
     async def prepare_oauth_registration(self, email: str) -> tuple[str, str]:
         try:
             normalized_email: str = self._normalize_email(email)

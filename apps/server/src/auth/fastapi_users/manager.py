@@ -26,8 +26,7 @@ async def get_user_db(
         OAuthAccount,
     )
     yield user_db
-    #Changes both my User and OAuthAccount tables if needed
-
+    # Changes both my User and OAuthAccount tables if needed
 
 
 # This class is needed for FastAPI Users to handle user authentication and management.
@@ -47,7 +46,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[Any, uuid.UUID]):
         self.auth_service = auth_service
         self.user_service = user_service
 
-    async def authenticate( #Auto called by built in POST /auth/login
+    async def authenticate(  # Auto called by built in POST /auth/login
         self,
         credentials: OAuth2PasswordRequestForm,
     ) -> User | None:
@@ -59,7 +58,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[Any, uuid.UUID]):
         except InvalidCredentialsError:
             return None
 
-    async def oauth_callback( #Auto called by /google/callback after confirmation
+    async def oauth_callback(  # Auto called by /google/callback after confirmation
         self,
         oauth_name: str,
         access_token: str,
@@ -83,7 +82,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[Any, uuid.UUID]):
         try:
             user: User = await self.get_by_oauth_account(oauth_name, account_id)
         except exceptions.UserNotExists:
-            #User does not exist, store them in User and OAuthAccount
+            # User does not exist, store them in User and OAuthAccount
             try:
                 email, username = await self.user_service.prepare_oauth_registration(account_email)
             except EmailAlreadyRegisteredError as e:
@@ -99,7 +98,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[Any, uuid.UUID]):
             user = await self.user_db.add_oauth_account(user, oauth_account_dict)
             await self.on_after_register(user, request)
         else:
-            #User exists, update OAuthAccount info
+            # User exists, update OAuthAccount info
             for existing_oauth_account in user.oauth_accounts:
                 if (
                     existing_oauth_account.account_id == account_id

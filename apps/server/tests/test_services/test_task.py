@@ -44,9 +44,7 @@ class RecordingTaskRepo:
             user_id=user_id,
         )
 
-    async def list_by_user_id(
-        self, user_id: UUID, offset: int, limit: int
-    ) -> list[Task]:
+    async def list_by_user_id(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
         self.list_user_id = user_id
         self.offset = offset
         self.limit = limit

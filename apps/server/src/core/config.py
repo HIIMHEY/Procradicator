@@ -21,15 +21,13 @@ class Settings(BaseSettings):
     )  # Change it back to 900 seconds in later, once refresh tokens are implemented
     access_cookie_name: str = Field(default="procradicator_access")
     access_cookie_secure: bool = Field(default=True)
-    access_cookie_same_site: Literal['lax', 'strict', 'none'] = Field(default='none')
+    access_cookie_same_site: Literal["lax", "strict", "none"] = Field(default="none")
     google_oauth_client_id: str = Field(default="")
     google_oauth_client_secret: SecretStr = Field(default=SecretStr(""))
-    google_oauth_redirect_url: str = Field(
-        default="http://localhost:8081/auth/sso/callback"
-    )
+    google_oauth_redirect_url: str = Field(default="http://localhost:8081/auth/sso/callback")
     oauth_state_secret: SecretStr = Field(default=SecretStr(DEFAULT_OAUTH_STATE_SECRET))
     oauth_cookie_secure: bool = Field(default=True)
-    oauth_cookie_same_site: Literal['lax', 'strict', 'none'] = Field(default='none')
+    oauth_cookie_same_site: Literal["lax", "strict", "none"] = Field(default="none")
     model_config = SettingsConfigDict(env_file=".env")
 
 

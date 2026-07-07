@@ -12,8 +12,8 @@ class TestTask:
             "id": "id",
             "title": "subtask title",
             "description": "subtask desc",
-            "estimate": "2",
-            "completed": "1",
+            "est_m": 2,
+            "is_done": False,
             "depends_on": [],
         }
         data = {
@@ -58,8 +58,8 @@ class TestTask:
             "id": subtask_id,
             "title": "subtask title",
             "description": "subtask desc",
-            "estimate": "2",
-            "completed": "1",
+            "est_m": 2,
+            "is_done": False,
             "next_subtask": [next_subtask_id],
         }
         data = {
@@ -82,8 +82,8 @@ class TestTask:
         assert first_subtask.id == subtask_id
         assert first_subtask.title == "subtask title"
         assert first_subtask.description == "subtask desc"
-        assert first_subtask.estimate == 2
-        assert first_subtask.completed == 1
+        assert first_subtask.est_m == 2
+        assert first_subtask.is_done is False
         assert first_subtask.next_subtask == [next_subtask_id]
 
     def test_get_task_invalid_uuid(self) -> None:

@@ -38,7 +38,7 @@ jobs:
       - name: run TypeScript type check
         run: |
           cd apps/mobile
-          pnpm exec tsc --noEmit
+          pnpm run typechk
 
       - name: run linter
         run: |
