@@ -11,6 +11,11 @@ class DatabaseError(BaseError):
     pass
 
 
+class DomainError(BaseError):
+    # raised when a domain model business rule is violated
+    pass
+
+
 class ResourceNotFoundError(DatabaseError):
     # raised when a resource doesn't exist, like yeah
     pass
