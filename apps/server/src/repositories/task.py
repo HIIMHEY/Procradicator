@@ -118,7 +118,7 @@ class TaskRepo(BaseRepo[Task]):
             await self.session.flush()
             for successor_id, predecessors in links_to_build:
                 for pred_slug in predecessors:
-                    pred_id = id_map.get(pred_slug)
+                    pred_id: UUID | None = id_map.get(pred_slug)
                     if not pred_id:
                         raise ValueError(f"predecessor slug '{pred_slug}' not found.")
                     self.session.add(
@@ -147,7 +147,7 @@ class TaskRepo(BaseRepo[Task]):
                 .offset(offset)
                 .limit(limit)
             )
-            results = (await self.session.exec(statement)).all()
+            results: Sequence[Task] = (await self.session.exec(statement)).all()
             return list(results)
         except SQLAlchemyError as e:
             await self.session.rollback()
@@ -209,7 +209,7 @@ class TaskRepo(BaseRepo[Task]):
                 if not succ_id:
                     continue
                 for pred_key in st.depends_on:
-                    pred_id = id_map.get(pred_key) or id_map.get(
+                    pred_id: UUID | None = id_map.get(pred_key) or id_map.get(
                         UUID(pred_key)
                         if isinstance(pred_key, str) and len(pred_key) == 36
                         else pred_key
@@ -217,7 +217,7 @@ class TaskRepo(BaseRepo[Task]):
                     if not pred_id:
                         raise ResourceNotFoundError(f"Dependency reference '{pred_key}' not found.")
                     target_edges.add((pred_id, succ_id))
-            current_edge_keys = set(curr_edges.keys())
+            current_edge_keys: set[tuple[UUID, UUID]] = set(curr_edges.keys())
             for edge in current_edge_keys - target_edges:
                 await self.session.delete(curr_edges[edge])
             self.session.add_all(
@@ -226,7 +226,7 @@ class TaskRepo(BaseRepo[Task]):
                     for pred_id, succ_id in (target_edges - current_edge_keys)
                 ]
             )
-            now = datetime.now(UTC)
+            now: datetime = datetime.now(UTC)
             for sub_id, sub in existing_subs.items():
                 if sub_id not in incoming_sub_ids:
                     sub.deleted_at = now
@@ -241,7 +241,15 @@ class TaskRepo(BaseRepo[Task]):
     async def delete_soft(self, task_id: UUID) -> None:
         logger.info(f"Soft deleting task: {task_id}")
         try:
-            task: Task = await self.read(task_id)
+            stmt: SelectOfScalar[Task] = (
+                select(Task)
+                .where(col(Task.id) == task_id)
+                .options(selectinload(Task.subtasks))  # type: ignore[arg-type]
+            )
+            task: Task | None = (await self.session.exec(stmt)).first()
+            if not task:
+                logger.warning(f"Soft delete failed: Task {task_id} not found")
+                raise ResourceNotFoundError("task not found")
             task.deleted_at = datetime.now(UTC)
             for sub in task.subtasks:
                 sub.deleted_at = datetime.now(UTC)
