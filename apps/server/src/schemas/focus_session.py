@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 class CreateFocusSession(BaseModel):
@@ -17,8 +17,8 @@ class WorkLogData(BaseModel):
 
     @field_validator("stop_at")
     @classmethod
-    def after_start(cls, v: datetime, info) -> datetime:
-        start = info.data.get("start_at")
+    def after_start(cls, v: datetime, info: ValidationInfo) -> datetime:
+        start: datetime | None = info.data.get("start_at")
         if start and v <= start:
             raise ValueError("stop_at must be after start_at")
         return v
@@ -30,8 +30,8 @@ class RestLogData(BaseModel):
 
     @field_validator("stop_at")
     @classmethod
-    def after_start(cls, v: datetime, info) -> datetime:
-        start = info.data.get("start_at")
+    def after_start(cls, v: datetime, info: ValidationInfo) -> datetime:
+        start: datetime | None = info.data.get("start_at")
         if start and v <= start:
             raise ValueError("stop_at must be after start_at")
         return v
