@@ -22,7 +22,6 @@ class Task(SQLModel, table=True):
     deleted_at: datetime | None = None
     subtasks: list["Subtask"] = Relationship(
         back_populates="task",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
 
