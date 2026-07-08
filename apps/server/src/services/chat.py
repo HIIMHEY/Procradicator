@@ -9,6 +9,11 @@ from src.exceptions import DatabaseError, ForbiddenError, ServiceError
 from src.models.chat import ChatMessage, ChatSession, Role
 from src.models.task import Task
 from src.repositories.chat import ChatRepo
+from src.repositories.protocols import (
+    ChatRepoProtocol,
+    SessionRepoProtocol,
+    TaskRepoProtocol,
+)
 from src.repositories.session import SessionRepo
 from src.repositories.task import TaskRepo
 from src.utils.service_exception_mapper import map_service_exception
@@ -19,18 +24,18 @@ logger: logging.Logger = logging.getLogger(__name__)
 class ChatService:
     def __init__(
         self,
-        chat_repo: Annotated[ChatRepo, Depends()],
-        session_repo: Annotated[SessionRepo, Depends()],
-        task_repo: Annotated[TaskRepo, Depends()],
+        chat_repo: Annotated[ChatRepoProtocol, Depends(ChatRepo)],
+        session_repo: Annotated[SessionRepoProtocol, Depends(SessionRepo)],
+        task_repo: Annotated[TaskRepoProtocol, Depends(TaskRepo)],
     ) -> None:
-        self.chat_repo = chat_repo
-        self.session_repo = session_repo
-        self.task_repo = task_repo
+        self.chat_repo: ChatRepoProtocol = chat_repo
+        self.session_repo: SessionRepoProtocol = session_repo
+        self.task_repo: TaskRepoProtocol = task_repo
 
     def _ensure_session_owner(self, session: ChatSession, user_id: UUID) -> None:
         if session.user_id != user_id:
             raise ForbiddenError("chat session belongs to another user")
-        # session.user_id is the owner stored in DB, user_id is the current logged-in user.
+        # session.user_id is the owner from DB, user_id is curr user.
 
     def _ensure_task_owner(self, task: Task, user_id: UUID) -> None:
         if task.user_id != user_id:
@@ -46,8 +51,7 @@ class ChatService:
             logger.error(f"Session read failed: {str(e)}")
             raise ServiceError(f"Could not read session: {str(e)}") from e
 
-    # Loads one chat session from the database and converts DB or read failures
-    # into service-level errors.
+    # load chat session from DB & converts DB  failures into service lvl errors.
 
     async def _read_task(self, task_id: UUID) -> Task:
         try:
@@ -59,11 +63,13 @@ class ChatService:
             logger.error(f"Task read failed: {str(e)}")
             raise ServiceError(f"Could not read task: {str(e)}") from e
 
-    # Same as _read_session but for tasks
+    # same as _read_session but for tasks
 
     async def create_session(self, user_id: UUID) -> ChatSession:
         try:
-            session: ChatSession = ChatSession(user_id=user_id)  # Now has one User owner
+            session: ChatSession = ChatSession(
+                user_id=user_id
+            )
             return await self.session_repo.upsert(session)
         except DatabaseError as e:
             logger.error(f"Session create failed: {str(e)}")
@@ -116,10 +122,14 @@ class ChatService:
     ) -> ChatMessage:
         await self.get_session(session_id, user_id)
         try:
-            return await self.chat_repo.add_message(session_id, role, content, tool_call_id)
+            return await self.chat_repo.add_message(
+                session_id, role, content, tool_call_id
+            )
         except DatabaseError as e:
             logger.error(f"Session create failed: {str(e)}")
             raise map_service_exception(e) from e
         except Exception as e:
             logger.error(f"Add message failed: {str(e)}")
-            raise ServiceError(f"Could not add message to chat history: {str(e)}") from e
+            raise ServiceError(
+                f"Could not add message to chat history: {str(e)}"
+            ) from e

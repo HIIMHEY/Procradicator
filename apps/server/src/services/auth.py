@@ -6,6 +6,7 @@ from fastapi import Depends
 from src.auth.fastapi_users.constants import DUMMY_PASSWORD_HASH
 from src.exceptions import CredentialVerificationError, InvalidCredentialsError, ServiceError
 from src.models.user import User
+from src.services.protocols import UserServiceProtocol
 from src.services.user import UserService
 from src.utils.auth import verify_password
 
@@ -13,8 +14,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class AuthService:
-    def __init__(self, user_service: Annotated[UserService, Depends()]) -> None:
-        self.user_service = user_service
+    def __init__(self, user_service: Annotated[UserServiceProtocol, Depends(UserService)]) -> None:
+        self.user_service: UserServiceProtocol = user_service
 
     async def verify_credentials(self, username: str, password: str) -> User:
         try:

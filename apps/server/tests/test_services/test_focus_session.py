@@ -14,7 +14,7 @@ from src.schemas.focus_session import (
 )
 from src.services.focus_session import FocusSessionService
 
-pytestmark = pytest.mark.anyio
+pytestmark: pytest.MarkDecorator = pytest.mark.anyio
 
 
 def make_subtask(*, est_m: int = 25, is_done: bool = False) -> Subtask:
@@ -54,7 +54,7 @@ def make_service() -> tuple[FocusSessionService, AsyncMock, AsyncMock]:
         return session
 
     focus_repo.upsert.side_effect = upsert_focus_session
-    service = FocusSessionService(focus_repo, task_svc)  # type: ignore[arg-type]
+    service = FocusSessionService(focus_repo, task_svc)
     return service, focus_repo, task_svc
 
 

@@ -5,14 +5,21 @@ from uuid import UUID
 
 from fastapi import Depends
 
-from src.exceptions import DatabaseError, DomainError, ForbiddenError, InvalidOperationError
+from src.exceptions import (
+    DatabaseError,
+    DomainError,
+    ForbiddenError,
+    InvalidOperationError,
+)
 from src.models.focus_session import FocusSession
 from src.repositories.focus_session import FocusSessionRepo
+from src.repositories.protocols import FocusSessionRepoProtocol
 from src.schemas.focus_session import (
     CreateFocusSession,
     GetFocusSession,
     UpdateFocusSession,
 )
+from src.services.protocols import TaskServiceProtocol
 from src.services.task import TaskService
 from src.utils.service_exception_mapper import map_service_exception
 
@@ -22,15 +29,15 @@ logger: logging.Logger = logging.getLogger(__name__)
 class FocusSessionService:
     def __init__(
         self,
-        focus_repo: Annotated[FocusSessionRepo, Depends()],
-        task_svc: Annotated[TaskService, Depends()],
+        focus_repo: Annotated[FocusSessionRepoProtocol, Depends(FocusSessionRepo)],
+        task_svc: Annotated[TaskServiceProtocol, Depends(TaskService)],
     ) -> None:
-        self.focus_repo = focus_repo
-        self.task_svc = task_svc
+        self.focus_repo: FocusSessionRepoProtocol = focus_repo
+        self.task_svc: TaskServiceProtocol = task_svc
 
     async def _acquire(self, session_id: UUID, user_id: UUID) -> FocusSession:
         try:
-            session = await self.focus_repo.read(session_id)
+            session: FocusSession = await self.focus_repo.read(session_id)
         except DatabaseError as e:
             raise map_service_exception(e) from e
         if session.user_id != user_id:
@@ -38,7 +45,9 @@ class FocusSessionService:
         return session
 
     async def _link_subtasks(self, req: UpdateFocusSession, user_id: UUID) -> None:
-        ids = list({log.subtask_id for log in req.focus_logs} | set(req.completed_subtask_ids))
+        ids: list[UUID] = list(
+            {log.subtask_id for log in req.focus_logs} | set(req.completed_subtask_ids)
+        )
         if ids:
             await asyncio.gather(*[self.task_svc.read_subtask(i, user_id) for i in ids])
 
@@ -72,14 +81,14 @@ class FocusSessionService:
             rest_cycle_m=req.rest_cycle_m,
         )
         try:
-            saved = await self.focus_repo.upsert(session)
+            saved: FocusSession = await self.focus_repo.upsert(session)
         except DatabaseError as e:
             raise map_service_exception(e) from e
         return self._format(saved)
 
     async def read_active(self, user_id: UUID) -> GetFocusSession | None:
         try:
-            session = await self.focus_repo.read_active(user_id)
+            session: FocusSession | None = await self.focus_repo.read_active(user_id)
         except DatabaseError as e:
             raise map_service_exception(e) from e
         if session is None:
@@ -87,7 +96,7 @@ class FocusSessionService:
         return self._format(session)
 
     async def read(self, session_id: UUID, user_id: UUID) -> GetFocusSession:
-        session = await self._acquire(session_id, user_id)
+        session: FocusSession = await self._acquire(session_id, user_id)
         return self._format(session)
 
     async def update(
@@ -96,7 +105,7 @@ class FocusSessionService:
         user_id: UUID,
         req: UpdateFocusSession,
     ) -> GetFocusSession:
-        session = await self._acquire(session_id, user_id)
+        session: FocusSession = await self._acquire(session_id, user_id)
         try:
             session.guard_active()
         except DomainError as e:

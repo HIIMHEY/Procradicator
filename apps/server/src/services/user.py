@@ -12,6 +12,7 @@ from src.exceptions import (
     UsernameAlreadyRegisteredError,
 )
 from src.models.user import User
+from src.repositories.protocols import UserRepoProtocol
 from src.repositories.user import UserRepo
 from src.schemas.auth import RegisterRequest
 from src.utils.auth import hash_password
@@ -20,8 +21,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class UserService:
-    def __init__(self, user_repo: Annotated[UserRepo, Depends()]) -> None:
-        self.user_repo = user_repo
+    def __init__(self, user_repo: Annotated[UserRepoProtocol, Depends(UserRepo)]) -> None:
+        self.user_repo: UserRepoProtocol = user_repo
 
     def _normalize_email(self, email: str) -> str:
         return email.strip().lower()

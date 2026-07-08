@@ -26,8 +26,7 @@ from src.models.chat import ChatMessage, ChatSession, Role
 from src.models.task import Task
 from src.schemas.llm import ChatResponse
 from src.schemas.task import CreateTask, GetTask, UpdateTask
-from src.services.chat import ChatService
-from src.services.task import TaskService
+from src.services.protocols import ChatServiceProtocol, TaskServiceProtocol
 from src.utils import chat_hist_mapper
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -35,8 +34,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass
 class AgentDeps:
-    task_svc: TaskService
-    chat_svc: ChatService
+    task_svc: TaskServiceProtocol
+    chat_svc: ChatServiceProtocol
     session_id: UUID
     user_id: UUID
 
@@ -71,8 +70,8 @@ class LLMService:
         session_id: UUID,
         user_id: UUID,
         user_input: str,
-        task_svc: TaskService,
-        chat_svc: ChatService,
+        task_svc: TaskServiceProtocol,
+        chat_svc: ChatServiceProtocol,
     ) -> ChatMessage:
         reply: str = ERR_CRITICAL
         role: Role = Role.ASSISTANT
