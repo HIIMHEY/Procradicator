@@ -58,7 +58,6 @@ class LLMService:
                     "Choose between asking a clarification question, "
                     "creating the roadmap or updating an existing roadmap"
                 ),
-                strict=True,
             ),
             instructions=(INIT_INSTRUCTIONS),
             system_prompt=(),
