@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, with_loader_criteria
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel.sql.expression import SelectOfScalar
@@ -19,7 +19,7 @@ from src.utils.db_exception_mapper import map_db_exception
 
 from .base import BaseRepo
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class TaskRepo(BaseRepo[Task]):
@@ -29,18 +29,18 @@ class TaskRepo(BaseRepo[Task]):
     async def read_map(self, task_id: UUID) -> Task:
         logger.debug(f"Fetching roadmap graph for Task: {task_id}")
         try:
-            statement: SelectOfScalar[Task] = (
+            stmt: SelectOfScalar[Task] = (
                 select(Task)
                 .where(col(Task.id) == task_id, col(Task.deleted_at).is_(None))
                 .options(
-                    selectinload(Task.subtasks).selectinload(Subtask.next_subtask)  # type: ignore[arg-type]
+                    selectinload(Task.subtasks).selectinload(Subtask.next_subtask),  # type: ignore[arg-type]
+                    with_loader_criteria(Subtask, col(Subtask.deleted_at).is_(None)),
                 )
             )
-            result: Task | None = (await self.session.exec(statement)).first()
+            result: Task | None = (await self.session.exec(stmt)).first()
             if not result:
                 logger.warning(f"Roadmap lookup failed: Task {task_id} not found")
                 raise ResourceNotFoundError("task not found")
-            result.subtasks = [s for s in result.subtasks if s.deleted_at is None]
             return result
         except SQLAlchemyError as e:
             await self.session.rollback()
@@ -78,7 +78,7 @@ class TaskRepo(BaseRepo[Task]):
         results: list[Subtask] = []
         try:
             for sid in subtask_ids:
-                sub = await self.read_subtask(sid)
+                sub: Subtask = await self.read_subtask(sid)
                 sub.is_done = True
                 self.session.add(sub)
                 results.append(sub)
@@ -91,7 +91,7 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error completing subtasks: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
-    async def create_graph(self, roadmap: CreateTask, user_id: UUID) -> Task:
+    async def create_map(self, roadmap: CreateTask, user_id: UUID) -> Task:
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
             main_task = Task(
@@ -140,7 +140,8 @@ class TaskRepo(BaseRepo[Task]):
                 select(Task)
                 .where(col(Task.user_id) == user_id, col(Task.deleted_at).is_(None))
                 .options(
-                    selectinload(Task.subtasks).selectinload(Subtask.next_subtask)  # type: ignore[arg-type]
+                    selectinload(Task.subtasks).selectinload(Subtask.next_subtask),  # type: ignore[arg-type]
+                    with_loader_criteria(Subtask, col(Subtask.deleted_at).is_(None)),
                 )
                 .order_by(col(Task.created_at).desc(), col(Task.id))
                 .offset(offset)
@@ -242,6 +243,8 @@ class TaskRepo(BaseRepo[Task]):
         try:
             task: Task = await self.read(task_id)
             task.deleted_at = datetime.now(UTC)
+            for sub in task.subtasks:
+                sub.deleted_at = datetime.now(UTC)
             await self.upsert(task)
         except SQLAlchemyError as e:
             await self.session.rollback()
