@@ -13,14 +13,14 @@ interface SubtaskNodeProps {
 }
 
 export function SubtaskNode({ isWorkable, data, isLast }: SubtaskNodeProps) {
-  const isDone = data.completed == data.estimate;
+  const isDone = data.is_done;
   const router = useRouter();
   return (
     <Box className={`px-4 my-1 items-center`}>
       <Box className="w-full items-center">
         <Text className="text-sm text-slate-700 font-medium mb-1.5">
           {data?.title || `???`}
-          {data?.estimate ? `: ${data.estimate} min` : '??? min'}
+          {data?.est_m ? `: ${data.est_m} min` : '??? min'}
         </Text>
         {isDone ? (
           <Button

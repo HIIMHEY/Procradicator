@@ -18,7 +18,7 @@ export function TaskItem({ task }: TaskItemProps) {
   const router = useRouter();
   const toast = useToast();
   const isCompleted =
-    task.subtasks.length > 0 && task.subtasks.every((sub) => sub.completed == sub.estimate);
+    task.subtasks.length > 0 && task.subtasks.every((sub) => sub.is_done);
   const { mutate: DeleteMutate } = useDeleteTask(task.id);
   const toggleOptions = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

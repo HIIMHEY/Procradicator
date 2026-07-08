@@ -79,22 +79,22 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
         </FormControlError>
       </FormControl>
 
-      <FormControl isInvalid={!!errors?.estimate} className="mb-4">
+      <FormControl isInvalid={!!errors?.est_m} className="mb-4">
         <FormControlLabel>
           <FormControlLabelText>Time Estimate (minutes)</FormControlLabelText>
         </FormControlLabel>
         <Input className="bg-slate-50 border border-slate-200 rounded-lg h-11">
           <InputField
             placeholder="How long would it take to complete this?"
-            value={String(value?.estimate) || ''}
-            onChangeText={(text) => updateField('estimate', text)}
+            value={String(value?.est_m) || ''}
+            onChangeText={(text) => updateField('est_m', text)}
             className="text-sm text-slate-700"
           />
         </Input>
         <FormControlError>
           <FormControlErrorIcon as={AlertCircleIcon} />
           <FormControlErrorText className="text-xs text-red-500 ml-1">
-            {errors?.estimate?.message}
+            {errors?.est_m?.message}
           </FormControlErrorText>
         </FormControlError>
       </FormControl>
@@ -102,10 +102,8 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
       <Box className="flex-row justify-between items-center my-2">
         <Checkbox
           value={value.id || dayjs().toISOString()}
-          isChecked={String(value?.completed) === String(value?.estimate) && value?.completed != 0}
-          onChange={(bool: boolean) =>
-            updateField('completed', bool ? String(value?.estimate || '0') : '0')
-          }
+          isChecked={value?.is_done ?? false}
+          onChange={(bool: boolean) => updateField('is_done', bool)}
           size="md"
         >
           <CheckboxLabel className="ml-2 text-sm text-slate-600">Mark as completed</CheckboxLabel>

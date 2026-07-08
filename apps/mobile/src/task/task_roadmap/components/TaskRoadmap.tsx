@@ -52,9 +52,9 @@ export function TaskRoadmap({ id }: TaskRoadmapProps) {
             data={subtasksList}
             keyExtractor={(item) => item.id}
             renderItem={({ item, index }) => {
-              const isIncomplete = item.completed < item.estimate;
+              const isIncomplete = !item.is_done;
               const prevCompleted =
-                index > 0 && subtasksList[index - 1].completed === subtasksList[index - 1].estimate;
+                index > 0 && subtasksList[index - 1].is_done;
 
               return (
                 <SubtaskNode

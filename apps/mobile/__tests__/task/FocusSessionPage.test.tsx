@@ -41,8 +41,8 @@ const activeFocusSession: FocusSession = {
     title: 'Write the project report',
     description: 'Complete the implementation section.',
     next_subtask: [],
-    completed: 0,
-    estimate: 1,
+    is_done: false,
+    est_m: 1,
   },
 };
 
