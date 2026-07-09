@@ -7,7 +7,7 @@ export const SubtaskSchema = z.object({
   next_subtask: z.array(z.uuid()),
   is_done: z.boolean(),
   est_m: z.int(),
-  deleted_at: z.string().datetime().nullable().optional(),
+  deleted_at: z.iso.datetime().nullable().optional(),
 });
 
 export const TaskSchema = z.object({
@@ -16,7 +16,7 @@ export const TaskSchema = z.object({
   due_at: z.iso.datetime(),
   description: z.string().optional(),
   subtasks: z.array(SubtaskSchema),
-  deleted_at: z.string().datetime().nullable().optional(),
+  deleted_at: z.iso.datetime().nullable().optional(),
 });
 
 export const ModifySubtaskSchema = z.object({
