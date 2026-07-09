@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { formatTimer, useTimer } from '@/task/focus_session/useTimer';
 
@@ -43,7 +43,7 @@ describe('useTimer', () => {
     const now = Date.now();
     jest.setSystemTime(now);
     const { result } = renderHook(() => useTimer(now, 1));
-    jest.advanceTimersByTime(5000);
+    act(() => { jest.advanceTimersByTime(5000); });
     expect(result.current.remaining).toBe(55);
     expect(result.current.isOT).toBe(false);
     expect(result.current.progress).toBeCloseTo(55 / 60);
@@ -53,7 +53,7 @@ describe('useTimer', () => {
     const now = Date.now();
     jest.setSystemTime(now);
     const { result } = renderHook(() => useTimer(now, 1));
-    jest.advanceTimersByTime(65000);
+    act(() => { jest.advanceTimersByTime(65000); });
     expect(result.current.isOT).toBe(true);
     expect(result.current.display).toBe('+00:05');
   });

@@ -1,49 +1,42 @@
 /// <reference types="jest" />
 
-import { API_ROUTES } from '@/config/env';
-import { FocusSessionPage } from '@/task/focus_session/components/FocusSessionPage';
-import type { FocusSession } from '@/task/focus_session/schemas';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+
+import { FocusSessionPage } from '@/task/focus_session/components/FocusSessionPage';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
-const mockNavigate = jest.fn();
-const mockBack = jest.fn();
-const mockFetch = jest.fn();
+const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({
     id: '11111111-1111-4111-8111-111111111111',
+    taskId: '33333333-3333-4333-8333-333333333333',
   }),
-  useRouter: () => ({
-    navigate: mockNavigate,
-    back: mockBack,
-  }),
+  useRouter: () => ({ replace: mockReplace }),
 }));
 
+const SUBTASK_ID = '11111111-1111-4111-8111-111111111111';
 const SESSION_ID = '22222222-2222-4222-8222-222222222222';
 const TASK_ID = '33333333-3333-4333-8333-333333333333';
-const SUBTASK_ID = '11111111-1111-4111-8111-111111111111';
 
-const activeFocusSession: FocusSession = {
+const taskResponse = {
+  id: TASK_ID,
+  title: 'Test Task',
+  subtasks: [
+    {
+      id: SUBTASK_ID,
+      title: 'Write report',
+      description: 'Complete section 3',
+      is_done: false,
+      est_m: 25,
+    },
+  ],
+};
+
+const sessionResponse = {
   id: SESSION_ID,
-  task_id: TASK_ID,
-  current_subtask_id: SUBTASK_ID,
-  state: 'WORKING',
-  work_duration_minutes: 1,
-  rest_duration_minutes: 15,
-  started_at: '2026-06-27T00:00:00Z',
-  updated_at: '2026-06-27T00:00:00Z',
-  phase_started_at: null,
-  completed_at: null,
-  abandoned_at: null,
-  current_subtask: {
-    id: SUBTASK_ID,
-    title: 'Write the project report',
-    description: 'Complete the implementation section.',
-    next_subtask: [],
-    is_done: false,
-    est_m: 1,
-  },
+  work_cycle_m: 25,
+  rest_cycle_m: 5,
 };
 
 const createJsonResponse = (data: unknown): Response =>
@@ -53,116 +46,108 @@ const createJsonResponse = (data: unknown): Response =>
     json: async () => data,
   }) as Response;
 
-const openExitForm = async (): Promise<void> => {
-  fireEvent.press(await screen.findByLabelText('Exit focus session'));
-  await waitFor(() => {
-    expect(screen.getByPlaceholderText('Why do you have to go?')).toBeTruthy();
-  });
-};
+let mockFetch: jest.Mock;
 
 beforeEach(() => {
-  mockNavigate.mockReset();
-  mockBack.mockReset();
-  mockFetch.mockReset();
-  jest.restoreAllMocks();
+  mockReplace.mockReset();
+  mockFetch = jest.fn();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
-test('renders the focus timer and subtask details', async () => {
-  mockFetch.mockResolvedValueOnce(createJsonResponse(activeFocusSession));
+test('hydrates, shows READY screen with task details', async () => {
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+
   renderWithProviders(<FocusSessionPage />);
-  expect(await screen.findByText('00:01:00')).toBeTruthy();
-  expect(screen.getByText('Write the project report')).toBeTruthy();
-  expect(screen.getByText('Complete the implementation section.')).toBeTruthy();
-  expect(screen.getByText('work : rest')).toBeTruthy();
-  expect(screen.getByText('1:15')).toBeTruthy();
-  expect(mockFetch).toHaveBeenCalledWith(API_ROUTES.FOCUS.BASE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ subtask_id: SUBTASK_ID }),
-  });
+
+  expect(await screen.findByText('Write report')).toBeTruthy();
+  expect(screen.getByText('Complete section 3')).toBeTruthy();
+  expect(screen.getByText('Start')).toBeTruthy();
 });
 
-test('opens the exit reason UI when the bottom arrow is pressed', async () => {
+test('press Start to transitions to WORK phase with timer', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(activeFocusSession))
-    .mockResolvedValueOnce(createJsonResponse(activeFocusSession));
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+
   renderWithProviders(<FocusSessionPage />);
-  await openExitForm();
-  expect(screen.getByText('Give up?')).toBeTruthy();
-  expect(screen.getByLabelText('Close exit form')).toBeTruthy();
-  expect(mockFetch).toHaveBeenLastCalledWith(API_ROUTES.FOCUS.ACTION(SESSION_ID, 'exit_attempt'), {
-    method: 'POST',
-    credentials: 'include',
-  });
+
+  fireEvent.press(await screen.findByText('Start'));
+  expect(await screen.findByText('Complete')).toBeTruthy();
+  expect(screen.getByText('25:00')).toBeTruthy();
 });
 
-test('requires a reason before abandoning', async () => {
+test('press Complete on last subtask to shows CONGRATS', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(activeFocusSession))
-    .mockResolvedValueOnce(createJsonResponse(activeFocusSession));
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
+    .mockResolvedValueOnce(createJsonResponse({}));
+
   renderWithProviders(<FocusSessionPage />);
-  await openExitForm();
-  fireEvent.press(screen.getByText('Give up?'));
-  expect(screen.getByText('Reason is required')).toBeTruthy();
-  expect(mockFetch).toHaveBeenCalledTimes(2);
-  expect(mockNavigate).not.toHaveBeenCalled();
+
+  fireEvent.press(await screen.findByText('Start'));
+  fireEvent.press(await screen.findByText('Complete'));
+
+  expect(await screen.findByText("Well done. You've made progress.")).toBeTruthy();
 });
 
-test('sends the abandon reason to the backend', async () => {
-  const abandonedFocusSession: FocusSession = {
-    ...activeFocusSession,
-    state: 'ABANDONED',
-    abandoned_at: '2026-06-27T00:01:00Z',
-    updated_at: '2026-06-27T00:01:00Z',
-  };
+test('press Finish to PATCH with final data to navigates to task', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(activeFocusSession))
-    .mockResolvedValueOnce(createJsonResponse(activeFocusSession))
-    .mockResolvedValueOnce(createJsonResponse(abandonedFocusSession));
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
+    .mockResolvedValueOnce(createJsonResponse({}));
+
   renderWithProviders(<FocusSessionPage />);
-  await openExitForm();
-  fireEvent.changeText(
-    screen.getByPlaceholderText('Why do you have to go?'),
-    'I need to handle an urgent issue.',
-  );
-  fireEvent.press(screen.getByText('Give up?'));
+
+  fireEvent.press(await screen.findByText('Start'));
+  fireEvent.press(await screen.findByText('Complete'));
+
+  fireEvent.press(await screen.findByText('Finish'));
+
   await waitFor(() => {
-    expect(mockNavigate).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
-  });
-  expect(mockFetch).toHaveBeenLastCalledWith(API_ROUTES.FOCUS.ACTION(SESSION_ID, 'abandon'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({
-      reason: 'I need to handle an urgent issue.',
-    }),
+    expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
 });
 
-test('resumes an active work session with elapsed time deducted', async () => {
-  jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-06-27T00:10:00Z').getTime());
-  mockFetch.mockResolvedValueOnce(
-    createJsonResponse({
-      ...activeFocusSession,
-      work_duration_minutes: 25,
-      state: 'WORKING',
-      phase_started_at: '2026-06-27T00:00:00Z',
-    }),
-  );
+test('press Exit on READY to shows EXIT_REASON modal', async () => {
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+
   renderWithProviders(<FocusSessionPage />);
-  expect(await screen.findByText('00:15:00')).toBeTruthy();
+
+  fireEvent.press(await screen.findByText('Exit'));
+  expect(screen.getByText('Stay in the Flow?')).toBeTruthy();
 });
 
-test('shows Start when a resting session has already finished rest', async () => {
-  mockFetch.mockResolvedValueOnce(
-    createJsonResponse({
-      ...activeFocusSession,
-      state: 'REST_COMPLETE',
-      phase_started_at: null,
-    }),
-  );
+test('Exit with completed subtasks to CONGRATS directly', async () => {
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
+    .mockResolvedValueOnce(createJsonResponse({}));
+
   renderWithProviders(<FocusSessionPage />);
-  expect(await screen.findByText('Start Work')).toBeTruthy();
+
+  fireEvent.press(await screen.findByText('Start'));
+  fireEvent.press(await screen.findByText('Complete'));
+
+  expect(await screen.findByText("Well done. You've made progress.")).toBeTruthy();
+});
+
+test('submits abandon reason to PATCH with reason to navigates back', async () => {
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
+    .mockResolvedValueOnce(createJsonResponse({}));
+
+  renderWithProviders(<FocusSessionPage />);
+
+  fireEvent.press(await screen.findByText('Exit'));
+  fireEvent.changeText(screen.getByPlaceholderText('Why do you have to go?'), 'Urgent issue');
+  fireEvent.press(screen.getByText('Exit'));
+
+  await waitFor(() => {
+    expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
+  });
 });

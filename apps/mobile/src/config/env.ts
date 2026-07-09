@@ -10,10 +10,8 @@ export const API_ROUTES = {
   },
   FOCUS: {
     BASE: `${BASE_URL}/focus`,
-    ACTIVE: `${BASE_URL}/focus?active=true`,
+    ACTIVE: `${BASE_URL}/focus/active`,
     DETAIL: (sessionId: string) => `${BASE_URL}/focus/${sessionId}`,
-    ACTION: (sessionId: string, action: string) =>
-      `${BASE_URL}/focus/${sessionId}?action=${action}`,
   },
   TASKS: {
     BASE: `${BASE_URL}/tasks`,

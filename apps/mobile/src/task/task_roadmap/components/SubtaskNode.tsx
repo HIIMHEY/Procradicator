@@ -10,9 +10,10 @@ interface SubtaskNodeProps {
   data: Subtask;
   isLast: boolean;
   isWorkable: boolean;
+  taskId: string;
 }
 
-export function SubtaskNode({ isWorkable, data, isLast }: SubtaskNodeProps) {
+export function SubtaskNode({ isWorkable, data, isLast, taskId }: SubtaskNodeProps) {
   const isDone = data.is_done;
   const router = useRouter();
   return (
@@ -33,7 +34,7 @@ export function SubtaskNode({ isWorkable, data, isLast }: SubtaskNodeProps) {
         ) : isWorkable ? (
           <Button
             variant="solid"
-            onPress={() => router.navigate(`/focus/${data.id}`)}
+            onPress={() => router.navigate(`/focus/${data.id}?taskId=${taskId}`)}
             className="flex-row items-center justify-center bg-[#ff9900] border border-[#ff9900] rounded-xl px-4 py-1.5"
           >
             <Icon as={Play} color="white" />

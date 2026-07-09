@@ -61,6 +61,7 @@ export function TaskRoadmap({ id }: TaskRoadmapProps) {
                   data={item}
                   isLast={index === subtasksList.length - 1}
                   isWorkable={(index === 0 && isIncomplete) || prevCompleted}
+                  taskId={id}
                 />
               );
             }}
