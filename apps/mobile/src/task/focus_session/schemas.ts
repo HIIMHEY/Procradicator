@@ -48,8 +48,13 @@ export const AbandonFocusSessionSchema = z.object({
   reason: z.string().trim().min(1, 'Reason is required').max(500),
 });
 
+export const ExitReasonSchema = z.object({
+  reason: z.string().trim().min(1, 'Reason is required').max(500),
+});
+
 export type FocusSessionState = z.infer<typeof FocusSessionStateSchema>;
 export type FocusSessionAction = z.infer<typeof FocusSessionActionSchema>;
 export type FocusSession = z.infer<typeof FocusSessionSchema>;
 export type CreateFocusSessionData = z.infer<typeof CreateFocusSessionSchema>;
 export type AbandonFocusSessionData = z.infer<typeof AbandonFocusSessionSchema>;
+export type ExitReasonData = z.infer<typeof ExitReasonSchema>;
