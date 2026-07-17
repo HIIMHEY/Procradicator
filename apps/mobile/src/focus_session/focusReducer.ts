@@ -1,4 +1,4 @@
-import { Phase, State } from "./schemas";
+import { Phase, State } from './schemas';
 
 export const initial: State = {
   phase: 'READY',
@@ -141,6 +141,8 @@ export function focusReducer(state: State, action: Action): State {
       };
 
     default:
-       throw new Error(`Unhandled action type: ${JSON.stringify(action)}`);
+      throw new Error(`Unhandled action type: ${JSON.stringify(action)}`);
   }
 }
+
+export { Phase, State };

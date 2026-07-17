@@ -29,9 +29,7 @@ def create_task_payload() -> CreateTask:
 
 
 class FakeTaskRepo:
-    def __init__(
-        self, task_id: UUID | None = None, owner_id: UUID | None = None
-    ) -> None:
+    def __init__(self, task_id: UUID | None = None, owner_id: UUID | None = None) -> None:
         self.task_id: UUID = task_id or uuid4()
         self.owner_id: UUID = owner_id or uuid4()
         self.create_user_id: UUID | None = None

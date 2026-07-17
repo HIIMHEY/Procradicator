@@ -67,9 +67,7 @@ class ChatService:
 
     async def create_session(self, user_id: UUID) -> ChatSession:
         try:
-            session: ChatSession = ChatSession(
-                user_id=user_id
-            )
+            session: ChatSession = ChatSession(user_id=user_id)
             return await self.session_repo.upsert(session)
         except DatabaseError as e:
             logger.error(f"Session create failed: {str(e)}")
@@ -122,14 +120,10 @@ class ChatService:
     ) -> ChatMessage:
         await self.get_session(session_id, user_id)
         try:
-            return await self.chat_repo.add_message(
-                session_id, role, content, tool_call_id
-            )
+            return await self.chat_repo.add_message(session_id, role, content, tool_call_id)
         except DatabaseError as e:
             logger.error(f"Session create failed: {str(e)}")
             raise map_service_exception(e) from e
         except Exception as e:
             logger.error(f"Add message failed: {str(e)}")
-            raise ServiceError(
-                f"Could not add message to chat history: {str(e)}"
-            ) from e
+            raise ServiceError(f"Could not add message to chat history: {str(e)}") from e

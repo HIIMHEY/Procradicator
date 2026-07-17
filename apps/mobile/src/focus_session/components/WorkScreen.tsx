@@ -59,15 +59,9 @@ export function WorkScreen({ currentSubtask, timer, onComplete, onExit }: WorkSc
             Complete Subtask
           </ButtonText>
         </Button>
-        <Button
-          variant="link"
-          className="flex-row items-center gap-2 px-6 py-2"
-          onPress={onExit}
-        >
+        <Button variant="link" className="flex-row items-center gap-2 px-6 py-2" onPress={onExit}>
           <LogOut size={20} color="#717783" />
-          <ButtonText className="font-label-md font-medium text-outline">
-            Exit Focus
-          </ButtonText>
+          <ButtonText className="font-label-md font-medium text-outline">Exit Focus</ButtonText>
         </Button>
       </Box>
     </Box>

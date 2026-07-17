@@ -242,9 +242,7 @@ class TaskRepo(BaseRepo[Task]):
         logger.info(f"Soft deleting task: {task_id}")
         try:
             stmt: SelectOfScalar[Task] = (
-                select(Task)
-                .where(col(Task.id) == task_id)
-                .options(selectinload(Task.subtasks))  # type: ignore[arg-type]
+                select(Task).where(col(Task.id) == task_id).options(selectinload(Task.subtasks))  # type: ignore[arg-type]
             )
             task: Task | None = (await self.session.exec(stmt)).first()
             if not task:

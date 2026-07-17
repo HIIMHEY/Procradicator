@@ -5,7 +5,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import useReadTask from '@/task/hooks/useReadTask';
 
-import { focusReducer, initial, type State } from '../focusReducer';
+import { focusReducer, initial, State } from '../focusReducer';
 import type { Phase } from '../focusReducer';
 import type { UpdateFocusPayload } from '../schemas';
 import useCreateFocusSession from './useCreateFocusSession';

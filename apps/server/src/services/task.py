@@ -83,9 +83,7 @@ class TaskService:
         user_id: UUID,
     ) -> Subtask | None:
         task: Task = await self.read_map(task_id, user_id)
-        active: list[Subtask] = [
-            s for s in task.subtasks if not s.is_done and s.deleted_at is None
-        ]
+        active: list[Subtask] = [s for s in task.subtasks if not s.is_done and s.deleted_at is None]
         current: Subtask | None = next(
             (s for s in task.subtasks if s.id == current_subtask_id), None
         )
@@ -112,9 +110,7 @@ class TaskService:
             logger.error(f"Roadmap list failed: {str(e)}")
             raise ServiceError(f"Could not list roadmaps: {str(e)}") from e
 
-    async def update_map(
-        self, task_id: UUID, roadmap_data: UpdateTask, user_id: UUID
-    ) -> None:
+    async def update_map(self, task_id: UUID, roadmap_data: UpdateTask, user_id: UUID) -> None:
         await self.read_map(task_id, user_id)
         try:
             await self.task_repo.update_map(task_id, roadmap=roadmap_data)
@@ -144,9 +140,7 @@ class TaskService:
             logger.error(f"Subtask completion failed: {str(e)}")
             raise map_service_exception(e) from e
 
-    async def update_done_subtasks(
-        self, subtask_ids: list[UUID], user_id: UUID
-    ) -> None:
+    async def update_done_subtasks(self, subtask_ids: list[UUID], user_id: UUID) -> None:
         unique: list[UUID] = list(set(subtask_ids))
         for sid in unique:
             await self.read_subtask(sid, user_id)

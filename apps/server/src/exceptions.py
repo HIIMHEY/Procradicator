@@ -7,6 +7,7 @@ class BaseError(Exception):
         super().__init__(message)
         self.details: dict[str, Any] | None = details
 
+
 # DB errors
 class DatabaseError(BaseError):
     # parent for any persistence issues

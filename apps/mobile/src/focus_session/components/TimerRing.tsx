@@ -42,9 +42,7 @@ export function TimerRing({ progress, color = '#FF6B35', children }: TimerRingPr
           transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
         />
       </Svg>
-      {children && (
-        <Box className="absolute inset-0 items-center justify-center">{children}</Box>
-      )}
+      {children && <Box className="absolute inset-0 items-center justify-center">{children}</Box>}
     </Box>
   );
 }

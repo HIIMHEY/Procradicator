@@ -36,9 +36,7 @@ export function ExitReasonScreen({ onSubmit, onClose }: ExitReasonScreenProps) {
           onChangeText={setReason}
         />
       </Textarea>
-      {error && (
-        <Text className="text-red-500 text-sm mb-2">{error}</Text>
-      )}
+      {error && <Text className="text-red-500 text-sm mb-2">{error}</Text>}
       <Box className="flex-row gap-4 mt-4">
         <Button variant="outline" onPress={onClose}>
           <ButtonText>Close</ButtonText>

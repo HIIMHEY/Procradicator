@@ -12,9 +12,7 @@ pytestmark: pytest.MarkDecorator = pytest.mark.anyio
 
 
 class FakeUserService:
-    def __init__(
-        self, user: User | None = None, error: Exception | None = None
-    ) -> None:
+    def __init__(self, user: User | None = None, error: Exception | None = None) -> None:
         self.user: User | None = user
         self.error: Exception | None = error
         self.requested_username: str | None = None
