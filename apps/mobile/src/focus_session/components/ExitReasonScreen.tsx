@@ -1,19 +1,18 @@
 import { useState } from 'react';
 
 import { Box } from '@/components/ui/box';
-import { Button, ButtonSpinner, ButtonText } from '@/components/ui/button';
+import { Button, ButtonText } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Textarea, TextareaInput } from '@/components/ui/textarea';
 
 import { ExitReasonSchema } from '../schemas';
 
-type Props = {
+type ExitReasonScreenProps = {
   onSubmit: (reason: string) => void;
   onClose: () => void;
-  isPending: boolean;
 };
 
-export function ExitReasonScreen({ onSubmit, onClose, isPending }: Props) {
+export function ExitReasonScreen({ onSubmit, onClose }: ExitReasonScreenProps) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -44,8 +43,7 @@ export function ExitReasonScreen({ onSubmit, onClose, isPending }: Props) {
         <Button variant="outline" onPress={onClose}>
           <ButtonText>Close</ButtonText>
         </Button>
-        <Button className="bg-black" onPress={handleSubmit} disabled={isPending}>
-          {isPending && <ButtonSpinner testID="exit-spinner" className="mr-2" />}
+        <Button className="bg-black" onPress={handleSubmit}>
           <ButtonText className="text-white font-semibold">Exit</ButtonText>
         </Button>
       </Box>

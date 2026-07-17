@@ -89,7 +89,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint . --fix",
-    "test": "jest --watchAll=false",
+    "test": "jest --watchAll=false --detectOpenHandles",
     "format": "prettier . --write",
     "typechk": "pnpm exec tsc --noEmit"
   },

@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { WorkScreen } from '@/task/focus_session/components/WorkScreen';
+import { WorkScreen } from '@/focus_session/components/WorkScreen';
 
 const baseTimer = {
   display: '25:00',
@@ -24,7 +24,7 @@ test('shows task heading and timer display', () => {
   expect(screen.getByText('25:00')).toBeTruthy();
 });
 
-test('presses Complete calls onComplete', () => {
+test('presses Complete Subtask calls onComplete', () => {
   const onComplete = jest.fn();
   render(
     <WorkScreen
@@ -34,7 +34,7 @@ test('presses Complete calls onComplete', () => {
       onExit={jest.fn()}
     />,
   );
-  fireEvent.press(screen.getByText('Complete'));
+  fireEvent.press(screen.getByText('Complete Subtask'));
   expect(onComplete).toHaveBeenCalledTimes(1);
 });
 
@@ -50,7 +50,7 @@ test('shows overtime label and amber when isOT', () => {
   expect(screen.queryByText('Overtime')).toBeTruthy();
 });
 
-test('presses Exit calls onExit', () => {
+test('presses Exit Focus calls onExit', () => {
   const onExit = jest.fn();
   render(
     <WorkScreen
@@ -60,6 +60,6 @@ test('presses Exit calls onExit', () => {
       onExit={onExit}
     />,
   );
-  fireEvent.press(screen.getByText('Exit'));
+  fireEvent.press(screen.getByText('Exit Focus'));
   expect(onExit).toHaveBeenCalledTimes(1);
 });

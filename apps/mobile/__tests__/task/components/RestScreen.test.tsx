@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { RestScreen } from '@/task/focus_session/components/RestScreen';
+import { RestScreen } from '@/focus_session/components/RestScreen';
 
 test('shows Rest Well heading and timer', () => {
   render(

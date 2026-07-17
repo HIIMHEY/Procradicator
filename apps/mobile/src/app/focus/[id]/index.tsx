@@ -1,4 +1,4 @@
-import { FocusSessionPage } from '@/task/focus_session/components/FocusSessionPage';
+import { FocusSessionPage } from '@/focus_session/components/FocusSessionPage';
 
 export default function FocusSessionRoute() {
   return <FocusSessionPage />;

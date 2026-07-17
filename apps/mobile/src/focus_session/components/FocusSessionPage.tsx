@@ -1,5 +1,7 @@
+import { type JSX, useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 
+import { Box } from '@/components/ui/box';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 
@@ -11,14 +13,6 @@ import { ExitReasonScreen } from './ExitReasonScreen';
 import { ReadyScreen } from './ReadyScreen';
 import { RestScreen } from './RestScreen';
 import { WorkScreen } from './WorkScreen';
-
-const SCREENS: Record<Phase, 'READY' | 'WORK' | 'REST' | 'CONGRATS' | 'EXIT_REASON'> = {
-  READY: 'READY',
-  WORK: 'WORK',
-  REST: 'REST',
-  CONGRATS: 'CONGRATS',
-  EXIT_REASON: 'EXIT_REASON',
-};
 
 export function FocusSessionPage() {
   const params = useLocalSearchParams<{ id?: string; taskId?: string }>();
@@ -32,12 +26,14 @@ export function FocusSessionPage() {
     workCycleM,
     restCycleM,
     currentSubtask,
-    completedIds,
-    totalSubtasks,
+    totalFocusTimeS,
     isHydrating,
+    isFinishing,
     start,
     completeSubtask,
+    enterOT,
     skipRest,
+    completeRest,
     requestExit,
     finalise,
     abandon,
@@ -46,6 +42,18 @@ export function FocusSessionPage() {
 
   const phaseDurationM = phase === 'REST' ? restCycleM : workCycleM;
   const timer = useTimer(phaseStartedAt, phaseDurationM);
+
+  useEffect(() => {
+    if (phase === 'WORK' && timer.isOT && !isOT) {
+      enterOT();
+    }
+  }, [phase, timer.isOT, isOT, enterOT]);
+
+  useEffect(() => {
+    if (phase === 'REST' && timer.isOT) {
+      completeRest();
+    }
+  }, [phase, timer.isOT, completeRest]);
 
   if (!subtaskId) {
     return (
@@ -59,65 +67,35 @@ export function FocusSessionPage() {
     return <Spinner size="large" className="mt-20" />;
   }
 
-  const screen = SCREENS[phase];
+  const subtask = currentSubtask ?? { title: 'Focus', description: 'Start your work' };
 
-  if (screen === 'READY') {
-    return (
+  const SCREEN: Record<Phase, JSX.Element> = {
+    READY: (
       <ReadyScreen
-        currentSubtask={
-          currentSubtask ?? { title: 'Focus', description: 'Start your work' }
-        }
+        currentSubtask={subtask}
+        workCycleM={workCycleM}
         onStart={start}
         onExit={requestExit}
       />
-    );
-  }
-
-  if (screen === 'WORK') {
-    return (
+    ),
+    WORK: (
       <WorkScreen
-        currentSubtask={
-          currentSubtask ?? { title: 'Focus', description: 'Continue working' }
-        }
-        timer={{
-          ...timer,
-          isOT: timer.isOT || isOT,
-        }}
-        onComplete={completeSubtask}
+        currentSubtask={subtask}
+        timer={{ ...timer, isOT: timer.isOT || isOT }}
+        onComplete={() => completeSubtask(Math.abs(Math.min(0, timer.remaining)))}
         onExit={requestExit}
       />
-    );
-  }
-
-  if (screen === 'REST') {
-    return (
-      <RestScreen
-        timer={timer}
-        onSkip={skipRest}
-      />
-    );
-  }
-
-  if (screen === 'CONGRATS') {
-    return (
+    ),
+    REST: <RestScreen timer={timer} onSkip={skipRest} />,
+    CONGRATS: (
       <CongratsScreen
-        completedIds={completedIds.length}
-        totalSubtasks={totalSubtasks}
+        focusTimeM={Math.round(totalFocusTimeS / 60)}
         onFinish={finalise}
-        isPending={false}
+        isPending={isFinishing}
       />
-    );
-  }
+    ),
+    EXIT_REASON: <ExitReasonScreen onSubmit={abandon} onClose={closeExitReason} />,
+  };
 
-  if (screen === 'EXIT_REASON') {
-    return (
-      <ExitReasonScreen
-        onSubmit={abandon}
-        onClose={closeExitReason}
-        isPending={false}
-      />
-    );
-  }
-
-  return null;
+  return <Box className="flex-1 bg-background">{SCREEN[phase]}</Box>;
 }

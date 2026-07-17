@@ -1,0 +1,146 @@
+import { Phase, State } from "./schemas";
+
+export const initial: State = {
+  phase: 'READY',
+  isOT: false,
+  sessionId: null,
+  currentIdx: 0,
+  phaseStartedAt: null,
+  workCycleM: 25, // Default Work
+  restCycleM: 5, // Default Rest
+  previousPhase: null,
+  focusLogs: [],
+  restLogs: [],
+  completedIds: [],
+  workCycles: 0,
+  restCycles: 0,
+  OTSecondsTotal: 0,
+  abandonReason: null,
+};
+
+export type Action =
+  | { type: 'CREATE_SESSION'; sessionId: string; workCycleM: number; restCycleM: number }
+  | { type: 'START_WORK' }
+  | {
+      type: 'COMPLETE_SUBTASK';
+      now: number;
+      subtaskId: string;
+      nextExists: boolean;
+      startAt: string;
+      OTSeconds: number;
+    }
+  | { type: 'ENTER_OT' }
+  | { type: 'REST_END'; hasMore: boolean; incrCycles: boolean }
+  | { type: 'EXIT_TO_CONGRATS' }
+  | { type: 'OPEN_EXIT_REASON' }
+  | { type: 'CLOSE_EXIT_REASON' }
+  | { type: 'ABANDON_SESSION'; subtaskId: string | null; reason: string };
+
+export function focusReducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'CREATE_SESSION':
+      return {
+        ...state,
+        sessionId: action.sessionId,
+        workCycleM: action.workCycleM,
+        restCycleM: action.restCycleM,
+      };
+
+    case 'START_WORK':
+      return {
+        ...state,
+        phase: 'WORK',
+        isOT: false,
+        phaseStartedAt: Date.now(),
+      };
+
+    case 'COMPLETE_SUBTASK': {
+      const nextPhase: Phase = !state.isOT && action.nextExists ? 'WORK' : 'REST';
+      return {
+        ...state,
+        phase: nextPhase,
+        isOT: false,
+        currentIdx: action.nextExists && !state.isOT ? state.currentIdx + 1 : state.currentIdx,
+        phaseStartedAt:
+          nextPhase === 'WORK' || nextPhase === 'REST' ? Date.now() : state.phaseStartedAt,
+        completedIds: [...state.completedIds, action.subtaskId],
+        workCycles: state.workCycles + 1,
+        OTSecondsTotal: state.OTSecondsTotal + action.OTSeconds,
+        focusLogs: [
+          ...state.focusLogs,
+          {
+            subtask_id: action.subtaskId,
+            start_at: action.startAt,
+            stop_at: new Date(action.now).toISOString(),
+          },
+        ],
+      };
+    }
+
+    case 'ENTER_OT':
+      return {
+        ...state,
+        isOT: true,
+      };
+
+    case 'REST_END': {
+      const now = new Date().toISOString();
+      const startAt = state.phaseStartedAt ? new Date(state.phaseStartedAt).toISOString() : now;
+      return {
+        ...state,
+        phase: action.hasMore ? 'READY' : 'CONGRATS',
+        currentIdx: action.hasMore ? state.currentIdx + 1 : state.currentIdx,
+        restCycles: state.restCycles + (action.incrCycles ? 1 : 0),
+        restLogs: [...state.restLogs, { start_at: startAt, stop_at: now }],
+        phaseStartedAt: action.hasMore ? Date.now() : state.phaseStartedAt,
+      };
+    }
+
+    case 'ABANDON_SESSION': {
+      const now = new Date().toISOString();
+      let focusLogs = state.focusLogs;
+      let restLogs = state.restLogs;
+
+      if (state.phase === 'WORK' && state.phaseStartedAt && action.subtaskId) {
+        focusLogs = [
+          ...focusLogs,
+          {
+            subtask_id: action.subtaskId,
+            start_at: new Date(state.phaseStartedAt).toISOString(),
+            stop_at: now,
+          },
+        ];
+      } else if (state.phase === 'REST' && state.phaseStartedAt) {
+        restLogs = [
+          ...restLogs,
+          { start_at: new Date(state.phaseStartedAt).toISOString(), stop_at: now },
+        ];
+      }
+
+      return { ...state, focusLogs, restLogs, abandonReason: action.reason };
+    }
+
+    case 'EXIT_TO_CONGRATS':
+      return {
+        ...state,
+        phase: 'CONGRATS',
+      };
+
+    case 'OPEN_EXIT_REASON':
+      return {
+        ...state,
+        previousPhase: state.phase,
+        phase: 'EXIT_REASON',
+      };
+
+    case 'CLOSE_EXIT_REASON':
+      return {
+        ...state,
+        phase: state.previousPhase ?? 'READY',
+        previousPhase: null,
+      };
+
+    default:
+       throw new Error(`Unhandled action type: ${JSON.stringify(action)}`);
+  }
+}

@@ -1,8 +1,8 @@
 /// <reference types="jest" />
 
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
-import { FocusSessionPage } from '@/task/focus_session/components/FocusSessionPage';
+import { FocusSessionPage } from '@/focus_session/components/FocusSessionPage';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockReplace = jest.fn();
@@ -48,6 +48,10 @@ const createJsonResponse = (data: unknown): Response =>
 
 let mockFetch: jest.Mock;
 
+afterEach(() => {
+  cleanup();
+});
+
 beforeEach(() => {
   mockReplace.mockReset();
   mockFetch = jest.fn();
@@ -66,7 +70,7 @@ test('hydrates, shows READY screen with task details', async () => {
   expect(screen.getByText('Start')).toBeTruthy();
 });
 
-test('press Start to transitions to WORK phase with timer', async () => {
+test('press Start transitions to WORK phase with timer', async () => {
   mockFetch
     .mockResolvedValueOnce(createJsonResponse(taskResponse))
     .mockResolvedValueOnce(createJsonResponse(sessionResponse));
@@ -74,68 +78,85 @@ test('press Start to transitions to WORK phase with timer', async () => {
   renderWithProviders(<FocusSessionPage />);
 
   fireEvent.press(await screen.findByText('Start'));
-  expect(await screen.findByText('Complete')).toBeTruthy();
+  expect(await screen.findByText('Complete Subtask')).toBeTruthy();
   expect(screen.getByText('25:00')).toBeTruthy();
 });
 
-test('press Complete on last subtask to shows CONGRATS', async () => {
+test('press Complete on last subtask shows REST then CONGRATS', async () => {
   mockFetch
     .mockResolvedValueOnce(createJsonResponse(taskResponse))
     .mockResolvedValueOnce(createJsonResponse(sessionResponse))
+    .mockResolvedValueOnce(createJsonResponse({}))
     .mockResolvedValueOnce(createJsonResponse({}));
 
   renderWithProviders(<FocusSessionPage />);
 
   fireEvent.press(await screen.findByText('Start'));
-  fireEvent.press(await screen.findByText('Complete'));
+  fireEvent.press(await screen.findByText('Complete Subtask'));
 
-  expect(await screen.findByText("Well done. You've made progress.")).toBeTruthy();
+  await screen.findByText('Rest Well');
+  fireEvent.press(await screen.findByText('Skip'));
+
+  expect(await screen.findByText("Well done! You've made progress.")).toBeTruthy();
+  await act(async () => {});
 });
 
-test('press Finish to PATCH with final data to navigates to task', async () => {
+test('press Finish PATCH with final data navigates to task', async () => {
   mockFetch
     .mockResolvedValueOnce(createJsonResponse(taskResponse))
     .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValueOnce(createJsonResponse({}));
+    .mockResolvedValueOnce(createJsonResponse({}))
+    .mockResolvedValueOnce(createJsonResponse({}))
+    .mockResolvedValueOnce(createJsonResponse({}))
+    .mockResolvedValueOnce(createJsonResponse(taskResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
   fireEvent.press(await screen.findByText('Start'));
-  fireEvent.press(await screen.findByText('Complete'));
+  fireEvent.press(await screen.findByText('Complete Subtask'));
 
-  fireEvent.press(await screen.findByText('Finish'));
+  await screen.findByText('Rest Well');
+  fireEvent.press(await screen.findByText('Skip'));
+
+  fireEvent.press(await screen.findByText('Finish Task'));
 
   await waitFor(() => {
     expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
+  await act(async () => {});
 });
 
-test('press Exit on READY to shows EXIT_REASON modal', async () => {
+test('press Exit Focus on READY shows EXIT_REASON modal', async () => {
   mockFetch
     .mockResolvedValueOnce(createJsonResponse(taskResponse))
     .mockResolvedValueOnce(createJsonResponse(sessionResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
-  fireEvent.press(await screen.findByText('Exit'));
+  fireEvent.press(await screen.findByText('Exit Focus'));
   expect(screen.getByText('Stay in the Flow?')).toBeTruthy();
 });
 
-test('Exit with completed subtasks to CONGRATS directly', async () => {
+test('Exit with completed subtasks goes to CONGRATS directly', async () => {
   mockFetch
     .mockResolvedValueOnce(createJsonResponse(taskResponse))
     .mockResolvedValueOnce(createJsonResponse(sessionResponse))
+    .mockResolvedValueOnce(createJsonResponse({}))
     .mockResolvedValueOnce(createJsonResponse({}));
 
   renderWithProviders(<FocusSessionPage />);
 
   fireEvent.press(await screen.findByText('Start'));
-  fireEvent.press(await screen.findByText('Complete'));
+  fireEvent.press(await screen.findByText('Complete Subtask'));
 
-  expect(await screen.findByText("Well done. You've made progress.")).toBeTruthy();
+  await screen.findByText('Rest Well');
+  fireEvent.press(await screen.findByText('Skip'));
+
+  expect(await screen.findByText("Well done! You've made progress.")).toBeTruthy();
+  await act(async () => {});
 });
 
-test('submits abandon reason to PATCH with reason to navigates back', async () => {
+test('submits abandon reason PATCH with reason navigates back', async () => {
   mockFetch
     .mockResolvedValueOnce(createJsonResponse(taskResponse))
     .mockResolvedValueOnce(createJsonResponse(sessionResponse))
@@ -143,11 +164,34 @@ test('submits abandon reason to PATCH with reason to navigates back', async () =
 
   renderWithProviders(<FocusSessionPage />);
 
-  fireEvent.press(await screen.findByText('Exit'));
+  fireEvent.press(await screen.findByText('Exit Focus'));
   fireEvent.changeText(screen.getByPlaceholderText('Why do you have to go?'), 'Urgent issue');
   fireEvent.press(screen.getByText('Exit'));
 
   await waitFor(() => {
     expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
+  await act(async () => {});
+});
+
+test('auto-OT transitions when work timer expires', async () => {
+  jest.useFakeTimers();
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+
+  renderWithProviders(<FocusSessionPage />);
+
+  fireEvent.press(await screen.findByText('Start'));
+  expect(screen.getByText('Complete Subtask')).toBeTruthy();
+  expect(screen.queryByText('Overtime')).toBeNull();
+
+  await act(async () => {
+    jest.advanceTimersByTime(25 * 60 * 1000);
+  });
+
+  expect(await screen.findByText('Overtime')).toBeTruthy();
+  cleanup();
+  jest.clearAllTimers();
+  jest.useRealTimers();
 });
