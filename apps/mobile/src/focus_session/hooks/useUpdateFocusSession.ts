@@ -20,5 +20,5 @@ const updateSession = async ({
 };
 
 export default function useUpdateFocusSession() {
-  return useMutation({ mutationFn: updateSession });
+  return useMutation({ mutationFn: updateSession, retry: 2, retryDelay: 0 });
 }

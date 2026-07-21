@@ -1,11 +1,14 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
 from src.exceptions import ForbiddenError, InvalidOperationError
 from src.models.focus_session import FocusSession
 from src.models.task import Subtask
+from src.repositories.focus_session import FocusSessionRepo
+from src.repositories.task import TaskRepo
 from src.schemas.focus_session import (
     CreateFocusSession,
     RestLogData,
@@ -162,6 +165,31 @@ async def test_update_completes_subtasks() -> None:
     task_svc.update_done_subtasks.assert_awaited_once_with([subtask.id], user_id)
 
 
+async def test_update_validates_subtasks_sequentially() -> None:
+    service, focus_repo, task_svc = make_service()
+    user_id = uuid4()
+    session = make_session(user_id)
+    subtasks = [make_subtask(), make_subtask()]
+    focus_repo.read.return_value = session
+    active_reads = 0
+    max_active_reads = 0
+
+    async def read_subtask(subtask_id: UUID, _user_id: UUID) -> Subtask:
+        nonlocal active_reads, max_active_reads
+        active_reads += 1
+        max_active_reads = max(max_active_reads, active_reads)
+        await asyncio.sleep(0)
+        active_reads -= 1
+        return next(subtask for subtask in subtasks if subtask.id == subtask_id)
+
+    task_svc.read_subtask.side_effect = read_subtask
+    req = UpdateFocusSession(completed_subtask_ids=[subtask.id for subtask in subtasks])
+
+    await service.update(session.id, user_id, req)
+
+    assert max_active_reads == 1
+
+
 async def test_update_sets_work_cycles() -> None:
     service, focus_repo, task_svc = make_service()
     user_id = uuid4()
@@ -175,14 +203,29 @@ async def test_update_sets_work_cycles() -> None:
 
 
 async def test_update_rejects_decreasing_cycles() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, task_svc = make_service()
     user_id = uuid4()
+    subtask = make_subtask()
     session = make_session(user_id)
     session.work_cycles = 5
     focus_repo.read.return_value = session
-    req = UpdateFocusSession(work_cycles=3)
+    now = datetime.now(UTC)
+    req = UpdateFocusSession(
+        focus_logs=[
+            WorkLogData(
+                subtask_id=subtask.id,
+                start_at=now - timedelta(minutes=5),
+                stop_at=now,
+            )
+        ],
+        completed_subtask_ids=[subtask.id],
+        work_cycles=3,
+    )
     with pytest.raises(InvalidOperationError):
         await service.update(session.id, user_id, req)
+    focus_repo.create_focus_logs.assert_not_awaited()
+    task_svc.update_done_subtasks.assert_not_awaited()
+    focus_repo.upsert.assert_not_awaited()
 
 
 async def test_update_abandons_session() -> None:
@@ -215,3 +258,53 @@ async def test_update_guards_finished_session() -> None:
     req = UpdateFocusSession(work_cycles=2)
     with pytest.raises(InvalidOperationError):
         await service.update(session.id, user_id, req)
+
+
+async def test_focus_logs_are_staged_until_the_session_is_saved() -> None:
+    db_session = MagicMock()
+    db_session.flush = AsyncMock()
+    db_session.commit = AsyncMock()
+    db_session.rollback = AsyncMock()
+    repo = FocusSessionRepo(db_session)
+    session_id = uuid4()
+    now = datetime.now(UTC)
+
+    await repo.create_focus_logs(
+        session_id,
+        [
+            WorkLogData(
+                subtask_id=uuid4(),
+                start_at=now - timedelta(minutes=5),
+                stop_at=now,
+            )
+        ],
+    )
+    await repo.create_rest_logs(
+        session_id,
+        [RestLogData(start_at=now - timedelta(minutes=2), stop_at=now)],
+    )
+
+    assert db_session.flush.await_count == 2
+    db_session.commit.assert_not_awaited()
+
+
+async def test_completed_subtasks_are_staged_until_the_session_is_saved() -> None:
+    db_session = MagicMock()
+    db_session.get = AsyncMock()
+    db_session.flush = AsyncMock()
+    db_session.commit = AsyncMock()
+    db_session.rollback = AsyncMock()
+    repo = TaskRepo(db_session)
+    subtasks = [make_subtask(), make_subtask()]
+    by_id = {subtask.id: subtask for subtask in subtasks}
+
+    async def get_subtask(_model: type[Subtask], subtask_id: UUID) -> Subtask:
+        return by_id[subtask_id]
+
+    db_session.get.side_effect = get_subtask
+
+    await repo.update_done_subtasks([subtask.id for subtask in subtasks])
+
+    assert all(subtask.is_done for subtask in subtasks)
+    db_session.flush.assert_awaited_once()
+    db_session.commit.assert_not_awaited()

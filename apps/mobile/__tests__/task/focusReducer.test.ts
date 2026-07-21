@@ -14,10 +14,12 @@ test('CREATE_SESSION sets sessionId, workCycleM, restCycleM', () => {
     sessionId: 's1',
     workCycleM: 30,
     restCycleM: 10,
+    currentIdx: 2,
   });
   expect(s.sessionId).toBe('s1');
   expect(s.workCycleM).toBe(30);
   expect(s.restCycleM).toBe(10);
+  expect(s.currentIdx).toBe(2);
 });
 
 test('START_WORK transitions READY > WORK, resets isOT, sets phaseStartedAt', () => {
@@ -182,6 +184,14 @@ test('OPEN_EXIT_REASON captures current phase, sets EXIT_REASON', () => {
   expect(s.previousPhase).toBe('WORK');
 });
 
+test('OPEN_EXIT_REASON keeps the original phase when the modal is already open', () => {
+  const state = baseState({ phase: 'EXIT_REASON', previousPhase: 'WORK' });
+  const s = focusReducer(state, { type: 'OPEN_EXIT_REASON' });
+
+  expect(s).toBe(state);
+  expect(s.previousPhase).toBe('WORK');
+});
+
 test('CLOSE_EXIT_REASON restores previous phase', () => {
   const s = focusReducer(baseState({ phase: 'EXIT_REASON', previousPhase: 'WORK' }), {
     type: 'CLOSE_EXIT_REASON',
@@ -197,11 +207,28 @@ test('CLOSE_EXIT_REASON defaults to READY when no previousPhase', () => {
   expect(s.phase).toBe('READY');
 });
 
-test('EXIT_TO_CONGRATS sets phase to CONGRATS', () => {
-  const s = focusReducer(baseState({ phase: 'WORK' }), {
-    type: 'EXIT_TO_CONGRATS',
-  });
+test('EXIT_TO_CONGRATS records the active partial focus log', () => {
+  jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:10:00.000Z'));
+  const phaseStarted = new Date('2026-06-01T12:05:00.000Z').getTime();
+  const s = focusReducer(
+    baseState({
+      phase: 'WORK',
+      phaseStartedAt: phaseStarted,
+      completedIds: ['st-1'],
+    }),
+    {
+      type: 'EXIT_TO_CONGRATS',
+      subtaskId: 'st-2',
+    },
+  );
   expect(s.phase).toBe('CONGRATS');
+  expect(s.focusLogs).toHaveLength(1);
+  expect(s.focusLogs[0]).toEqual({
+    subtask_id: 'st-2',
+    start_at: '2026-06-01T12:05:00.000Z',
+    stop_at: '2026-06-01T12:10:00.000Z',
+  });
+  jest.useRealTimers();
 });
 
 test('ABANDON_SESSION adds partial focus log when in WORK phase', () => {

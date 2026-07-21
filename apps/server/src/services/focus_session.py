@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Annotated
 from uuid import UUID
@@ -48,8 +47,8 @@ class FocusSessionService:
         ids: list[UUID] = list(
             {log.subtask_id for log in req.focus_logs} | set(req.completed_subtask_ids)
         )
-        if ids:
-            await asyncio.gather(*[self.task_svc.read_subtask(i, user_id) for i in ids])
+        for subtask_id in ids:
+            await self.task_svc.read_subtask(subtask_id, user_id)
 
     async def _record(self, session_id: UUID, req: UpdateFocusSession) -> None:
         try:
@@ -111,18 +110,15 @@ class FocusSessionService:
         except DomainError as e:
             raise InvalidOperationError(str(e)) from e
         await self._link_subtasks(req, user_id)
-        await self._record(session.id, req)
-        await self._done_subtasks(req.completed_subtask_ids, user_id)
         try:
             session.set_cycles(req.work_cycles, req.rest_cycles)
+            if req.abandon_reason is not None:
+                session.abandon(req.abandon_reason)
+            elif req.total_overtime_s is not None:
+                session.complete(req.total_overtime_s)
         except DomainError as e:
             raise InvalidOperationError(str(e)) from e
-        if req.abandon_reason is not None:
-            session.abandon(req.abandon_reason)
-        elif req.total_overtime_s is not None:
-            try:
-                session.complete(req.total_overtime_s)
-            except DomainError as e:
-                raise InvalidOperationError(str(e)) from e
+        await self._record(session.id, req)
+        await self._done_subtasks(req.completed_subtask_ids, user_id)
         await self._flush(session)
         return self._format(session)

@@ -82,9 +82,7 @@ class TaskRepo(BaseRepo[Task]):
                 sub.is_done = True
                 self.session.add(sub)
                 results.append(sub)
-            await self.session.commit()
-            for sub in results:
-                await self.session.refresh(sub)
+            await self.session.flush()
             return results
         except SQLAlchemyError as e:
             await self.session.rollback()

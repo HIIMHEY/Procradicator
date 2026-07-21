@@ -48,7 +48,7 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
                         stop_at=log.stop_at,
                     )
                 )
-            await self.session.commit()
+            await self.session.flush()
         except SQLAlchemyError as e:
             await self.session.rollback()
             logger.error(f"Failed to create focus logs: {str(e)}", exc_info=True)
@@ -64,7 +64,7 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
                         stop_at=log.stop_at,
                     )
                 )
-            await self.session.commit()
+            await self.session.flush()
         except SQLAlchemyError as e:
             await self.session.rollback()
             logger.error(f"Failed to create rest logs: {str(e)}", exc_info=True)

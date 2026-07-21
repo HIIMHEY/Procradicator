@@ -21,13 +21,14 @@ const finaliseSession = async ({
   if (!res.ok) throw new Error(String(res.status));
 };
 
-export default function useFinaliseFocusSession(taskId: string) {
+export default function useFinaliseFocusSession(taskId: string, onBeforeNavigate?: () => void) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: finaliseSession,
     onSuccess: () => {
+      onBeforeNavigate?.();
       queryClient.invalidateQueries({ queryKey: ['task', 'detail', taskId] });
       router.replace(`/tasks/${taskId}`);
     },

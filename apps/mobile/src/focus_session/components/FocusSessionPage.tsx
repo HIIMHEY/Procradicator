@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Box } from '@/components/ui/box';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
+import { ErrorFallback } from '@/task/components/ErrorFallback';
 
 import { useFocusSession } from '../hooks/useFocusSession';
 import { useTimer } from '../useTimer';
@@ -28,6 +29,8 @@ export function FocusSessionPage() {
     currentSubtask,
     totalFocusTimeS,
     isHydrating,
+    hydrationError,
+    retryHydration,
     isFinishing,
     start,
     completeSubtask,
@@ -65,6 +68,10 @@ export function FocusSessionPage() {
 
   if (isHydrating) {
     return <Spinner size="large" className="mt-20" />;
+  }
+
+  if (hydrationError) {
+    return <ErrorFallback message={hydrationError.message} onRetry={retryHydration} />;
   }
 
   const subtask = currentSubtask ?? { title: 'Focus', description: 'Start your work' };

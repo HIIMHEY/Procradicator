@@ -19,7 +19,13 @@ export const initial: State = {
 };
 
 export type Action =
-  | { type: 'CREATE_SESSION'; sessionId: string; workCycleM: number; restCycleM: number }
+  | {
+      type: 'CREATE_SESSION';
+      sessionId: string;
+      workCycleM: number;
+      restCycleM: number;
+      currentIdx: number;
+    }
   | { type: 'START_WORK' }
   | {
       type: 'COMPLETE_SUBTASK';
@@ -31,10 +37,35 @@ export type Action =
     }
   | { type: 'ENTER_OT' }
   | { type: 'REST_END'; hasMore: boolean; incrCycles: boolean }
-  | { type: 'EXIT_TO_CONGRATS' }
+  | { type: 'EXIT_TO_CONGRATS'; subtaskId: string | null }
   | { type: 'OPEN_EXIT_REASON' }
   | { type: 'CLOSE_EXIT_REASON' }
   | { type: 'ABANDON_SESSION'; subtaskId: string | null; reason: string };
+
+function closeActiveSegment(state: State, subtaskId: string | null) {
+  const now = new Date().toISOString();
+  const activePhase = state.phase === 'EXIT_REASON' ? state.previousPhase : state.phase;
+  let focusLogs = state.focusLogs;
+  let restLogs = state.restLogs;
+
+  if (activePhase === 'WORK' && state.phaseStartedAt && subtaskId) {
+    focusLogs = [
+      ...focusLogs,
+      {
+        subtask_id: subtaskId,
+        start_at: new Date(state.phaseStartedAt).toISOString(),
+        stop_at: now,
+      },
+    ];
+  } else if (activePhase === 'REST' && state.phaseStartedAt) {
+    restLogs = [
+      ...restLogs,
+      { start_at: new Date(state.phaseStartedAt).toISOString(), stop_at: now },
+    ];
+  }
+
+  return { focusLogs, restLogs };
+}
 
 export function focusReducer(state: State, action: Action): State {
   switch (action.type) {
@@ -44,6 +75,7 @@ export function focusReducer(state: State, action: Action): State {
         sessionId: action.sessionId,
         workCycleM: action.workCycleM,
         restCycleM: action.restCycleM,
+        currentIdx: action.currentIdx,
       };
 
     case 'START_WORK':
@@ -97,36 +129,22 @@ export function focusReducer(state: State, action: Action): State {
     }
 
     case 'ABANDON_SESSION': {
-      const now = new Date().toISOString();
-      let focusLogs = state.focusLogs;
-      let restLogs = state.restLogs;
-
-      if (state.phase === 'WORK' && state.phaseStartedAt && action.subtaskId) {
-        focusLogs = [
-          ...focusLogs,
-          {
-            subtask_id: action.subtaskId,
-            start_at: new Date(state.phaseStartedAt).toISOString(),
-            stop_at: now,
-          },
-        ];
-      } else if (state.phase === 'REST' && state.phaseStartedAt) {
-        restLogs = [
-          ...restLogs,
-          { start_at: new Date(state.phaseStartedAt).toISOString(), stop_at: now },
-        ];
-      }
-
-      return { ...state, focusLogs, restLogs, abandonReason: action.reason };
+      return {
+        ...state,
+        ...closeActiveSegment(state, action.subtaskId),
+        abandonReason: action.reason,
+      };
     }
 
     case 'EXIT_TO_CONGRATS':
       return {
         ...state,
+        ...closeActiveSegment(state, action.subtaskId),
         phase: 'CONGRATS',
       };
 
     case 'OPEN_EXIT_REASON':
+      if (state.phase === 'EXIT_REASON') return state;
       return {
         ...state,
         previousPhase: state.phase,
