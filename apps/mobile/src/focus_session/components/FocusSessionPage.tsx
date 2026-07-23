@@ -66,13 +66,10 @@ export function FocusSessionPage() {
     );
   }
 
-  if (isHydrating) {
-    return <Spinner size="large" className="mt-20" />;
-  }
+  if (isHydrating) return <Spinner size="large" className="mt-20" />;
 
-  if (hydrationError) {
+  if (hydrationError)
     return <ErrorFallback message={hydrationError.message} onRetry={retryHydration} />;
-  }
 
   const subtask = currentSubtask ?? { title: 'Focus', description: 'Start your work' };
 

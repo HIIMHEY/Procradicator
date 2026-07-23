@@ -9,10 +9,12 @@ import { buildDepMap, toposort } from '@/task/utils';
 
 import { focusReducer, initial, State } from '../focusReducer';
 import type { Phase } from '../focusReducer';
-import type { UpdateFocusPayload } from '../schemas';
+import type { FocusSessionRecovery, SyncPosition, UpdateFocusPayload } from '../schemas';
+import { FocusSessionRecoverySchema } from '../schemas';
 import useCreateFocusSession from './useCreateFocusSession';
 import useUpdateFocusSession from './useUpdateFocusSession';
 import useFinaliseFocusSession from './useFinaliseFocusSession';
+import useReadFocusSession from './useReadFocusSession';
 
 export type UseFocusSessionResult = {
   phase: Phase;
@@ -53,7 +55,62 @@ function buildPayload(s: State, overrides?: Partial<UpdateFocusPayload>): Update
   };
 }
 
-type SyncPosition = { logs: number; rests: number; completed: number };
+function getSessionStorage(): Storage | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function getRecoveryKey(taskId: string, subtaskId: string): string {
+  return `focus-session:${taskId}:${subtaskId}`;
+}
+
+function readRecovery(taskId: string, subtaskId: string): FocusSessionRecovery | null {
+  const storage = getSessionStorage();
+  if (!storage) return null;
+  const key = getRecoveryKey(taskId, subtaskId);
+  try {
+    const value = storage.getItem(key);
+    if (!value) return null;
+    const result = FocusSessionRecoverySchema.safeParse(JSON.parse(value));
+    if (result.success) return result.data;
+    clearRecovery(taskId, subtaskId);
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function writeRecovery(
+  taskId: string,
+  subtaskId: string,
+  state: State,
+  synced: SyncPosition,
+): void {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(
+      getRecoveryKey(taskId, subtaskId),
+      JSON.stringify({ version: 1, state, synced }),
+    );
+  } catch {
+    return;
+  }
+}
+
+function clearRecovery(taskId: string, subtaskId: string): void {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    storage.removeItem(getRecoveryKey(taskId, subtaskId));
+  } catch {
+    return;
+  }
+}
 
 function getSyncPosition(s: State): SyncPosition {
   return {
@@ -83,13 +140,23 @@ function buildPendingPayload(
 export function useFocusSession(subtaskId: string, taskId: string): UseFocusSessionResult {
   const router = useRouter();
   const navigation = useNavigation();
+  const [recovery] = useState(() => readRecovery(taskId, subtaskId));
   const [state, dispatch] = useReducer(focusReducer, initial);
   const queryClient = useQueryClient();
   const hydratedRef = useRef(false);
   const allowNavigationRef = useRef(false);
-  const workLogStartRef = useRef<string | null>(null);
-  const syncedDataRef = useRef<SyncPosition>({ logs: 0, rests: 0, completed: 0 });
-  const scheduledDataRef = useRef<SyncPosition>({ logs: 0, rests: 0, completed: 0 });
+  const workLogStartRef = useRef<string | null>(
+    recovery?.state.phaseStartedAt &&
+      (recovery.state.phase === 'WORK' || recovery.state.previousPhase === 'WORK')
+      ? new Date(recovery.state.phaseStartedAt).toISOString()
+      : null,
+  );
+  const syncedDataRef = useRef<SyncPosition>(
+    recovery?.synced ?? { logs: 0, rests: 0, completed: 0 },
+  );
+  const scheduledDataRef = useRef<SyncPosition>(
+    recovery?.synced ?? { logs: 0, rests: 0, completed: 0 },
+  );
   const updateQueueRef = useRef<Promise<void>>(Promise.resolve());
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -97,9 +164,13 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
   const allowNavigation = useCallback(() => {
     allowNavigationRef.current = true;
   }, []);
+  const finishNavigation = useCallback(() => {
+    clearRecovery(taskId, subtaskId);
+    allowNavigation();
+  }, [taskId, subtaskId, allowNavigation]);
   const createSessionMut = useCreateFocusSession();
   const updateSessionMut = useUpdateFocusSession();
-  const finaliseSessionMut = useFinaliseFocusSession(taskId, allowNavigation);
+  const finaliseSessionMut = useFinaliseFocusSession(taskId, finishNavigation);
   const createSession = createSessionMut.mutateAsync;
   const updateSession = updateSessionMut.mutateAsync;
   const finaliseSession = finaliseSessionMut.mutateAsync;
@@ -112,6 +183,12 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
   } = useReadTask(taskId, {
     isEnabled: !!taskId,
   });
+  const {
+    data: recoveredSession,
+    error: recoveredSessionError,
+    isPending: isRecoveredSessionPending,
+    refetch: refetchRecoveredSession,
+  } = useReadFocusSession(recovery?.state.sessionId ?? null);
   const subtasks = useMemo(() => {
     const taskSubtasks = task?.subtasks ?? [];
     return toposort(taskSubtasks, buildDepMap(taskSubtasks));
@@ -137,9 +214,10 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       setIsHydrating(false);
       return;
     }
-    if (isTaskPending) return;
-    if (taskError) {
-      setHydrationError(taskError);
+    if (isTaskPending || (recovery && isRecoveredSessionPending)) return;
+    const error = taskError ?? recoveredSessionError;
+    if (error) {
+      setHydrationError(error);
       setIsHydrating(false);
       return;
     }
@@ -157,6 +235,21 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
     hydratedRef.current = true;
     setHydrationError(null);
     setIsHydrating(true);
+
+    if (
+      recovery &&
+      recoveredSession?.id === recovery.state.sessionId &&
+      recoveredSession.end_at === null
+    ) {
+      dispatch({ type: 'RESTORE_SESSION', state: recovery.state });
+      setIsHydrating(false);
+      return;
+    }
+
+    clearRecovery(taskId, subtaskId);
+    workLogStartRef.current = null;
+    syncedDataRef.current = { logs: 0, rests: 0, completed: 0 };
+    scheduledDataRef.current = { logs: 0, rests: 0, completed: 0 };
     let active = true;
 
     createSession({
@@ -169,8 +262,8 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
         dispatch({
           type: 'CREATE_SESSION',
           sessionId: result.id,
-          workCycleM: initial.workCycleM,
-          restCycleM: initial.restCycleM,
+          workCycleM: result.work_cycle_m,
+          restCycleM: result.rest_cycle_m,
           currentIdx,
         });
         setIsHydrating(false);
@@ -186,22 +279,43 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
     return () => {
       active = false;
     };
-  }, [taskId, subtaskId, subtasks, isTaskPending, taskError, createSession, hydrationAttempt]);
+  }, [
+    taskId,
+    subtaskId,
+    subtasks,
+    isTaskPending,
+    taskError,
+    isRecoveredSessionPending,
+    recoveredSession,
+    recoveredSessionError,
+    createSession,
+    hydrationAttempt,
+    recovery,
+  ]);
 
   const retryHydration = useCallback(() => {
     hydratedRef.current = true;
     setHydrationError(null);
     setIsHydrating(true);
-    void refetchTask().then((result) => {
-      if (result.error) {
-        setHydrationError(result.error);
+    void (async () => {
+      const taskResult = await refetchTask();
+      if (taskResult.error) {
+        setHydrationError(taskResult.error);
         setIsHydrating(false);
         return;
       }
+      if (recovery) {
+        const sessionResult = await refetchRecoveredSession();
+        if (sessionResult.error) {
+          setHydrationError(sessionResult.error);
+          setIsHydrating(false);
+          return;
+        }
+      }
       hydratedRef.current = false;
       setHydrationAttempt((attempt) => attempt + 1);
-    });
-  }, [refetchTask]);
+    })();
+  }, [recovery, refetchRecoveredSession, refetchTask]);
 
   const enqueueUpdate = useCallback(
     (snapshot: State, overrides?: Partial<UpdateFocusPayload>, isFinal = false): Promise<void> => {
@@ -217,13 +331,21 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
           await updateSession(variables);
         }
         syncedDataRef.current = targetPosition;
+        if (!isFinal) {
+          writeRecovery(taskId, subtaskId, stateRef.current, targetPosition);
+        }
       };
       const queued = updateQueueRef.current.then(operation);
       updateQueueRef.current = queued.catch(() => {});
       return queued;
     },
-    [updateSession, finaliseSession],
+    [updateSession, finaliseSession, taskId, subtaskId],
   );
+
+  useEffect(() => {
+    if (!state.sessionId) return;
+    writeRecovery(taskId, subtaskId, state, syncedDataRef.current);
+  }, [state, taskId, subtaskId]);
 
   useEffect(() => {
     const s = stateRef.current;
@@ -319,10 +441,11 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       scheduledDataRef.current = getSyncPosition(nextState);
       await enqueueUpdate(nextState, { abandon_reason: reason });
       queryClient.invalidateQueries({ queryKey: ['task', 'detail', taskId] });
+      clearRecovery(taskId, subtaskId);
       allowNavigation();
       router.replace(`/tasks/${taskId}`);
     },
-    [enqueueUpdate, queryClient, taskId, allowNavigation, router],
+    [enqueueUpdate, queryClient, taskId, subtaskId, allowNavigation, router],
   );
 
   const closeExitReason = useCallback(() => {

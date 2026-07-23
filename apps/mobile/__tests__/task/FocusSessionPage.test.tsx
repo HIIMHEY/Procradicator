@@ -15,7 +15,19 @@ const SUBTASK_ID = '11111111-1111-4111-8111-111111111111';
 const SECOND_SUBTASK_ID = '44444444-4444-4444-8444-444444444444';
 const SESSION_ID = '22222222-2222-4222-8222-222222222222';
 const TASK_ID = '33333333-3333-4333-8333-333333333333';
+const RECOVERY_KEY = `focus-session:${TASK_ID}:${SUBTASK_ID}`;
 let mockSearchParams = { id: SUBTASK_ID, taskId: TASK_ID };
+const sessionStorageData = new Map<string, string>();
+
+Object.defineProperty(window, 'sessionStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => sessionStorageData.get(key) ?? null,
+    setItem: (key: string, value: string) => sessionStorageData.set(key, value),
+    removeItem: (key: string) => sessionStorageData.delete(key),
+    clear: () => sessionStorageData.clear(),
+  },
+});
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockSearchParams,
@@ -50,6 +62,7 @@ const taskResponse = {
 
 const sessionResponse = {
   id: SESSION_ID,
+  end_at: null,
   work_cycle_m: 25,
   rest_cycle_m: 5,
 };
@@ -84,6 +97,7 @@ beforeEach(() => {
   mockPreventRemove = false;
   mockPreventRemoveCallback = undefined;
   mockSearchParams = { id: SUBTASK_ID, taskId: TASK_ID };
+  sessionStorageData.clear();
   mockFetch = jest.fn();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
@@ -98,6 +112,38 @@ test('hydrates, shows READY screen with task details', async () => {
   expect(await screen.findByText('Write report')).toBeTruthy();
   expect(screen.getByText('Complete section 3')).toBeTruthy();
   expect(screen.getByText('Start')).toBeTruthy();
+});
+
+test('refresh restores the active work session', async () => {
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+
+  const firstRender = renderWithProviders(<FocusSessionPage />);
+  fireEvent.press(await screen.findByText('Start'));
+  await waitFor(() => expect(sessionStorageData.has(RECOVERY_KEY)).toBe(true));
+  const recovery = JSON.parse(sessionStorageData.get(RECOVERY_KEY) ?? '');
+  const phaseStartedAt = recovery.state.phaseStartedAt as number;
+  firstRender.unmount();
+
+  mockFetch.mockReset();
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
+    .mockResolvedValueOnce(createJsonResponse({}));
+
+  renderWithProviders(<FocusSessionPage />);
+  const completeButton = await screen.findByText('Complete Subtask');
+  expect(
+    mockFetch.mock.calls.some(
+      ([url, options]) => String(url).endsWith(`/focus/${SESSION_ID}`) && options?.method === 'GET',
+    ),
+  ).toBe(true);
+  expect(mockFetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+
+  fireEvent.press(completeButton);
+  await waitFor(() => expect(getPatchPayloads()).toHaveLength(1));
+  expect(getPatchPayloads()[0].focus_logs[0].start_at).toBe(new Date(phaseStartedAt).toISOString());
 });
 
 test('shows an error instead of READY when the task cannot be loaded', async () => {
@@ -320,6 +366,7 @@ test('press Finish PATCH with final data navigates to task', async () => {
   await waitFor(() => {
     expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
+  expect(sessionStorageData.has(RECOVERY_KEY)).toBe(false);
   await act(async () => {});
 });
 
@@ -434,6 +481,7 @@ test('submits abandon reason PATCH with reason navigates back', async () => {
   await waitFor(() => {
     expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
+  expect(sessionStorageData.has(RECOVERY_KEY)).toBe(false);
   const [payload] = getPatchPayloads();
   expect(payload.abandon_reason).toBe('Urgent issue');
   expect(payload.focus_logs).toHaveLength(1);

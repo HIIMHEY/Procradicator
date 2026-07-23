@@ -19,6 +19,7 @@ export const initial: State = {
 };
 
 export type Action =
+  | { type: 'RESTORE_SESSION'; state: State }
   | {
       type: 'CREATE_SESSION';
       sessionId: string;
@@ -69,6 +70,9 @@ function closeActiveSegment(state: State, subtaskId: string | null) {
 
 export function focusReducer(state: State, action: Action): State {
   switch (action.type) {
+    case 'RESTORE_SESSION':
+      return action.state;
+
     case 'CREATE_SESSION':
       return {
         ...state,

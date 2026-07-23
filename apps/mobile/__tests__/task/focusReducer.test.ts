@@ -8,6 +8,16 @@ const baseState = (overrides?: Partial<State>): State => ({
   ...overrides,
 });
 
+test('RESTORE_SESSION replaces state with the recovered session', () => {
+  const recovered = baseState({
+    phase: 'WORK',
+    sessionId: 's1',
+    phaseStartedAt: Date.now(),
+    currentIdx: 2,
+  });
+  expect(focusReducer(initial, { type: 'RESTORE_SESSION', state: recovered })).toBe(recovered);
+});
+
 test('CREATE_SESSION sets sessionId, workCycleM, restCycleM', () => {
   const s = focusReducer(baseState(), {
     type: 'CREATE_SESSION',

@@ -4,6 +4,13 @@ export const CreateFocusSessionSchema = z.object({
   subtask_id: z.uuid(),
 });
 
+export const FocusSessionResponseSchema = z.object({
+  id: z.uuid(),
+  end_at: z.iso.datetime({ offset: true }).nullable(),
+  work_cycle_m: z.number(),
+  rest_cycle_m: z.number(),
+});
+
 export const ExitReasonSchema = z.object({
   reason: z.string().trim().min(1, 'Reason is required').max(500),
 });
@@ -60,8 +67,23 @@ export const StateSchema = z.object({
   abandonReason: z.string().nullable(),
 });
 
+export const SyncPositionSchema = z.object({
+  logs: z.number().int().nonnegative(),
+  rests: z.number().int().nonnegative(),
+  completed: z.number().int().nonnegative(),
+});
+
+export const FocusSessionRecoverySchema = z.object({
+  version: z.literal(1),
+  state: StateSchema,
+  synced: SyncPositionSchema,
+});
+
 export type State = z.infer<typeof StateSchema>;
 export type Phase = z.infer<typeof PhaseEnum>;
 export type UpdateFocusPayload = z.infer<typeof UpdateFocusPayloadSchema>;
 export type CreateFocusSessionData = z.infer<typeof CreateFocusSessionSchema>;
+export type FocusSessionResponse = z.infer<typeof FocusSessionResponseSchema>;
+export type SyncPosition = z.infer<typeof SyncPositionSchema>;
+export type FocusSessionRecovery = z.infer<typeof FocusSessionRecoverySchema>;
 export type ExitReasonData = z.infer<typeof ExitReasonSchema>;
