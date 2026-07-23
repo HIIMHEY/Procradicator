@@ -1,51 +1,61 @@
 from datetime import datetime
-from enum import StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-from src.models.focus_session import FocusSessionState
-from src.schemas.task import GetSubtask
-
-
-class FocusSessionAction(StrEnum):
-    EXIT_ATTEMPT = "exit_attempt"
-    COMPLETE_WORK = "complete_work"
-    START_REST = "start_rest"
-    COMPLETE_REST = "complete_rest"
-    RESUME = "resume"
-    ABANDON = "abandon"
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 class CreateFocusSession(BaseModel):
     subtask_id: UUID
+    work_cycle_m: int = Field(ge=0)
+    rest_cycle_m: int = Field(ge=0)
 
 
-class FocusSessionActionPayload(BaseModel):
-    reason: str | None = Field(default=None, max_length=500)
+class WorkLogData(BaseModel):
+    subtask_id: UUID
+    start_at: datetime
+    stop_at: datetime
 
-    @field_validator("reason")
+    @field_validator("stop_at")
     @classmethod
-    def reason_must_not_be_blank(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        cleaned: str = value.strip()
-        if not cleaned:
-            raise ValueError("Reason is required")
-        return cleaned
+    def after_start(cls, v: datetime, info: ValidationInfo) -> datetime:
+        start: datetime | None = info.data.get("start_at")
+        if start and v <= start:
+            raise ValueError("stop_at must be after start_at")
+        return v
+
+
+class RestLogData(BaseModel):
+    start_at: datetime
+    stop_at: datetime
+
+    @field_validator("stop_at")
+    @classmethod
+    def after_start(cls, v: datetime, info: ValidationInfo) -> datetime:
+        start: datetime | None = info.data.get("start_at")
+        if start and v <= start:
+            raise ValueError("stop_at must be after start_at")
+        return v
+
+
+class UpdateFocusSession(BaseModel):
+    focus_logs: list[WorkLogData] = []
+    rest_logs: list[RestLogData] = []
+    completed_subtask_ids: list[UUID] = []
+    work_cycles: int | None = None
+    rest_cycles: int | None = None
+    abandon_reason: str | None = Field(default=None, max_length=500)
+    total_overtime_s: int | None = Field(default=None, ge=0)
 
 
 class GetFocusSession(BaseModel):
     id: UUID
-    task_id: UUID | None
-    current_subtask_id: UUID | None
-    state: FocusSessionState
-    work_duration_minutes: int
-    rest_duration_minutes: int
-    started_at: datetime
-    updated_at: datetime
-    phase_started_at: datetime | None
-    completed_at: datetime | None
-    abandoned_at: datetime | None
-    current_subtask: GetSubtask | None = None
+    user_id: UUID
+    start_at: datetime
+    end_at: datetime | None
+    work_cycle_m: int
+    rest_cycle_m: int
+    work_cycles: int
+    rest_cycles: int
+    total_overtime_s: int
+    abandon_reason: str | None
     model_config = ConfigDict(from_attributes=True)

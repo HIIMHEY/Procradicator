@@ -13,9 +13,7 @@ logger = logging.getLogger(__name__)
 engine = create_async_engine(
     settings.db_url, echo=settings.debug, connect_args={"prepare_threshold": None}
 )
-async_session_pool = async_sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+async_session_pool = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def db_init() -> None:

@@ -17,4 +17,4 @@ class User(SQLModel, table=True):
     is_superuser: bool = Field(default=False)  # Admin permissions
     is_verified: bool = Field(default=False)  # Email verification status
     oauth_accounts: list[OAuthAccount] = Relationship(sa_relationship_kwargs={"lazy": "joined"})
-    #Connects User and OAuthAccount tables via their user ids
+    # Connects User and OAuthAccount tables via their user ids

@@ -5,8 +5,9 @@ export const SubtaskSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
   next_subtask: z.array(z.uuid()),
-  completed: z.int(),
-  estimate: z.int(),
+  is_done: z.boolean(),
+  est_m: z.int(),
+  deleted_at: z.iso.datetime().nullable().optional(),
 });
 
 export const TaskSchema = z.object({
@@ -15,6 +16,7 @@ export const TaskSchema = z.object({
   due_at: z.iso.datetime(),
   description: z.string().optional(),
   subtasks: z.array(SubtaskSchema),
+  deleted_at: z.iso.datetime().nullable().optional(),
 });
 
 export const ModifySubtaskSchema = z.object({
@@ -29,11 +31,11 @@ export const ModifySubtaskSchema = z.object({
     .trim()
     .max(500, 'Description too long, try splitting up the suptask')
     .optional(),
-  estimate: z.coerce
+  est_m: z.coerce
     .number('Must be a number!')
     .int('Must be a whole number! 1,2,3...')
     .positive('Time must be positive!'),
-  completed: z.coerce.number().int().nonnegative(),
+  is_done: z.boolean(),
   depends_on: z.array(z.string()),
 });
 

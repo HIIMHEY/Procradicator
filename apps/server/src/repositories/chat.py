@@ -16,9 +16,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ChatRepo(BaseRepo[ChatMessage]):
-    def __init__(
-        self, session: Annotated[AsyncSession, Depends(get_async_session)]
-    ) -> None:
+    def __init__(self, session: Annotated[AsyncSession, Depends(get_async_session)]) -> None:
         super().__init__(ChatMessage, session)
 
     async def get_history(

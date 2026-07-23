@@ -1,13 +1,21 @@
+from typing import Any
+
+
 class BaseError(Exception):
     # generic error from this backend
-    def __init__(self, message: str, details: dict | None = None) -> None:
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         super().__init__(message)
-        self.details = details
+        self.details: dict[str, Any] | None = details
 
 
 # DB errors
 class DatabaseError(BaseError):
     # parent for any persistence issues
+    pass
+
+
+class DomainError(BaseError):
+    # raised when a domain model business rule is violated
     pass
 
 

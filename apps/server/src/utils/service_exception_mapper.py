@@ -19,6 +19,4 @@ def map_service_exception(e: DatabaseError) -> ServiceError:
         case ConcurrencyError():
             return DependencyUnavailableError("temporary data lock or collision")
         case _:
-            return ServiceError(
-                f"unhandled database service error occurred {type(e).__name__}"
-            )
+            return ServiceError(f"unhandled database service error occurred {type(e).__name__}")

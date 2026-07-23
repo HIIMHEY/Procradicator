@@ -52,15 +52,15 @@ export function TaskRoadmap({ id }: TaskRoadmapProps) {
             data={subtasksList}
             keyExtractor={(item) => item.id}
             renderItem={({ item, index }) => {
-              const isIncomplete = item.completed < item.estimate;
-              const prevCompleted =
-                index > 0 && subtasksList[index - 1].completed === subtasksList[index - 1].estimate;
+              const isIncomplete = !item.is_done;
+              const prevCompleted = index > 0 && subtasksList[index - 1].is_done;
 
               return (
                 <SubtaskNode
                   data={item}
                   isLast={index === subtasksList.length - 1}
                   isWorkable={(index === 0 && isIncomplete) || prevCompleted}
+                  taskId={id}
                 />
               );
             }}

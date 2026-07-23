@@ -22,6 +22,7 @@ router.include_router(fastapi_users.get_auth_router(auth_backend))
 router.include_router(get_google_oauth_router(), prefix="/google")
 # Already includes built in GET /auth/google/login and callback routes
 
+
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(
     payload: RegisterRequest, user_service: Annotated[UserService, Depends()]

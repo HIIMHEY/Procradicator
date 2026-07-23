@@ -10,17 +10,18 @@ interface SubtaskNodeProps {
   data: Subtask;
   isLast: boolean;
   isWorkable: boolean;
+  taskId: string;
 }
 
-export function SubtaskNode({ isWorkable, data, isLast }: SubtaskNodeProps) {
-  const isDone = data.completed == data.estimate;
+export function SubtaskNode({ isWorkable, data, isLast, taskId }: SubtaskNodeProps) {
+  const isDone = data.is_done;
   const router = useRouter();
   return (
     <Box className={`px-4 my-1 items-center`}>
       <Box className="w-full items-center">
         <Text className="text-sm text-slate-700 font-medium mb-1.5">
           {data?.title || `???`}
-          {data?.estimate ? `: ${data.estimate} min` : '??? min'}
+          {data?.est_m ? `: ${data.est_m} min` : '??? min'}
         </Text>
         {isDone ? (
           <Button
@@ -33,7 +34,7 @@ export function SubtaskNode({ isWorkable, data, isLast }: SubtaskNodeProps) {
         ) : isWorkable ? (
           <Button
             variant="solid"
-            onPress={() => router.navigate(`/focus/${data.id}`)}
+            onPress={() => router.navigate(`/focus/${data.id}?taskId=${taskId}`)}
             className="flex-row items-center justify-center bg-[#ff9900] border border-[#ff9900] rounded-xl px-4 py-1.5"
           >
             <Icon as={Play} color="white" />

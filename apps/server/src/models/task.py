@@ -8,9 +8,7 @@ class SubtaskDependency(SQLModel, table=True):
     predecessor_id: uuid.UUID = Field(
         foreign_key="subtask.id", ondelete="CASCADE", primary_key=True
     )
-    successor_id: uuid.UUID = Field(
-        foreign_key="subtask.id", ondelete="CASCADE", primary_key=True
-    )
+    successor_id: uuid.UUID = Field(foreign_key="subtask.id", ondelete="CASCADE", primary_key=True)
 
 
 class Task(SQLModel, table=True):
@@ -21,9 +19,9 @@ class Task(SQLModel, table=True):
     description: str | None = None
     due_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    deleted_at: datetime | None = None
     subtasks: list["Subtask"] = Relationship(
         back_populates="task",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
 
@@ -31,9 +29,10 @@ class Subtask(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     title: str = Field(index=True)
     description: str | None = None
-    estimate: int = 1
-    completed: int = 0
+    est_m: int = 1
+    is_done: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    deleted_at: datetime | None = None
     task_id: uuid.UUID = Field(foreign_key="task.id")
     task: "Task" = Relationship(back_populates="subtasks")
     next_subtask: list["Subtask"] = Relationship(

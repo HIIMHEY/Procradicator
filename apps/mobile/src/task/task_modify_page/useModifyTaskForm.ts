@@ -66,8 +66,8 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
       id: genTempId,
       title: '',
       description: '',
-      estimate: 1,
-      completed: 0,
+      est_m: 1,
+      is_done: false,
       depends_on: lastSubtask ? [lastSubtask.id] : [], // can improve in future for more complex graphs
     });
   };

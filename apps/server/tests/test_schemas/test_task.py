@@ -1,68 +1,69 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
-from src.schemas.task import CreateTask, GetTask
+from src.schemas.task import CreateSubtask, CreateTask, GetSubtask, GetTask
 
 
 class TestTask:
     def test_create_task_valid(self) -> None:
-        subtask = {
+        subtask: dict[str, Any] = {
             "id": "id",
             "title": "subtask title",
             "description": "subtask desc",
-            "estimate": "2",
-            "completed": "1",
+            "est_m": 2,
+            "is_done": False,
             "depends_on": [],
         }
-        data = {
+        data: dict[str, Any] = {
             "title": "task title",
             "description": "task desc",
             "due_at": str(datetime.now(UTC)),
             "subtasks": [subtask],
-        }  # TODO typedDict type
+        }
         model: CreateTask = CreateTask(**data)
         assert model.title == "task title"
         assert model.description == "task desc"
         assert len(model.subtasks) == 1
 
-        first_subtask = model.subtasks[0]
+        first_subtask: CreateSubtask = model.subtasks[0]
         assert first_subtask.id == "id"
         assert first_subtask.title == "subtask title"
         assert first_subtask.description == "subtask desc"
         assert first_subtask.depends_on == []
 
     def test_create_task_missing_fields(self) -> None:
-        subtask = {
+        subtask: dict[str, Any] = {
             "id": "id",
             "title": "subtask title",
             "description": "subtask desc",
             "depends_on": [],
         }
-        data = {"subtasks": [subtask]}  # TODO typedDict type
+        data: dict[str, Any] = {"subtasks": [subtask]}
         with pytest.raises(ValidationError):
             CreateTask(**data)  # type: ignore , cause thats what were testing for
 
     def test_create_task_empty_subtasks(self) -> None:
-        data = {"title": "test title", "subtasks": []}  # TODO typedDict type
+        data: dict[str, Any] = {"title": "test title", "subtasks": []}
         with pytest.raises(ValidationError):
             CreateTask(**data)
 
     def test_get_task_valid(self) -> None:
-        task_id = uuid.uuid4()
-        subtask_id = uuid.uuid4()
-        next_subtask_id = uuid.uuid4()
-        due = datetime.now(UTC)
-        subtask = {
+        task_id: uuid.UUID = uuid.uuid4()
+        subtask_id: uuid.UUID = uuid.uuid4()
+        next_subtask_id: uuid.UUID = uuid.uuid4()
+        due: datetime = datetime.now(UTC)
+        subtask: dict[str, Any] = {
             "id": subtask_id,
             "title": "subtask title",
             "description": "subtask desc",
-            "estimate": "2",
-            "completed": "1",
+            "est_m": 2,
+            "is_done": False,
             "next_subtask": [next_subtask_id],
         }
-        data = {
+        data: dict[str, Any] = {
             "id": task_id,
             "title": "title",
             "description": "desc",
@@ -78,16 +79,16 @@ class TestTask:
         assert model.due_at == due
         assert len(model.subtasks) == 1
 
-        first_subtask = model.subtasks[0]
+        first_subtask: GetSubtask = model.subtasks[0]
         assert first_subtask.id == subtask_id
         assert first_subtask.title == "subtask title"
         assert first_subtask.description == "subtask desc"
-        assert first_subtask.estimate == 2
-        assert first_subtask.completed == 1
+        assert first_subtask.est_m == 2
+        assert first_subtask.is_done is False
         assert first_subtask.next_subtask == [next_subtask_id]
 
     def test_get_task_invalid_uuid(self) -> None:
-        data = {
+        data: dict[str, Any] = {
             "id": "heheheh",
             "title": "title",
             "description": "desc",

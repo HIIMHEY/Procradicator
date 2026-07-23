@@ -12,6 +12,7 @@ from src.exceptions import (
     UsernameAlreadyRegisteredError,
 )
 from src.models.user import User
+from src.repositories.protocols import UserRepoProtocol
 from src.repositories.user import UserRepo
 from src.schemas.auth import RegisterRequest
 from src.utils.auth import hash_password
@@ -20,17 +21,17 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class UserService:
-    def __init__(self, user_repo: Annotated[UserRepo, Depends()]) -> None:
-        self.user_repo = user_repo
+    def __init__(self, user_repo: Annotated[UserRepoProtocol, Depends(UserRepo)]) -> None:
+        self.user_repo: UserRepoProtocol = user_repo
 
     def _normalize_email(self, email: str) -> str:
         return email.strip().lower()
 
-    #Turns google email to a username
+    # Turns google email to a username
     def _oauth_username_base(self, email: str) -> str:
-        #Gets Test.Example from Test.Example@email.com
+        # Gets Test.Example from Test.Example@email.com
         local_part: str = self._normalize_email(email).split("@", maxsplit=1)[0]
-        #Test.Example becomes test-example (basically unsafe char like "." becomes "-")
+        # Test.Example becomes test-example (basically unsafe char like "." becomes "-")
         username: str = re.sub(r"[^a-z0-9]+", "-", local_part).strip("-")
         return username or "user"
 
@@ -49,7 +50,7 @@ class UserService:
             logger.error(f"User lookup by email failed: {str(e)}", exc_info=True)
             raise ServiceError("Could not get user") from e
 
-    #Let say test-ex, test-ex-1... exists alr, then we generate test-ex-1, test-ex-2...
+    # Let say test-ex, test-ex-1... exists alr, then we generate test-ex-1, test-ex-2...
     async def generate_oauth_username(self, email: str) -> str:
         try:
             base_username: str = self._oauth_username_base(email)
@@ -63,7 +64,7 @@ class UserService:
             logger.error(f"OAuth username generation failed: {str(e)}", exc_info=True)
             raise ServiceError("Could not generate OAuth username") from e
 
-    #Google email can create new SSO user only if that email is not already used.
+    # Google email can create new SSO user only if that email is not already used.
     async def prepare_oauth_registration(self, email: str) -> tuple[str, str]:
         try:
             normalized_email: str = self._normalize_email(email)

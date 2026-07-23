@@ -3,55 +3,85 @@ from uuid import UUID, uuid4
 
 import pytest
 from src.exceptions import ForbiddenError
-from src.models.chat import ChatMessage, ChatSession
-from src.models.task import Task
+from src.models.chat import ChatMessage, ChatSession, Role
+from src.models.task import Subtask, Task
+from src.schemas.task import CreateTask, UpdateTask
 from src.services.chat import ChatService
 
-pytestmark = pytest.mark.anyio
+pytestmark: pytest.MarkDecorator = pytest.mark.anyio
 
 
-class RecordingSessionRepo:
-    def __init__(self) -> None:
+class FakeSessionRepo:
+    def __init__(self, owner_id: UUID | None = None) -> None:
+        self.owner_id: UUID = owner_id or uuid4()
         self.created_session: ChatSession | None = None
 
-    async def upsert(self, session: ChatSession) -> ChatSession:
-        self.created_session = session
-        return session
+    async def read(self, session_id: UUID) -> ChatSession:
+        return ChatSession(id=session_id, user_id=self.owner_id)
+
+    async def upsert(self, obj: ChatSession) -> ChatSession:
+        self.created_session = obj
+        return obj
+
+    async def link_task_to_session(self, session_id: UUID, task_id: UUID) -> ChatSession:
+        raise NotImplementedError
 
 
-class UnusedChatRepo:
-    async def get_history(self, session_id: UUID, limit: int = 20) -> Sequence[ChatMessage]:
+class FakeChatRepo:
+    async def get_history(
+        self, session_id: UUID, limit: int = 20, page: int = 1
+    ) -> Sequence[ChatMessage]:
         raise AssertionError("history should not be read for another user's session")
 
+    async def add_message(
+        self,
+        session_id: UUID,
+        role: Role,
+        content: str,
+        tool_call_id: str | None = None,
+    ) -> ChatMessage:
+        raise AssertionError("add_message should not be called")
 
-class OtherUsersSessionRepo:
-    async def read(self, session_id: UUID) -> ChatSession:
-        return ChatSession(id=session_id, user_id=uuid4())
 
+class FakeTaskRepo:
+    async def read(self, id: UUID) -> Task:
+        return Task(id=id, title="Owned task", description=None, user_id=uuid4())
 
-class SameUsersTaskRepo:
-    async def read(self, task_id: UUID) -> Task:
-        return Task(
-            id=task_id,
-            title="Owned task",
-            description=None,
-            user_id=self.user_id,
-        )
+    async def read_map(self, task_id: UUID) -> Task:
+        raise NotImplementedError
 
-    def __init__(self, user_id: UUID) -> None:
-        self.user_id = user_id
+    async def create_map(self, roadmap: CreateTask, user_id: UUID) -> Task:
+        raise NotImplementedError
+
+    async def read_subtask(self, subtask_id: UUID) -> Subtask:
+        raise NotImplementedError
+
+    async def read_maps(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
+        raise NotImplementedError
+
+    async def update_map(self, task_id: UUID, roadmap: UpdateTask) -> None:
+        raise NotImplementedError
+
+    async def delete_soft(self, task_id: UUID) -> None:
+        raise NotImplementedError
+
+    async def update_done_subtask(self, subtask_id: UUID) -> Subtask:
+        raise NotImplementedError
+
+    async def update_done_subtasks(self, subtask_ids: list[UUID]) -> list[Subtask]:
+        raise NotImplementedError
 
 
 async def test_create_session_stores_user_id() -> None:
-    session_repo = RecordingSessionRepo()
-    service = ChatService(UnusedChatRepo(), session_repo, SameUsersTaskRepo(uuid4()))  # type: ignore[arg-type]
-    user_id = uuid4()
-    session = await service.create_session(user_id)
+    session_repo = FakeSessionRepo()
+    service = ChatService(FakeChatRepo(), session_repo, FakeTaskRepo())
+    user_id: UUID = uuid4()
+    session: ChatSession = await service.create_session(user_id)
     assert session.user_id == user_id
     assert session_repo.created_session is session
 
 
 async def test_get_history_rejects_other_users_session() -> None:
-    service = ChatService(UnusedChatRepo(), OtherUsersSessionRepo(), SameUsersTaskRepo(uuid4()))  # type: ignore[arg-type]
+    service = ChatService(FakeChatRepo(), FakeSessionRepo(), FakeTaskRepo())
     with pytest.raises(ForbiddenError):
         await service.get_history(uuid4(), uuid4(), limit=20)
