@@ -59,6 +59,7 @@ function ProtectedStack() {
         <Stack.Screen name="auth/sso/callback" />
       </Stack.Protected>
       <Stack.Protected guard={isLoggedIn}>
+        <Stack.Screen name="analytics/index" />
         <Stack.Screen name="tasks/index" />
         <Stack.Screen name="tasks/create" />
         <Stack.Screen name="tasks/create/chat" />

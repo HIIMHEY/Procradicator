@@ -3,6 +3,9 @@
 const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
 
 export const API_ROUTES = {
+  ANALYTICS: {
+    SUMMARY: `${BASE_URL}/analytics/summary`,
+  },
   CHAT: {
     CREATE_SESSION: `${BASE_URL}/chats/sessions`,
     HISTORY: (sessionId: string) => `${BASE_URL}/chats/sessions/${sessionId}/history`,

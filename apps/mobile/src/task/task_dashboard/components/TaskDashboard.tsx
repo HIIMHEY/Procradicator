@@ -14,7 +14,7 @@ import { TaskItem } from './TaskItem';
 import { TaskListSkeleton } from './TaskListSkeleton';
 import { useRouter } from 'expo-router';
 import { ErrorFallback } from '../../components/ErrorFallback';
-import { Smile } from 'lucide-react-native';
+import { ChartPie, Smile } from 'lucide-react-native';
 
 export function TaskDashboard() {
   const router = useRouter();
@@ -74,10 +74,21 @@ export function TaskDashboard() {
       <Button
         size="lg"
         onPress={() => router.replace('/tasks/create')}
-        className="bg-indigo-600 rounded-xl py-3.5 mb-8 shadow-sm active:bg-indigo-700"
+        className="bg-indigo-600 rounded-xl py-3.5 mb-3 shadow-sm active:bg-indigo-700"
       >
         <ButtonIcon as={AddIcon} className="text-white mr-2" />
         <ButtonText className="text-white font-semibold">Create Task</ButtonText>
+      </Button>
+
+      <Button
+        accessibilityLabel="Open analytics"
+        size="lg"
+        variant="outline"
+        onPress={() => router.push('/analytics')}
+        className="mb-8 rounded-xl border-indigo-600 py-3.5 active:bg-indigo-50"
+      >
+        <ButtonIcon as={ChartPie} className="mr-2 text-indigo-600" />
+        <ButtonText className="font-semibold text-indigo-600">Analytics</ButtonText>
       </Button>
 
       {isPending ? (

@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from src.api.v1.analytics import router as analytics_router
 from src.api.v1.auth import router as auth_router
 from src.api.v1.focus_sessions import router as focus_session_router
 from src.api.v1.tasks import router as task_router
@@ -53,6 +54,7 @@ app.include_router(auth_router)
 app.include_router(task_router)
 app.include_router(chat_router)
 app.include_router(focus_session_router)
+app.include_router(analytics_router)
 
 
 # heard this is nice to have
