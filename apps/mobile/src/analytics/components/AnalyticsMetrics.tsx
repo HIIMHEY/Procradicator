@@ -13,12 +13,12 @@ import { AnalyticsMetricCard } from './AnalyticsMetricCard';
 
 interface AnalyticsMetricsProps {
   abandonedSessions: number;
-  averageRestMinutes: number;
-  averageWorkMinutes: number;
+  avgRestMin: number;
+  avgWorkMin: number;
   completedSessions: number;
   completedSubtasks: number;
   completionRate: number;
-  totalFocusMinutes: number;
+  focusMin: number;
   totalSubtasks: number;
 }
 
@@ -27,12 +27,12 @@ const formatNumber = (value: number): string =>
 
 export function AnalyticsMetrics({
   abandonedSessions,
-  averageRestMinutes,
-  averageWorkMinutes,
+  avgRestMin,
+  avgWorkMin,
   completedSessions,
   completedSubtasks,
   completionRate,
-  totalFocusMinutes,
+  focusMin,
   totalSubtasks,
 }: AnalyticsMetricsProps) {
   return (
@@ -41,7 +41,7 @@ export function AnalyticsMetrics({
         accessibilityLabel="Total Focus Time metric"
         icon={Timer}
         label="Total Focus Time"
-        value={`${formatNumber(totalFocusMinutes)} min`}
+        value={`${formatNumber(focusMin)} min`}
       />
 
       <HStack className="w-full gap-2">
@@ -79,13 +79,13 @@ export function AnalyticsMetrics({
           accessibilityLabel="Average Work metric"
           icon={BriefcaseBusiness}
           label="Avg Work"
-          value={`${formatNumber(averageWorkMinutes)}m`}
+          value={`${formatNumber(avgWorkMin)}m`}
         />
         <AnalyticsMetricCard
           accessibilityLabel="Average Rest metric"
           icon={Coffee}
           label="Avg Rest"
-          value={`${formatNumber(averageRestMinutes)}m`}
+          value={`${formatNumber(avgRestMin)}m`}
         />
       </HStack>
     </View>

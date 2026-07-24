@@ -1,16 +1,14 @@
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 from uuid import UUID
 
 from src.models.chat import ChatMessage, ChatSession, Role
 from src.models.focus_session import FocusSession
 from src.models.task import Subtask, Task
 from src.models.user import User
+from src.schemas.analytics import AnalyticsSummary
 from src.schemas.focus_session import RestLogData, WorkLogData
 from src.schemas.task import CreateTask, UpdateTask
-
-if TYPE_CHECKING:
-    from src.repositories.analytics import AnalyticsRawStats
 
 
 class UserRepoProtocol(Protocol):
@@ -59,4 +57,4 @@ class FocusSessionRepoProtocol(Protocol):
 
 
 class AnalyticsRepoProtocol(Protocol):
-    async def get_summary_stats(self, user_id: UUID) -> "AnalyticsRawStats": ...
+    async def read_summary(self, user_id: UUID) -> AnalyticsSummary: ...

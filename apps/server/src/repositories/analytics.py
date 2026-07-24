@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -13,23 +12,12 @@ from sqlmodel.sql.expression import Select, SelectOfScalar
 from src.db.sqlmodelorm import get_async_session
 from src.models.focus_session import FocusLog, FocusSession, RestLog
 from src.models.task import Subtask, Task
+from src.schemas.analytics import AnalyticsSummary
 from src.utils.db_exception_mapper import map_db_exception
 
 from .base import BaseRepo
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class AnalyticsRawStats:
-    total_focus_seconds: float = 0
-    completed_focus_sessions: int = 0
-    abandoned_focus_sessions: int = 0
-    total_subtasks: int = 0
-    completed_subtasks: int = 0
-    total_rest_seconds: float = 0
-    work_log_count: int = 0
-    rest_log_count: int = 0
 
 
 class AnalyticsRepo(BaseRepo[FocusSession]):
@@ -40,23 +28,23 @@ class AnalyticsRepo(BaseRepo[FocusSession]):
         value: int = (await self.session.exec(statement)).one()
         return int(value or 0)
 
-    async def _sum_and_count(self, statement: Select[tuple[Any, int]]) -> tuple[float, int]:
+    async def _sum_count(self, statement: Select[tuple[Any, int]]) -> tuple[float, int]:
         row: tuple[Any, int] = (await self.session.exec(statement)).one()
         total: Any = row[0]
         count: int = row[1]
         return float(total or 0), int(count or 0)
 
-    async def get_summary_stats(self, user_id: UUID) -> AnalyticsRawStats:
+    async def read_summary(self, user_id: UUID) -> AnalyticsSummary:
         try:
-            focus_duration_seconds = func.extract(
+            focus_duration_s = func.extract(
                 "epoch",
                 col(FocusLog.stop_at) - col(FocusLog.start_at),
             )
-            rest_duration_seconds = func.extract(
+            rest_duration_s = func.extract(
                 "epoch",
                 col(RestLog.stop_at) - col(RestLog.start_at),
             )
-            completed_sessions = await self._count(
+            completed = await self._count(
                 select(func.count())
                 .select_from(FocusSession)
                 .where(
@@ -65,7 +53,7 @@ class AnalyticsRepo(BaseRepo[FocusSession]):
                     col(FocusSession.abandon_reason).is_(None),
                 )
             )
-            abandoned_sessions = await self._count(
+            abandoned = await self._count(
                 select(func.count())
                 .select_from(FocusSession)
                 .where(
@@ -74,9 +62,9 @@ class AnalyticsRepo(BaseRepo[FocusSession]):
                     col(FocusSession.abandon_reason).is_not(None),
                 )
             )
-            total_focus_seconds, work_log_count = await self._sum_and_count(
+            focus_s, work_count = await self._sum_count(
                 select(
-                    func.coalesce(func.sum(focus_duration_seconds), 0),
+                    func.coalesce(func.sum(focus_duration_s), 0),
                     func.count(),
                 )
                 .select_from(FocusLog)
@@ -86,9 +74,9 @@ class AnalyticsRepo(BaseRepo[FocusSession]):
                 )
                 .where(col(FocusSession.user_id) == user_id)
             )
-            total_rest_seconds, rest_log_count = await self._sum_and_count(
+            rest_s, rest_count = await self._sum_count(
                 select(
-                    func.coalesce(func.sum(rest_duration_seconds), 0),
+                    func.coalesce(func.sum(rest_duration_s), 0),
                     func.count(),
                 )
                 .select_from(RestLog)
@@ -98,7 +86,7 @@ class AnalyticsRepo(BaseRepo[FocusSession]):
                 )
                 .where(col(FocusSession.user_id) == user_id)
             )
-            total_subtasks = await self._count(
+            subtasks = await self._count(
                 select(func.count())
                 .select_from(Subtask)
                 .join(Task, col(Task.id) == col(Subtask.task_id))
@@ -108,7 +96,7 @@ class AnalyticsRepo(BaseRepo[FocusSession]):
                     col(Subtask.deleted_at).is_(None),
                 )
             )
-            completed_subtasks = await self._count(
+            done_subtasks = await self._count(
                 select(func.count())
                 .select_from(Subtask)
                 .join(Task, col(Task.id) == col(Subtask.task_id))
@@ -119,15 +107,15 @@ class AnalyticsRepo(BaseRepo[FocusSession]):
                     col(Subtask.is_done).is_(True),
                 )
             )
-            return AnalyticsRawStats(
-                total_focus_seconds=total_focus_seconds,
-                completed_focus_sessions=completed_sessions,
-                abandoned_focus_sessions=abandoned_sessions,
-                total_subtasks=total_subtasks,
-                completed_subtasks=completed_subtasks,
-                total_rest_seconds=total_rest_seconds,
-                work_log_count=work_log_count,
-                rest_log_count=rest_log_count,
+            return AnalyticsSummary(
+                focus_min=int(focus_s // 60),
+                completed_sessions=completed,
+                abandoned_sessions=abandoned,
+                total_subtasks=subtasks,
+                completed_subtasks=done_subtasks,
+                completion_rate=round(done_subtasks / subtasks * 100, 2) if subtasks else 0,
+                avg_work_min=round(focus_s / work_count / 60, 2) if work_count else 0,
+                avg_rest_min=round(rest_s / rest_count / 60, 2) if rest_count else 0,
             )
         except SQLAlchemyError as e:
             await self.session.rollback()

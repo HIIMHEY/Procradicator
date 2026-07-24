@@ -19,8 +19,8 @@ jest.mock('@/analytics/components/AnalyticsLoadingSkeleton', () => {
 jest.mock('@/analytics/components/AnalyticsMetrics', () => {
   const { Text } = jest.requireActual('react-native') as typeof import('react-native');
   return {
-    AnalyticsMetrics: ({ totalFocusMinutes }: { totalFocusMinutes: number }) => (
-      <Text testID="mock-analytics-metrics">{totalFocusMinutes}</Text>
+    AnalyticsMetrics: ({ focusMin }: { focusMin: number }) => (
+      <Text testID="mock-analytics-metrics">{focusMin}</Text>
     ),
   };
 });
@@ -46,14 +46,14 @@ const mockUseCurrentUser = jest.mocked(useCurrentUser);
 const refetch = jest.fn();
 
 const populatedSummary = {
-  total_focus_minutes: 240,
-  completed_focus_sessions: 8,
-  abandoned_focus_sessions: 2,
+  focus_min: 240,
+  completed_sessions: 8,
+  abandoned_sessions: 2,
   total_subtasks: 18,
   completed_subtasks: 12,
   completion_rate: 67,
-  average_work_duration_minutes: 25,
-  average_rest_duration_minutes: 5,
+  avg_work_min: 25,
+  avg_rest_min: 5,
 };
 
 beforeEach(() => {
@@ -83,9 +83,9 @@ test('delegates zero focus history to the empty component', () => {
   mockUseAnalyticsSummary.mockReturnValue({
     data: {
       ...populatedSummary,
-      total_focus_minutes: 0,
-      completed_focus_sessions: 0,
-      abandoned_focus_sessions: 0,
+      focus_min: 0,
+      completed_sessions: 0,
+      abandoned_sessions: 0,
     },
     isPending: false,
     isError: false,

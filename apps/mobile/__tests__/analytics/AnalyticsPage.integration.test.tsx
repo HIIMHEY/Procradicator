@@ -6,31 +6,37 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react-nativ
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockFetch = jest.fn();
+const mockReplace = jest.fn();
 
 jest.mock('@/auth/hooks/useCurrentUser');
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    replace: mockReplace,
+  }),
+}));
 
 const mockUseCurrentUser = jest.mocked(useCurrentUser);
 
 const populatedSummary = {
-  total_focus_minutes: 240,
-  completed_focus_sessions: 8,
-  abandoned_focus_sessions: 2,
+  focus_min: 240,
+  completed_sessions: 8,
+  abandoned_sessions: 2,
   total_subtasks: 18,
   completed_subtasks: 12,
   completion_rate: 67,
-  average_work_duration_minutes: 25,
-  average_rest_duration_minutes: 5,
+  avg_work_min: 25,
+  avg_rest_min: 5,
 };
 
 const emptySummary = {
-  total_focus_minutes: 0,
-  completed_focus_sessions: 0,
-  abandoned_focus_sessions: 0,
+  focus_min: 0,
+  completed_sessions: 0,
+  abandoned_sessions: 0,
   total_subtasks: 0,
   completed_subtasks: 0,
   completion_rate: 0,
-  average_work_duration_minutes: 0,
-  average_rest_duration_minutes: 0,
+  avg_work_min: 0,
+  avg_rest_min: 0,
 };
 
 const jsonResponse = (data: unknown, ok = true, status = 200): Response =>
@@ -42,18 +48,19 @@ const jsonResponse = (data: unknown, ok = true, status = 200): Response =>
 
 beforeEach(() => {
   mockFetch.mockReset();
+  mockReplace.mockReset();
   mockUseCurrentUser.mockReset();
   mockUseCurrentUser.mockReturnValue({ data: { id: 'user-1' } } as never);
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
-test('shows a stable loading skeleton while analytics are pending', () => {
+test('shows loading while analytics are pending', () => {
   mockFetch.mockReturnValueOnce(new Promise<Response>(() => undefined));
   renderWithProviders(<AnalyticsPage />);
   expect(screen.getByLabelText('Analytics loading')).toBeTruthy();
 });
 
-test('shows the populated Figma metric layout', async () => {
+test('shows analytics metrics', async () => {
   mockFetch.mockResolvedValueOnce(jsonResponse(populatedSummary));
   renderWithProviders(<AnalyticsPage />);
   expect(await screen.findByLabelText('Analytics metrics')).toBeTruthy();
@@ -68,7 +75,7 @@ test('shows the populated Figma metric layout', async () => {
   expect(within(screen.getByLabelText('Average Rest metric')).getByText('5m')).toBeTruthy();
 });
 
-test('shows the approved empty state when focus history is absent', async () => {
+test('shows an empty state when focus history is absent', async () => {
   mockFetch.mockResolvedValueOnce(jsonResponse(emptySummary));
   renderWithProviders(<AnalyticsPage />);
   expect(await screen.findByLabelText('Analytics empty state')).toBeTruthy();
@@ -76,7 +83,7 @@ test('shows the approved empty state when focus history is absent', async () => 
   expect(screen.getByText('Complete a session to see your insights here.')).toBeTruthy();
 });
 
-test('shows the approved error state and retries the analytics request', async () => {
+test('shows an error and retries the analytics request', async () => {
   mockFetch
     .mockResolvedValueOnce(jsonResponse({}, false, 503))
     .mockResolvedValueOnce(jsonResponse(populatedSummary));
@@ -87,4 +94,12 @@ test('shows the approved error state and retries the analytics request', async (
     expect(screen.getByLabelText('Analytics metrics')).toBeTruthy();
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
+});
+
+test('returns to the dashboard from the navigation sheet', () => {
+  mockFetch.mockReturnValueOnce(new Promise<Response>(() => undefined));
+  renderWithProviders(<AnalyticsPage />);
+  fireEvent.press(screen.getByLabelText('Open navigation'));
+  fireEvent.press(screen.getByLabelText('Go to dashboard'));
+  expect(mockReplace).toHaveBeenCalledWith('/tasks');
 });

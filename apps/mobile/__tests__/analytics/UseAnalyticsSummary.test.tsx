@@ -13,21 +13,21 @@ const mockFetch = jest.fn();
 const USER_ID = 'user-1';
 
 const populatedSummary = {
-  total_focus_minutes: 240,
-  completed_focus_sessions: 8,
-  abandoned_focus_sessions: 2,
+  focus_min: 240,
+  completed_sessions: 8,
+  abandoned_sessions: 2,
   total_subtasks: 18,
   completed_subtasks: 12,
   completion_rate: 67,
-  average_work_duration_minutes: 25,
-  average_rest_duration_minutes: 5,
+  avg_work_min: 25,
+  avg_rest_min: 5,
 };
 
 function AnalyticsProbe({ userId = USER_ID }: { userId?: string }) {
   const { data, isPending, isError } = useAnalyticsSummary(userId);
   if (isPending) return <Text testID="analytics-hook-loading">Loading</Text>;
   if (isError) return <Text testID="analytics-hook-error">Error</Text>;
-  return <Text testID="analytics-hook-total">{data?.total_focus_minutes}</Text>;
+  return <Text testID="analytics-hook-total">{data?.focus_min}</Text>;
 }
 
 const jsonResponse = (data: unknown, ok = true, status = 200): Response =>

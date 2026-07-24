@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { AnalyticsSummary } from '../schemas';
 import { AnalyticsSummarySchema } from '../schemas';
 
-export const fetchAnalyticsSummary = async (signal?: AbortSignal): Promise<AnalyticsSummary> => {
+const fetchSummary = async (signal?: AbortSignal): Promise<AnalyticsSummary> => {
   const response = await fetch(API_ROUTES.ANALYTICS.SUMMARY, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
@@ -20,12 +20,10 @@ export const fetchAnalyticsSummary = async (signal?: AbortSignal): Promise<Analy
 export default function useAnalyticsSummary(userId: string) {
   return useQuery({
     queryKey: ['analytics', 'summary', userId],
-    queryFn: ({ signal }) => fetchAnalyticsSummary(signal),
+    queryFn: ({ signal }) => fetchSummary(signal),
     enabled: Boolean(userId),
     gcTime: 0,
     networkMode: 'online',
-    refetchOnMount: 'always',
     retry: false,
-    staleTime: 0,
   });
 }

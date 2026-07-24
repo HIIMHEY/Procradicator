@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.exceptions import DatabaseError
+from src.repositories.analytics import AnalyticsRepo
 
 pytestmark = pytest.mark.anyio
 
@@ -16,9 +17,7 @@ def query_result(value: object) -> MagicMock:
     return result
 
 
-async def test_get_summary_stats_uses_persisted_focus_data_for_current_user() -> None:
-    from src.repositories.analytics import AnalyticsRepo
-
+async def test_read_summary_uses_persisted_data_for_current_user() -> None:
     user_id = uuid4()
     session = MagicMock(spec=AsyncSession)
     session.exec = AsyncMock(
@@ -32,15 +31,17 @@ async def test_get_summary_stats_uses_persisted_focus_data_for_current_user() ->
         ]
     )
     repo = AnalyticsRepo(cast(AsyncSession, session))
-    stats = await repo.get_summary_stats(user_id)
-    assert stats.completed_focus_sessions == 2
-    assert stats.abandoned_focus_sessions == 1
-    assert stats.total_focus_seconds == 4500
-    assert stats.work_log_count == 3
-    assert stats.total_rest_seconds == 1200
-    assert stats.rest_log_count == 4
-    assert stats.total_subtasks == 4
-    assert stats.completed_subtasks == 3
+    summary = await repo.read_summary(user_id)
+    assert summary.model_dump() == {
+        "focus_min": 75,
+        "completed_sessions": 2,
+        "abandoned_sessions": 1,
+        "total_subtasks": 4,
+        "completed_subtasks": 3,
+        "completion_rate": 75.0,
+        "avg_work_min": 25.0,
+        "avg_rest_min": 5.0,
+    }
     statements = [call.args[0] for call in session.exec.await_args_list]
     assert len(statements) == 6
     assert all(str(user_id) in str(statement.compile().params) for statement in statements)
@@ -58,13 +59,11 @@ async def test_get_summary_stats_uses_persisted_focus_data_for_current_user() ->
     assert "subtask.is_done is true" in sql[5]
 
 
-async def test_get_summary_stats_rolls_back_and_maps_database_failures() -> None:
-    from src.repositories.analytics import AnalyticsRepo
-
+async def test_read_summary_rolls_back_and_maps_database_failures() -> None:
     session = MagicMock(spec=AsyncSession)
     session.exec = AsyncMock(side_effect=SQLAlchemyError("query failed"))
     session.rollback = AsyncMock()
     repo = AnalyticsRepo(cast(AsyncSession, session))
     with pytest.raises(DatabaseError):
-        await repo.get_summary_stats(uuid4())
+        await repo.read_summary(uuid4())
     session.rollback.assert_awaited_once()

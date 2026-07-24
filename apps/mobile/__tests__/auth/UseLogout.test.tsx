@@ -20,21 +20,18 @@ test('removes cached analytics after logout succeeds', async () => {
     },
   });
   queryClient.setQueryData(['analytics', 'summary', 'user-1'], {
-    total_focus_minutes: 240,
+    focus_min: 240,
   });
   mockFetch.mockResolvedValueOnce({ ok: true } as Response);
-
   const { result, unmount } = renderHook(() => useLogout(), {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     ),
   });
-
   try {
     await act(async () => {
       await result.current.mutateAsync();
     });
-
     expect(queryClient.getQueriesData({ queryKey: ['analytics'] })).toEqual([]);
   } finally {
     unmount();
