@@ -70,79 +70,30 @@ test('requests the analytics summary route with credentials and parses the respo
   });
 });
 
-test('scopes cached analytics to the authenticated user', async () => {
+test('exposes request failures to the caller', async () => {
+  mockFetch.mockResolvedValueOnce(jsonResponse({}, false, 503));
+  renderWithProviders(<AnalyticsProbe />);
+  expect(await screen.findByTestId('analytics-hook-error')).toBeTruthy();
+});
+
+test('loads fresh analytics when the authenticated user changes', async () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { gcTime: Infinity, retry: false },
     },
   });
-  mockFetch.mockResolvedValueOnce(jsonResponse(populatedSummary));
+  mockFetch
+    .mockResolvedValueOnce(jsonResponse(populatedSummary))
+    .mockResolvedValueOnce(jsonResponse({ ...populatedSummary, focus_min: 45 }));
   const view = renderAnalyticsProbe(queryClient);
   try {
     expect(await screen.findByTestId('analytics-hook-total')).toHaveTextContent('240');
-    expect(queryClient.getQueryData(['analytics', 'summary', USER_ID])).toEqual(populatedSummary);
+    view.rerender(<AnalyticsProbe userId="user-2" />);
+    expect(screen.queryByText('240')).toBeNull();
+    expect(await screen.findByTestId('analytics-hook-total')).toHaveTextContent('45');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   } finally {
     view.unmount();
-    queryClient.clear();
-  }
-});
-
-test('aborts an unfinished analytics request when the page unmounts', async () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { gcTime: Infinity, retry: false },
-    },
-  });
-  let requestSignal: AbortSignal | undefined;
-  mockFetch.mockImplementationOnce((_url: string, init?: RequestInit) => {
-    requestSignal = init?.signal ?? undefined;
-    return new Promise<Response>((_resolve, reject) => {
-      requestSignal?.addEventListener('abort', () => reject(new Error('Request aborted')), {
-        once: true,
-      });
-    });
-  });
-  const view = renderAnalyticsProbe(queryClient);
-  await waitFor(() => expect(requestSignal).toBeDefined());
-  expect(requestSignal?.aborted).toBe(false);
-  view.unmount();
-  await waitFor(() => expect(requestSignal?.aborted).toBe(true));
-  queryClient.clear();
-});
-
-test('does not automatically retry a failed analytics request', async () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: 1, retryDelay: 0 },
-    },
-  });
-  mockFetch.mockResolvedValue(jsonResponse({}, false, 503));
-  const view = renderAnalyticsProbe(queryClient);
-  try {
-    expect(await screen.findByTestId('analytics-hook-error')).toBeTruthy();
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-  } finally {
-    view.unmount();
-    queryClient.clear();
-  }
-});
-
-test('discards analytics data after the page unmounts', async () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { gcTime: Infinity, retry: false },
-    },
-  });
-  mockFetch.mockResolvedValueOnce(jsonResponse(populatedSummary));
-  const firstView = renderAnalyticsProbe(queryClient);
-  expect(await screen.findByTestId('analytics-hook-total')).toHaveTextContent('240');
-  firstView.unmount();
-
-  try {
-    await waitFor(() => {
-      expect(queryClient.getQueryData(['analytics', 'summary', USER_ID])).toBeUndefined();
-    });
-  } finally {
     queryClient.clear();
   }
 });

@@ -27,14 +27,14 @@ def logged_in_user(user_id: UUID | None = None) -> User:
     )
 
 
-class RecordingAnalyticsService:
-    def __init__(self) -> None:
-        self.user_id: UUID | None = None
+class ScopedAnalyticsService:
+    def __init__(self, user_id: UUID) -> None:
+        self.user_id = user_id
 
     async def get_summary(self, user_id: UUID) -> dict[str, float | int]:
-        self.user_id = user_id
+        focus_min = 90 if user_id == self.user_id else 0
         return {
-            "focus_min": 90,
+            "focus_min": focus_min,
             "completed_sessions": 3,
             "abandoned_sessions": 1,
             "total_subtasks": 4,
@@ -46,7 +46,7 @@ class RecordingAnalyticsService:
 
 
 class FailingAnalyticsService:
-    async def get_summary(self, user_id: UUID) -> dict[str, float | int]:
+    async def get_summary(self, _user_id: UUID) -> dict[str, float | int]:
         raise DependencyUnavailableError("analytics data unavailable")
 
 
@@ -55,15 +55,23 @@ def test_get_analytics_summary_requires_login() -> None:
     assert response.status_code == 401
 
 
-def test_get_analytics_summary_passes_current_user_id_to_service() -> None:
+def test_get_analytics_summary_returns_current_user_data() -> None:
     user = logged_in_user()
-    analytics_service = RecordingAnalyticsService()
+    analytics_service = ScopedAnalyticsService(user.id)
     app.dependency_overrides[current_active_user] = lambda: user
     app.dependency_overrides[AnalyticsService] = lambda: analytics_service
     response = TestClient(app).get("/analytics/summary")
     assert response.status_code == 200
-    assert analytics_service.user_id == user.id
-    assert response.json()["focus_min"] == 90
+    assert response.json() == {
+        "focus_min": 90,
+        "completed_sessions": 3,
+        "abandoned_sessions": 1,
+        "total_subtasks": 4,
+        "completed_subtasks": 3,
+        "completion_rate": 75.0,
+        "avg_work_min": 30.0,
+        "avg_rest_min": 5.0,
+    }
 
 
 def test_get_analytics_summary_returns_503_when_data_fails_to_load() -> None:

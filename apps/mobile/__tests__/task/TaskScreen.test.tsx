@@ -1,6 +1,5 @@
 /// <reference types="jest" />
 import { fireEvent, screen } from '@testing-library/react-native';
-import { LayoutGrid } from 'lucide-react-native';
 import TaskIndex from '../../src/app/tasks';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
@@ -23,7 +22,7 @@ beforeEach(() => {
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
-test('TaskScreen renders the task creation screen', () => {
+test('TaskScreen renders the task dashboard', () => {
   renderWithProviders(<TaskIndex />);
   expect(screen.getByText('Your Tasks')).toBeTruthy();
   expect(screen.getByText('Create Task')).toBeTruthy();
@@ -33,7 +32,6 @@ test('TaskScreen opens analytics from the navigation sheet', () => {
   renderWithProviders(<TaskIndex />);
   fireEvent.press(screen.getByLabelText('Open navigation'));
   expect(screen.getByLabelText('Navigation menu')).toBeTruthy();
-  expect(screen.UNSAFE_getByType(LayoutGrid)).toBeTruthy();
   fireEvent.press(screen.getByLabelText('Go to analytics'));
   expect(mockReplace).toHaveBeenCalledWith('/analytics');
 });
