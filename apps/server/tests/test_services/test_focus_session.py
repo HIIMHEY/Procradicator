@@ -306,5 +306,6 @@ async def test_completed_subtasks_are_staged_until_the_session_is_saved() -> Non
     await repo.update_done_subtasks([subtask.id for subtask in subtasks])
 
     assert all(subtask.is_done for subtask in subtasks)
+    assert all(subtask.completed_at is not None for subtask in subtasks)
     db_session.flush.assert_awaited_once()
     db_session.commit.assert_not_awaited()
