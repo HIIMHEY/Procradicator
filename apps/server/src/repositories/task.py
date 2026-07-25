@@ -63,7 +63,7 @@ class TaskRepo(BaseRepo[Task]):
         logger.info(f"Completing subtask: {subtask_id}")
         try:
             subtask: Subtask = await self.read_subtask(subtask_id)
-            subtask.is_done = True
+            subtask.set_done(True)
             self.session.add(subtask)
             await self.session.commit()
             await self.session.refresh(subtask)
@@ -79,7 +79,7 @@ class TaskRepo(BaseRepo[Task]):
         try:
             for sid in subtask_ids:
                 sub: Subtask = await self.read_subtask(sid)
-                sub.is_done = True
+                sub.set_done(True)
                 self.session.add(sub)
                 results.append(sub)
             await self.session.flush()
@@ -106,9 +106,9 @@ class TaskRepo(BaseRepo[Task]):
                     title=st_schema.title,
                     description=st_schema.description,
                     task_id=main_task.id,
-                    is_done=st_schema.is_done,
                     est_m=st_schema.est_m,
                 )
+                new_subtask.set_done(st_schema.is_done)
                 self.session.add(new_subtask)
                 await self.session.flush()
                 id_map[st_schema.id] = new_subtask.id
@@ -171,12 +171,12 @@ class TaskRepo(BaseRepo[Task]):
                 )
                 if isinstance(clean_id, UUID) and clean_id in existing_subs:
                     sub: Subtask = existing_subs[clean_id]
-                    sub.title, sub.description, sub.est_m, sub.is_done = (
+                    sub.title, sub.description, sub.est_m = (
                         st.title,
                         st.description,
                         st.est_m,
-                        st.is_done,
                     )
+                    sub.set_done(st.is_done)
                     incoming_sub_ids.add(sub.id)
                 else:
                     sub = Subtask(
@@ -184,8 +184,8 @@ class TaskRepo(BaseRepo[Task]):
                         description=st.description,
                         task_id=db_task.id,
                         est_m=st.est_m,
-                        is_done=st.is_done,
                     )
+                    sub.set_done(st.is_done)
                     self.session.add(sub)
                     await self.session.flush()
                 id_map[st.id] = sub.id
