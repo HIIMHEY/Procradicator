@@ -15,6 +15,16 @@ export const API_ROUTES = {
     BASE: `${BASE_URL}/focus`,
     DETAIL: (sessionId: string) => `${BASE_URL}/focus/${sessionId}`,
   },
+  FRIENDS: {
+    BASE: `${BASE_URL}/friends`,
+    SEARCH: `${BASE_URL}/friends/search`,
+    REQUESTS: `${BASE_URL}/friends/requests`,
+    REQUEST: (id: string) => `${BASE_URL}/friends/requests/${id}`,
+    PROGRESS: `${BASE_URL}/friends/progress`,
+    NUDGES: `${BASE_URL}/friends/nudges`,
+    NUDGE: (id: string) => `${BASE_URL}/friends/${id}/nudges`,
+    DETAIL: (id: string) => `${BASE_URL}/friends/${id}`,
+  },
   TASKS: {
     BASE: `${BASE_URL}/tasks`,
     DETAIL: (id: string) => `${BASE_URL}/tasks/${id}`,

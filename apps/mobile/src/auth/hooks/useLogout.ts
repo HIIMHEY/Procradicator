@@ -17,6 +17,7 @@ export function useLogout() {
     mutationFn: logout,
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: ['analytics'] });
+      queryClient.removeQueries({ queryKey: ['friends'] });
       queryClient.setQueryData(['auth', 'me'], null);
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
     },

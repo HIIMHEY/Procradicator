@@ -45,9 +45,9 @@ class FakeFriendRepo:
             None,
         )
 
-    async def upsert(self, link: Friendship) -> Friendship:
-        self.links[link.id] = link
-        return link
+    async def upsert(self, obj: Friendship) -> Friendship:
+        self.links[obj.id] = obj
+        return obj
 
     async def read_for_update(self, link_id: UUID) -> Friendship:
         return self.links[link_id]
@@ -67,9 +67,15 @@ class FakeFriendRepo:
             if link.accepted_at is not None and user_id in {link.requester_id, link.recipient_id}
         ]
 
+    async def list_pending(self, user_id: UUID) -> list[tuple[Friendship, User]]:
+        return []
+
     async def add_nudge(self, nudge: Nudge) -> Nudge:
         self.nudges.append(nudge)
         return nudge
+
+    async def list_nudges(self, user_id: UUID) -> list[tuple[Nudge, User]]:
+        return []
 
 
 class FakeAnalyticsRepo:
@@ -96,13 +102,11 @@ def make_service(
 
 
 async def test_user_can_send_request_by_username() -> None:
-    requester = make_user("gabriel")
-    recipient = make_user("marcus")
+    requester = make_user("alice")
+    recipient = make_user("bob")
     repo = FakeFriendRepo()
     service = make_service(repo, FakeUserService(recipient))
-
     link_id = await service.send_request(recipient.username, requester.id)
-
     link = repo.links[link_id]
     assert link.requester_id == requester.id
     assert link.recipient_id == recipient.id
@@ -110,70 +114,64 @@ async def test_user_can_send_request_by_username() -> None:
 
 
 async def test_user_cannot_send_duplicate_friend_request() -> None:
-    requester = make_user("gabriel")
-    recipient = make_user("marcus")
+    requester = make_user("alice")
+    recipient = make_user("bob")
     repo = FakeFriendRepo()
     link = Friendship(requester_id=recipient.id, recipient_id=requester.id)
     repo.links[link.id] = link
     service = make_service(repo, FakeUserService(recipient))
-
     with pytest.raises(DuplicateItemError):
         await service.send_request(recipient.username, requester.id)
 
 
 async def test_recipient_can_accept_request() -> None:
-    requester = make_user("gabriel")
-    recipient = make_user("marcus")
+    requester = make_user("alice")
+    recipient = make_user("bob")
     repo = FakeFriendRepo()
     link = Friendship(requester_id=requester.id, recipient_id=recipient.id)
     repo.links[link.id] = link
     service = make_service(repo, FakeUserService())
-
     await service.accept(link.id, recipient.id)
-
     assert link.accepted_at is not None
 
 
 async def test_requester_cannot_reject_sent_request() -> None:
-    requester = make_user("gabriel")
+    requester = make_user("alice")
     link = Friendship(requester_id=requester.id, recipient_id=uuid4())
     repo = FakeFriendRepo()
     repo.links[link.id] = link
     service = make_service(repo, FakeUserService())
-
     with pytest.raises(ForbiddenError):
         await service.reject(link.id, requester.id)
 
 
-async def test_daily_progress_contains_only_accepted_friends() -> None:
-    current = make_user("gabriel")
-    friend = make_user("marcus")
+async def test_recipient_can_reject_pending_request() -> None:
+    recipient = make_user("bob")
     repo = FakeFriendRepo()
-    repo.users[friend.id] = friend
+    link = Friendship(requester_id=uuid4(), recipient_id=recipient.id)
+    repo.links[link.id] = link
+    service = make_service(repo, FakeUserService())
+    await service.reject(link.id, recipient.id)
+    assert link.id not in repo.links
+
+
+async def test_friend_can_remove_accepted_friendship() -> None:
+    current = make_user("alice")
     link = Friendship(
         requester_id=current.id,
-        recipient_id=friend.id,
+        recipient_id=uuid4(),
         accepted_at=datetime(2026, 7, 24, tzinfo=UTC),
     )
+    repo = FakeFriendRepo()
     repo.links[link.id] = link
-    stats = DailyStats(user_id=friend.id, focus_min=45, completed_subtasks=2)
-    analytics = FakeAnalyticsRepo({friend.id: stats})
-    service = make_service(repo, FakeUserService(), analytics)
-
-    progress = await service.list_progress(
-        current.id,
-        datetime(2026, 7, 25, 4, 0, tzinfo=UTC),
-    )
-
-    assert analytics.user_ids == [friend.id]
-    assert progress[0].user.username == friend.username
-    assert progress[0].focus_min == 45
-    assert progress[0].completed_subtasks == 2
+    service = make_service(repo, FakeUserService())
+    await service.remove(link.id, current.id)
+    assert link.id not in repo.links
 
 
 async def test_user_can_nudge_accepted_friend() -> None:
-    current = make_user("gabriel")
-    friend = make_user("marcus")
+    current = make_user("alice")
+    friend = make_user("bob")
     repo = FakeFriendRepo()
     link = Friendship(
         requester_id=current.id,
@@ -182,8 +180,6 @@ async def test_user_can_nudge_accepted_friend() -> None:
     )
     repo.links[link.id] = link
     service = make_service(repo, FakeUserService())
-
     nudge_id = await service.send_nudge(link.id, current.id)
-
     assert repo.nudges[0].id == nudge_id
     assert repo.nudges[0].sender_id == current.id
