@@ -1,8 +1,11 @@
 import { jest } from '@jest/globals';
-import type { PropsWithChildren } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import type { ComponentType, PropsWithChildren, ReactNode } from 'react';
 
-type RootHtml = (props: PropsWithChildren) => React.ReactNode;
+type RootHtml = ComponentType<PropsWithChildren>;
+
+const { renderToStaticMarkup } = jest.requireActual<{
+  renderToStaticMarkup: (node: ReactNode) => string;
+}>('react-dom/server');
 
 const loadRootHtml = (): RootHtml | null => {
   const modulePath = '../../src/app/' + '+html';
@@ -18,26 +21,26 @@ const loadRootHtml = (): RootHtml | null => {
   }
 };
 
-const renderRootHtml = (): Document => {
+const renderRootHtml = (): string => {
   const RootHtml = loadRootHtml();
-  expect(RootHtml).not.toBeNull();
-
-  const markup = renderToStaticMarkup(<RootHtml>App</RootHtml>);
-  return new DOMParser().parseFromString(markup, 'text/html');
+  if (!RootHtml) {
+    expect(RootHtml).not.toBeNull();
+    throw new Error('Root HTML is missing');
+  }
+  return renderToStaticMarkup(<RootHtml>App</RootHtml>);
 };
 
 describe('PWA shell', () => {
   test('links the install manifest from rendered HTML', () => {
-    const document = renderRootHtml();
+    const markup = renderRootHtml();
+    const manifest = markup.match(/<link\b[^>]*rel="manifest"[^>]*>/)?.[0];
 
-    expect(document.querySelector('link[rel="manifest"]')?.getAttribute('href')).toBe(
-      '/manifest.json',
-    );
+    expect(manifest).toContain('href="/manifest.json"');
   });
 
   test('registers the service worker after the page loads', () => {
-    const document = renderRootHtml();
-    const script = document.querySelector('script[data-register-sw]')?.textContent;
+    const markup = renderRootHtml();
+    const script = markup.match(/<script\b[^>]*data-register-sw[^>]*>([\s\S]*?)<\/script>/)?.[1];
     const register = jest.fn<() => Promise<void>>().mockResolvedValue();
     let handleLoad: (() => void) | undefined;
     const windowStub = {
