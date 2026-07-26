@@ -14,11 +14,7 @@ import {
 const USER_ONE = '9b97c715-d720-4ffc-88e6-f395be319dda';
 const USER_TWO = 'd337011c-bb21-40e1-8591-d7991af9eef4';
 
-function taskRecord(
-  userId: string,
-  taskId: string,
-  title: string,
-): LocalTaskRecord {
+function taskRecord(userId: string, taskId: string, title: string): LocalTaskRecord {
   return {
     key: `${userId}:${taskId}`,
     userId,
@@ -120,14 +116,8 @@ it('removes only an acknowledged outbox operation', async () => {
   const secondTaskId = crypto.randomUUID();
   const firstOperation = outboxRecord(USER_ONE, firstTaskId);
   const secondOperation = outboxRecord(USER_ONE, secondTaskId);
-  await saveTaskAndEnqueue(
-    taskRecord(USER_ONE, firstTaskId, 'First'),
-    firstOperation,
-  );
-  await saveTaskAndEnqueue(
-    taskRecord(USER_ONE, secondTaskId, 'Second'),
-    secondOperation,
-  );
+  await saveTaskAndEnqueue(taskRecord(USER_ONE, firstTaskId, 'First'), firstOperation);
+  await saveTaskAndEnqueue(taskRecord(USER_ONE, secondTaskId, 'Second'), secondOperation);
 
   await removeOutboxOperation(firstOperation.id);
 
