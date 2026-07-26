@@ -3,7 +3,12 @@
 import 'fake-indexeddb/auto';
 
 import { deleteOfflineDatabase, getTaskRecord, listOutbox } from '@/offline/database';
-import { flushTaskOutbox, listTaskConflicts, pullServerTasks } from '@/offline/taskSync';
+import {
+  flushTaskOutbox,
+  listTaskConflicts,
+  pullServerTasks,
+  resolveTaskConflictWithLocal,
+} from '@/offline/taskSync';
 import { createLocalTask, listLocalTasks, updateLocalTask } from '@/offline/taskStore';
 import type { ModifyTaskData, Task } from '@/task/schema';
 import type { TaskWritePayload } from '@/task/taskApi';
@@ -131,6 +136,46 @@ test('stores a 412 conflict and blocks later retries', async () => {
   ]);
   await expect(getTaskRecord(USER_ID, created.id)).resolves.toMatchObject({
     syncStatus: 'conflict',
+  });
+});
+
+test('keeping local replaces blocked operations with one write against the server version', async () => {
+  const created = await createLocalTask(USER_ID, values('Local'), '2026-07-27T09:00:00.000Z');
+  const createBody = (await listOutbox(USER_ID))[0].payload as TaskWritePayload;
+  jest.mocked(globalThis.fetch).mockResolvedValueOnce(response(serverTask(createBody, 1), 201));
+  await flushTaskOutbox(USER_ID);
+  await updateLocalTask(
+    USER_ID,
+    created.id,
+    { ...values('My edit'), id: created.id },
+    '2026-07-27T09:05:00.000Z',
+  );
+  jest.mocked(globalThis.fetch).mockResolvedValue(
+    response(
+      {
+        detail: 'Task changed on the server',
+        server: serverTask({ ...createBody, title: 'Their edit' }, 2),
+      },
+      412,
+    ),
+  );
+  await flushTaskOutbox(USER_ID);
+  const [conflict] = await listTaskConflicts(USER_ID);
+
+  await resolveTaskConflictWithLocal(conflict);
+
+  await expect(listTaskConflicts(USER_ID)).resolves.toEqual([]);
+  await expect(listOutbox(USER_ID)).resolves.toEqual([
+    expect.objectContaining({
+      operation: 'update',
+      entityId: created.id,
+      baseVersion: 2,
+      payload: expect.objectContaining({ title: 'My edit' }),
+    }),
+  ]);
+  await expect(getTaskRecord(USER_ID, created.id)).resolves.toMatchObject({
+    syncStatus: 'pending',
+    task: { title: 'My edit', version: 2 },
   });
 });
 
