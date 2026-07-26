@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
-from src.exceptions import ForbiddenError
+import src.exceptions as app_exceptions
+from src.exceptions import ForbiddenError, ServiceError
 from src.models.task import Subtask, Task
 from src.schemas.task import CreateSubtask, CreateTask, UpdateTask
 from src.services.task import TaskService
@@ -29,17 +31,27 @@ def create_task_payload() -> CreateTask:
 
 
 class FakeTaskRepo:
-    def __init__(self, task_id: UUID | None = None, owner_id: UUID | None = None) -> None:
+    def __init__(
+        self,
+        task_id: UUID | None = None,
+        owner_id: UUID | None = None,
+        version: int = 1,
+        last_op_id: UUID | None = None,
+    ) -> None:
         self.task_id: UUID = task_id or uuid4()
         self.owner_id: UUID = owner_id or uuid4()
+        self.version = version
+        self.last_op_id = last_op_id
         self.create_user_id: UUID | None = None
         self.list_user_id: UUID | None = None
         self.offset: int | None = None
         self.limit: int | None = None
         self.upserted_task: Task | None = None
+        self.update_calls = 0
 
     def _make_task(self) -> Task:
-        task = Task(id=self.task_id, title="t", user_id=self.owner_id)
+        task = Task(id=self.task_id, title="t", user_id=self.owner_id, version=self.version)
+        task.__dict__["last_op_id"] = self.last_op_id
         task.subtasks = [
             Subtask(id=uuid4(), title="a", task_id=self.task_id),
             Subtask(id=uuid4(), title="b", task_id=self.task_id),
@@ -70,8 +82,11 @@ class FakeTaskRepo:
     async def read_subtask(self, subtask_id: UUID) -> Subtask:
         raise NotImplementedError
 
-    async def update_map(self, task_id: UUID, roadmap: UpdateTask) -> None:
-        raise NotImplementedError
+    async def update_map(self, task_id: UUID, roadmap: UpdateTask) -> Task:
+        self.update_calls += 1
+        task = self._make_task()
+        task.version += 1
+        return task
 
     async def update_done_subtask(self, subtask_id: UUID) -> Subtask:
         raise NotImplementedError
@@ -125,3 +140,40 @@ async def test_delete_soft_cascades_to_subtasks() -> None:
     assert repo.upserted_task is not None
     for sub in repo.upserted_task.subtasks:
         assert sub.deleted_at is not None
+
+
+async def test_update_rejects_stale_task_version() -> None:
+    repo = FakeTaskRepo(version=3)
+    service = TaskService(repo)
+    error_type = cast(
+        type[ServiceError],
+        getattr(app_exceptions, "VersionConflictError", ServiceError),
+    )
+
+    with pytest.raises(error_type):
+        await service.update_map(
+            repo.task_id,
+            UpdateTask.model_validate(create_task_payload().model_dump()),
+            repo.owner_id,
+            expected_version=2,
+            op_id=uuid4(),
+        )
+
+    assert repo.update_calls == 0
+
+
+async def test_update_replay_does_not_write_twice() -> None:
+    op_id = uuid4()
+    repo = FakeTaskRepo(version=3, last_op_id=op_id)
+    service = TaskService(repo)
+
+    task = await service.update_map(
+        repo.task_id,
+        UpdateTask.model_validate(create_task_payload().model_dump()),
+        repo.owner_id,
+        expected_version=2,
+        op_id=op_id,
+    )
+
+    assert task.version == 3
+    assert repo.update_calls == 0

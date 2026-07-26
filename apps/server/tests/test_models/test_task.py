@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from src.models.task import Subtask
+from src.models.task import Subtask, Task
 
 
 def make_subtask() -> Subtask:
@@ -37,3 +37,15 @@ def test_reopening_subtask_clears_completion_time() -> None:
 
     assert subtask.is_done is False
     assert subtask.completed_at is None
+
+
+def test_recording_task_change_advances_version_and_operation() -> None:
+    task = Task(title="Offline task", user_id=uuid4(), version=3)
+    op_id = uuid4()
+    before = task.updated_at
+
+    task.record_change(op_id)
+
+    assert task.version == 4
+    assert task.last_op_id == op_id
+    assert task.updated_at >= before

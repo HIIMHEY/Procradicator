@@ -1,10 +1,13 @@
 from collections.abc import Generator
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
+import src.exceptions as app_exceptions
 from fastapi.testclient import TestClient
 from src.auth.fastapi_users.setup import current_active_user
+from src.exceptions import ServiceError
 from src.main import app
 from src.models.task import Task
 from src.models.user import User
@@ -83,10 +86,32 @@ class RecordingSyncTaskService:
         return self._task(task_id, user_id)
 
 
-def client_with(service: RecordingSyncTaskService) -> TestClient:
+class ConflictTaskService(RecordingSyncTaskService):
+    async def update_map(
+        self,
+        task_id: UUID,
+        payload: UpdateTask,
+        user_id: UUID,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
+    ) -> Task:
+        current = self._task(task_id, user_id)
+        current.version = 4
+        error_type = cast(
+            type[ServiceError],
+            getattr(app_exceptions, "VersionConflictError", ServiceError),
+        )
+        raise error_type("Task version changed", {"current": current})
+
+
+def client_with(
+    service: RecordingSyncTaskService,
+    *,
+    raise_server_exceptions: bool = True,
+) -> TestClient:
     app.dependency_overrides[current_active_user] = logged_in_user
     app.dependency_overrides[TaskService] = lambda: service
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
 
 def test_create_returns_versioned_task_and_etag() -> None:
@@ -126,3 +151,19 @@ def test_update_forwards_sync_headers_and_returns_new_version() -> None:
     assert response.headers.get("etag") == '"1"'
     assert service.expected_version == 1
     assert service.op_id == op_id
+
+
+def test_update_returns_server_copy_when_task_version_changed() -> None:
+    task_id: UUID = uuid4()
+    response = client_with(
+        ConflictTaskService(),
+        raise_server_exceptions=False,
+    ).put(
+        f"/tasks/{task_id}",
+        json=task_payload(task_id),
+        headers={"If-Match": '"2"', "Idempotency-Key": str(uuid4())},
+    )
+
+    assert response.status_code == 412
+    assert response.json().get("server", {}).get("version") == 4
+    assert response.headers.get("etag") == '"4"'
