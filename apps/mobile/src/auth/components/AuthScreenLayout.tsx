@@ -21,6 +21,14 @@ export function AuthScreenLayout({
   children,
 }: AuthScreenLayoutProps) {
   const router = useRouter();
+  const handleBack = (): void => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/');
+  };
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -35,7 +43,7 @@ export function AuthScreenLayout({
             action="default"
             variant="link"
             size="lg"
-            onPress={() => router.back()}
+            onPress={handleBack}
             className="h-12 w-12 self-start p-0"
           >
             <ButtonIcon as={ArrowLeftIcon} className="h-8 w-8 text-black" />

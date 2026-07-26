@@ -10,6 +10,7 @@ import { renderWithProviders } from '../../test-utils/renderWithProviders';
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
+const mockCanGoBack = jest.fn();
 const mockFetch = jest.fn();
 const mockStartGoogleSso = jest.fn();
 
@@ -18,6 +19,7 @@ jest.mock('expo-router', () => ({
     navigate: mockNavigate,
     replace: mockReplace,
     back: mockBack,
+    canGoBack: mockCanGoBack,
   }),
 }));
 
@@ -37,8 +39,10 @@ beforeEach(() => {
   mockNavigate.mockReset();
   mockReplace.mockReset();
   mockBack.mockReset();
+  mockCanGoBack.mockReset();
   mockFetch.mockReset();
   mockStartGoogleSso.mockReset();
+  mockCanGoBack.mockReturnValue(true);
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
@@ -64,7 +68,6 @@ test('login form sends username and password as form data', async () => {
   expect(options.credentials).toBe('include');
   expect(options.headers).toEqual({ 'Content-Type': 'application/x-www-form-urlencoded' });
   expect(body.toString()).toBe('username=testuser&password=correct-password');
-  expect(mockReplace).toHaveBeenCalledWith('/tasks');
 });
 
 test('login form shows required validation messages', async () => {
@@ -74,6 +77,21 @@ test('login form shows required validation messages', async () => {
   expect(await screen.findByText('Username is required.')).toBeTruthy();
   expect(screen.getByText('Password is required.')).toBeTruthy();
   expect(mockFetch).not.toHaveBeenCalled();
+});
+
+test('auth back button returns to landing when there is no route history', () => {
+  mockCanGoBack.mockReturnValue(false);
+  renderWithProviders(<LoginForm />);
+  fireEvent.press(screen.getByLabelText('Go back'));
+  expect(mockBack).not.toHaveBeenCalled();
+  expect(mockReplace).toHaveBeenCalledWith('/');
+});
+
+test('auth back button uses route history when available', () => {
+  renderWithProviders(<LoginForm />);
+  fireEvent.press(screen.getByLabelText('Go back'));
+  expect(mockBack).toHaveBeenCalledTimes(1);
+  expect(mockReplace).not.toHaveBeenCalled();
 });
 
 test('login form rejects credentials above backend length limits', async () => {

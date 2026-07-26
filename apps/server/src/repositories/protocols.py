@@ -6,6 +6,7 @@ from src.models.chat import ChatMessage, ChatSession, Role
 from src.models.focus_session import FocusSession
 from src.models.task import Subtask, Task
 from src.models.user import User
+from src.schemas.analytics import AnalyticsSummary
 from src.schemas.focus_session import RestLogData, WorkLogData
 from src.schemas.task import CreateTask, UpdateTask
 
@@ -53,3 +54,7 @@ class FocusSessionRepoProtocol(Protocol):
     async def read_active(self, user_id: UUID) -> FocusSession | None: ...
     async def create_focus_logs(self, session_id: UUID, logs: list[WorkLogData]) -> None: ...
     async def create_rest_logs(self, session_id: UUID, logs: list[RestLogData]) -> None: ...
+
+
+class AnalyticsRepoProtocol(Protocol):
+    async def read_summary(self, user_id: UUID) -> AnalyticsSummary: ...

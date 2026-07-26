@@ -1,25 +1,26 @@
 import { useLogout } from '@/auth/hooks/useLogout';
-import { FlatList, ActivityIndicator, View } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { HStack } from '@/components/ui/hstack';
+import { AddIcon, Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/toast';
 import { VStack } from '@/components/ui/vstack';
-import { AddIcon, Icon } from '@/components/ui/icon';
+import { NavBar } from '@/navigation/components/NavBar';
+import { useRouter } from 'expo-router';
+import { Smile } from 'lucide-react-native';
+import { ActivityIndicator, FlatList, View } from 'react-native';
+import { ErrorFallback } from '../../components/ErrorFallback';
 import useReadTask from '../../hooks/useReadTasks';
-import { Task } from '../../schema';
+import type { Task } from '../../schema';
 import { TaskItem } from './TaskItem';
 import { TaskListSkeleton } from './TaskListSkeleton';
-import { useRouter } from 'expo-router';
-import { ErrorFallback } from '../../components/ErrorFallback';
-import { Smile } from 'lucide-react-native';
 
 export function TaskDashboard() {
   const router = useRouter();
   const toast = useToast();
-  const logoutMutation = useLogout();
+  const { mutateAsync: logout, isPending: isLoggingOut } = useLogout();
   const {
     data,
     isPending,
@@ -35,7 +36,7 @@ export function TaskDashboard() {
 
   const handleLogout = async () => {
     try {
-      await logoutMutation.mutateAsync();
+      await logout();
       router.replace('/');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not log out.';
@@ -52,77 +53,80 @@ export function TaskDashboard() {
     }
   };
   return (
-    <Box className="flex-1 w-full h-full bg-slate-50 px-6 pt-12 items-center">
-      <HStack className="justify-end mb-8 w-full">
+    <Box className="h-full w-full flex-1 bg-slate-50">
+      <NavBar active="tasks" title="Dashboard" />
+      <Box className="w-full flex-1 items-center px-6 pt-4">
+        <HStack className="mb-8 w-full justify-end">
+          <Button
+            size="sm"
+            variant="solid"
+            onPress={handleLogout}
+            isDisabled={isLoggingOut}
+            className="rounded-full bg-orange-400 px-6"
+          >
+            <ButtonText className="text-xs font-medium text-white">
+              {isLoggingOut ? 'Logging out...' : 'Log out'}
+            </ButtonText>
+          </Button>
+        </HStack>
+
+        <VStack className="mb-6 items-center">
+          <Heading className="text-3xl font-bold tracking-tight text-slate-900">Your Tasks</Heading>
+        </VStack>
+
         <Button
-          size="sm"
-          variant="solid"
-          onPress={handleLogout}
-          isDisabled={logoutMutation.isPending}
-          className="bg-orange-400 rounded-full px-6"
+          size="lg"
+          onPress={() => router.replace('/tasks/create')}
+          className="mb-8 rounded-xl bg-indigo-600 py-3.5 shadow-sm active:bg-indigo-700"
         >
-          <ButtonText className="text-white text-xs font-medium">
-            {logoutMutation.isPending ? 'Logging out...' : 'Log out'}
-          </ButtonText>
+          <ButtonIcon as={AddIcon} className="mr-2 text-white" />
+          <ButtonText className="font-semibold text-white">Create Task</ButtonText>
         </Button>
-      </HStack>
 
-      <VStack className="items-center mb-6">
-        <Heading className="text-3xl font-bold text-slate-900 tracking-tight">Your Tasks</Heading>
-      </VStack>
-
-      <Button
-        size="lg"
-        onPress={() => router.replace('/tasks/create')}
-        className="bg-indigo-600 rounded-xl py-3.5 mb-8 shadow-sm active:bg-indigo-700"
-      >
-        <ButtonIcon as={AddIcon} className="text-white mr-2" />
-        <ButtonText className="text-white font-semibold">Create Task</ButtonText>
-      </Button>
-
-      {isPending ? (
-        <TaskListSkeleton />
-      ) : isError ? (
-        <ErrorFallback message={error.message} onRetry={refetch} />
-      ) : (
-        <FlatList
-          contentContainerClassName="w-full items-center justify-start"
-          data={tasks}
-          keyExtractor={(item) => item?.id}
-          renderItem={({ item }) => (
-            <Box className="mb-3 w-full max-w-xl">
-              <TaskItem task={item} />
-            </Box>
-          )}
-          showsVerticalScrollIndicator={false}
-          className="flex-1 w-full pb-10"
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
+        {isPending ? (
+          <TaskListSkeleton />
+        ) : isError ? (
+          <ErrorFallback message={error.message} onRetry={refetch} />
+        ) : (
+          <FlatList
+            contentContainerClassName="w-full items-center justify-start"
+            data={tasks}
+            keyExtractor={(item) => item?.id}
+            renderItem={({ item }) => (
+              <Box className="mb-3 w-full max-w-xl">
+                <TaskItem task={item} />
+              </Box>
+            )}
+            showsVerticalScrollIndicator={false}
+            className="w-full flex-1 pb-10"
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+              }
+            }}
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            onEndReachedThreshold={0.5}
+            ListEmptyComponent={
+              <View className="flex-1 items-center justify-center">
+                {/*The somehow when I try to put text here it gives me an error so a smile it shall be*/}
+                <Icon as={Smile} size="xl" />
+              </View>
             }
-          }}
-          refreshing={isRefetching}
-          onRefresh={refetch}
-          onEndReachedThreshold={0.5}
-          ListEmptyComponent={
-            <View className="justify-center items-center flex-1">
-              {/*The somehow when I try to put text here it gives me an error so a smile it shall be*/}
-              <Icon as={Smile} size="xl" />
-            </View>
-          }
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <Box className="py-4 items-center">
-                <ActivityIndicator size="small" color="#4f46e5" />
-              </Box>
-            ) : (
-              <Box className="py-4 items-center">
-                <Text> You have reached the end </Text>
-              </Box>
-            )
-          }
-        />
-      )}
+            ListFooterComponent={
+              isFetchingNextPage ? (
+                <Box className="items-center py-4">
+                  <ActivityIndicator size="small" color="#4f46e5" />
+                </Box>
+              ) : (
+                <Box className="items-center py-4">
+                  <Text> You have reached the end </Text>
+                </Box>
+              )
+            }
+          />
+        )}
+      </Box>
     </Box>
   );
 }
