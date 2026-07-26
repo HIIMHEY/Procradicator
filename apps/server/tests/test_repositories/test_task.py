@@ -82,6 +82,58 @@ async def test_update_map_returns_task_with_advanced_version() -> None:
     assert task.version == 3
 
 
+async def test_update_map_keeps_client_id_for_new_subtask() -> None:
+    task_id = uuid4()
+    existing_subtask_id = uuid4()
+    new_subtask_id = uuid4()
+    task = Task(id=task_id, user_id=uuid4(), title="Offline task")
+    task.subtasks = [
+        Subtask(id=existing_subtask_id, task_id=task_id, title="Existing step")
+    ]
+    payload = UpdateTask(
+        title="Offline task",
+        description=None,
+        due_at=datetime.now(UTC),
+        subtasks=[
+            UpdateSubTask(
+                id=str(existing_subtask_id),
+                title="Existing step",
+                description=None,
+                est_m=15,
+                is_done=False,
+                depends_on=[],
+            ),
+            UpdateSubTask(
+                id=str(new_subtask_id),
+                title="New offline step",
+                description=None,
+                est_m=10,
+                is_done=False,
+                depends_on=[],
+            ),
+        ],
+    )
+    result = MagicMock()
+    result.all.return_value = []
+    session = MagicMock(spec=AsyncSession)
+    session.exec = AsyncMock(return_value=result)
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
+    repo = TaskRepo(cast(AsyncSession, session))
+
+    with patch.object(repo, "read_map", AsyncMock(return_value=task)):
+        await repo.update_map(task_id, payload)
+
+    added = [call.args[0] for call in session.add.call_args_list]
+    new_subtask = next(
+        item
+        for item in added
+        if isinstance(item, Subtask) and item.id != existing_subtask_id
+    )
+    assert new_subtask.id == new_subtask_id
+
+
 async def test_delete_soft_records_version_and_operation() -> None:
     task_id = uuid4()
     op_id = uuid4()
