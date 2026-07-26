@@ -60,7 +60,7 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
   }, [data, mode, reset]);
 
   const handleAddSubtask = () => {
-    const genTempId = `temp-${dayjs().toISOString()}`;
+    const genTempId = crypto.randomUUID();
     const lastSubtask = currSubtasks[currSubtasks.length - 1];
     append({
       id: genTempId,

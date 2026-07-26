@@ -3,7 +3,7 @@ import * as z from 'zod';
 export const SubtaskSchema = z.object({
   id: z.uuid(),
   title: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   next_subtask: z.array(z.uuid()),
   is_done: z.boolean(),
   est_m: z.int(),
@@ -14,7 +14,9 @@ export const TaskSchema = z.object({
   id: z.uuid(),
   title: z.string(),
   due_at: z.iso.datetime(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
+  updated_at: z.iso.datetime(),
+  version: z.int().nonnegative(),
   subtasks: z.array(SubtaskSchema),
   deleted_at: z.iso.datetime().nullable().optional(),
 });
