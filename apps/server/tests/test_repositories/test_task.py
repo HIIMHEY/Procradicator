@@ -87,9 +87,7 @@ async def test_update_map_keeps_client_id_for_new_subtask() -> None:
     existing_subtask_id = uuid4()
     new_subtask_id = uuid4()
     task = Task(id=task_id, user_id=uuid4(), title="Offline task")
-    task.subtasks = [
-        Subtask(id=existing_subtask_id, task_id=task_id, title="Existing step")
-    ]
+    task.subtasks = [Subtask(id=existing_subtask_id, task_id=task_id, title="Existing step")]
     payload = UpdateTask(
         title="Offline task",
         description=None,
@@ -127,9 +125,7 @@ async def test_update_map_keeps_client_id_for_new_subtask() -> None:
 
     added = [call.args[0] for call in session.add.call_args_list]
     new_subtask = next(
-        item
-        for item in added
-        if isinstance(item, Subtask) and item.id != existing_subtask_id
+        item for item in added if isinstance(item, Subtask) and item.id != existing_subtask_id
     )
     assert new_subtask.id == new_subtask_id
 

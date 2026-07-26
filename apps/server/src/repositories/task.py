@@ -197,6 +197,7 @@ class TaskRepo(BaseRepo[Task]):
                     incoming_sub_ids.add(sub.id)
                 else:
                     sub = Subtask(
+                        id=clean_id if isinstance(clean_id, UUID) else uuid4(),
                         title=st.title,
                         description=st.description,
                         task_id=db_task.id,
