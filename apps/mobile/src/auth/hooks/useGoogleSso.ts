@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import type { UserRead } from '../schemas';
 import { ssoCallbackMessageSchema } from '../schemas';
-import { fetchCurrentUser } from './useCurrentUser';
+import { fetchCurrentUser, flushPendingLogout } from '../sessionManager';
 
 type GoogleAuthorizeResponse = {
   authorization_url?: unknown;
@@ -85,6 +85,9 @@ const waitForSsoMessage = (popup: Window, expectedOrigin: string): Promise<void>
   });
 
 const startGoogleSso = async (): Promise<UserRead> => {
+  if (!(await flushPendingLogout())) {
+    throw new Error('Could not finish the previous logout.');
+  }
   const frontendCallbackUrl = getFrontendCallbackUrl();
   if (typeof window.open !== 'function') {
     throw new Error('Google login is only available in a browser.');
@@ -97,7 +100,7 @@ const startGoogleSso = async (): Promise<UserRead> => {
     const authorizationUrl = await readAuthorizationUrl(frontendCallbackUrl);
     popup.location.href = authorizationUrl;
     await waitForSsoMessage(popup, window.location.origin);
-    const currentUser = await fetchCurrentUser();
+    const currentUser = await fetchCurrentUser({ replaceLoggedOutSession: true });
     if (!currentUser) {
       throw new Error('Google login completed, but no user session was found.');
     }

@@ -4,13 +4,18 @@ import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { registerMutationDefaults } from '@/offline/mutationDefaults';
+import {
+  OFFLINE_CACHE_BUSTER,
+  shouldPersistMutation,
+  shouldPersistQuery,
+} from '@/offline/queryPersistence';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useIsRestoring } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { Stack } from 'expo-router';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, UIManager } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import OfflineIndicator from '@/offline/components/OfflineIndicator';
@@ -23,7 +28,13 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const CACHE_MAX_AGE = 1000 * 60 * 60 * 24;
 
-function getWebIDBStorage(): { getItem: (key: string) => Promise<string | null>; setItem: (key: string, value: string) => Promise<void>; removeItem: (key: string) => Promise<void> } | undefined {
+function getWebIDBStorage():
+  | {
+      getItem: (key: string) => Promise<string | null>;
+      setItem: (key: string, value: string) => Promise<void>;
+      removeItem: (key: string) => Promise<void>;
+    }
+  | undefined {
   if (typeof window === 'undefined' || !window.indexedDB) return undefined;
   const DB_NAME = 'procradicator-query-cache';
   const DB_VERSION = 1;
@@ -98,21 +109,29 @@ export default function RootLayout() {
   }
 
   const persistOptions = useMemo(
-    () => ({ persister: persisterRef.current!, maxAge: CACHE_MAX_AGE }),
+    () => ({
+      persister: persisterRef.current!,
+      maxAge: CACHE_MAX_AGE,
+      buster: OFFLINE_CACHE_BUSTER,
+      dehydrateOptions: {
+        shouldDehydrateQuery: (query: { queryKey: readonly unknown[] }) =>
+          shouldPersistQuery({ queryKey: query.queryKey }),
+        shouldDehydrateMutation: (mutation: {
+          options: { mutationKey?: readonly unknown[] };
+          state: { isPaused: boolean };
+        }) =>
+          shouldPersistMutation({
+            mutationKey: mutation.options.mutationKey,
+            isPaused: mutation.state.isPaused,
+          }),
+      },
+    }),
     [],
   );
 
-  const handlePersistSuccess = useCallback(() => {
-    queryClient.resumePausedMutations();
-  }, [queryClient]);
-
   return (
     <GluestackUIProvider>
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={persistOptions}
-        onSuccess={handlePersistSuccess}
-      >
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         <GestureHandlerRootView className="flex-1">
           <SyncProvider />
           <PersistGate>
@@ -139,6 +158,12 @@ function PersistGate({ children }: { children: ReactNode }) {
 
 function SyncProvider() {
   const queryClient = useQueryClient();
+  const { data: currentUser, isPending } = useCurrentUser();
+  useEffect(() => {
+    if (!isPending && currentUser) {
+      void queryClient.resumePausedMutations();
+    }
+  }, [currentUser, isPending, queryClient]);
   useEffect(() => {
     if (typeof window?.addEventListener !== 'function') return;
     const handleOnline = () => {

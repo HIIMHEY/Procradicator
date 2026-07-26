@@ -26,6 +26,8 @@ const user = {
   is_active: true,
   is_superuser: false,
   is_verified: false,
+  server_time: '2026-07-27T09:00:00.000Z',
+  session_expires_at: '2026-07-27T10:00:00.000Z',
 };
 
 const response = (body: unknown, status = 200): Response =>
