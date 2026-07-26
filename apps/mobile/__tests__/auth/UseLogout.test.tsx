@@ -1,10 +1,19 @@
 /// <reference types="jest" />
 
+import 'fake-indexeddb/auto';
+
 import useAnalyticsSummary from '@/analytics/hooks/useAnalyticsSummary';
 import { useLogout } from '@/auth/hooks/useLogout';
+import { createAuthenticatedSession } from '@/auth/offlineSession';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { Text } from '@/components/ui/text';
 import { API_ROUTES } from '@/config/env';
+import {
+  deleteOfflineDatabase,
+  listOutbox,
+  readAuthRecord,
+  saveAuthRecord,
+} from '@/offline/database';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useState, type ReactNode } from 'react';
@@ -29,6 +38,13 @@ const response = (body: unknown = {}): Response =>
     status: 200,
     json: async () => body,
   }) as Response;
+
+const setOnline = (online: boolean): void => {
+  Object.defineProperty(globalThis.navigator, 'onLine', {
+    configurable: true,
+    value: online,
+  });
+};
 
 function SessionAnalytics({ userId, onLogout }: { userId: string; onLogout: () => void }) {
   const { data, isPending } = useAnalyticsSummary(userId);
@@ -63,9 +79,15 @@ function SessionFlow() {
   return <SessionAnalytics userId={userId} onLogout={() => setUserId(null)} />;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   mockFetch.mockReset();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
+  setOnline(true);
+  await deleteOfflineDatabase();
+});
+
+afterAll(async () => {
+  await deleteOfflineDatabase();
 });
 
 test('next user does not see analytics from the logged-out session', async () => {
@@ -108,6 +130,81 @@ test('next user does not see analytics from the logged-out session', async () =>
         credentials: 'include',
       });
     });
+  } finally {
+    view.unmount();
+    queryClient.clear();
+  }
+});
+
+test('offline logout persists a tombstone and resolves without a request', async () => {
+  setOnline(false);
+  const now = Date.now();
+  const userId = '7cf2a63f-45da-4af7-9917-306abc624759';
+  await saveAuthRecord(
+    createAuthenticatedSession(
+      'http://localhost:8000',
+      {
+        id: userId,
+        email: 'tom@example.com',
+        username: 'tom',
+        is_active: true,
+        is_superuser: false,
+        is_verified: false,
+        server_time: '2026-07-27T09:00:00.000Z',
+        session_expires_at: '2026-07-27T10:00:00.000Z',
+      },
+      now,
+    ),
+  );
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false },
+    },
+  });
+
+  function LogoutProbe() {
+    const { mutateAsync: logout } = useLogout();
+    const [finished, setFinished] = useState(false);
+    return (
+      <>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Offline log out"
+          onPress={async () => {
+            await logout();
+            setFinished(true);
+          }}
+        >
+          <Text>Offline log out</Text>
+        </Pressable>
+        {finished ? <Text>Finished</Text> : null}
+      </>
+    );
+  }
+
+  const view = render(<LogoutProbe />, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  });
+
+  try {
+    fireEvent.press(screen.getByRole('button', { name: 'Offline log out' }));
+    expect(await screen.findByText('Finished')).toBeTruthy();
+    await expect(readAuthRecord('http://localhost:8000')).resolves.toMatchObject({
+      state: 'logged_out',
+      previousUserId: userId,
+      remoteLogout: 'pending',
+    });
+    await expect(listOutbox(userId)).resolves.toEqual([
+      expect.objectContaining({
+        entityType: 'auth',
+        operation: 'logout',
+        userId,
+      }),
+    ]);
+    expect(mockFetch).not.toHaveBeenCalled();
   } finally {
     view.unmount();
     queryClient.clear();
