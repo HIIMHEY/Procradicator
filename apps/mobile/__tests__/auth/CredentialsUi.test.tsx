@@ -1,9 +1,13 @@
 /// <reference types="jest" />
 
+import 'fake-indexeddb/auto';
+
 import { LandingScreen } from '@/auth/components/LandingScreen';
 import { LoginForm } from '@/auth/components/LoginForm';
 import { RegisterForm } from '@/auth/components/RegisterForm';
+import { createAuthenticatedSession, createLoggedOutSession } from '@/auth/offlineSession';
 import { API_ROUTES } from '@/config/env';
+import { deleteOfflineDatabase, readAuthRecord, saveAuthAndEnqueue } from '@/offline/database';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
@@ -13,6 +17,24 @@ const mockBack = jest.fn();
 const mockCanGoBack = jest.fn();
 const mockFetch = jest.fn();
 const mockStartGoogleSso = jest.fn();
+
+const currentSession = {
+  id: '7cf2a63f-45da-4af7-9917-306abc624759',
+  email: 'tom@example.com',
+  username: 'tom',
+  is_active: true,
+  is_superuser: false,
+  is_verified: false,
+  server_time: '2026-07-27T09:00:00.000Z',
+  session_expires_at: '2026-07-27T10:00:00.000Z',
+};
+
+const response = (body: unknown = {}, status = 200): Response =>
+  ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  }) as Response;
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
@@ -35,7 +57,7 @@ jest.mock(
   { virtual: true },
 );
 
-beforeEach(() => {
+beforeEach(async () => {
   mockNavigate.mockReset();
   mockReplace.mockReset();
   mockBack.mockReset();
@@ -44,6 +66,15 @@ beforeEach(() => {
   mockStartGoogleSso.mockReset();
   mockCanGoBack.mockReturnValue(true);
   globalThis.fetch = mockFetch as unknown as typeof fetch;
+  Object.defineProperty(globalThis.navigator, 'onLine', {
+    configurable: true,
+    value: true,
+  });
+  await deleteOfflineDatabase();
+});
+
+afterAll(async () => {
+  await deleteOfflineDatabase();
 });
 
 test('landing screen shows credentials actions without oauth options', () => {
@@ -55,12 +86,12 @@ test('landing screen shows credentials actions without oauth options', () => {
 });
 
 test('login form sends username and password as form data', async () => {
-  mockFetch.mockResolvedValueOnce({ ok: true } as Response);
+  mockFetch.mockResolvedValueOnce(response()).mockResolvedValueOnce(response(currentSession));
   renderWithProviders(<LoginForm />);
   fireEvent.changeText(screen.getByPlaceholderText('Username'), 'testuser');
   fireEvent.changeText(screen.getByPlaceholderText('Password'), 'correct-password');
   fireEvent.press(screen.getByLabelText('Submit login'));
-  await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
   const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
   const body = options.body as URLSearchParams;
   expect(url).toBe(API_ROUTES.AUTH.LOGIN);
@@ -68,6 +99,50 @@ test('login form sends username and password as form data', async () => {
   expect(options.credentials).toBe('include');
   expect(options.headers).toEqual({ 'Content-Type': 'application/x-www-form-urlencoded' });
   expect(body.toString()).toBe('username=testuser&password=correct-password');
+  expect(mockFetch).toHaveBeenLastCalledWith(API_ROUTES.AUTH.ME, {
+    method: 'GET',
+    credentials: 'include',
+  });
+  await expect(readAuthRecord('http://localhost:8000')).resolves.toMatchObject({
+    state: 'authenticated',
+    user: { id: currentSession.id },
+  });
+});
+
+test('login flushes an offline logout before replacing its tombstone', async () => {
+  const authenticated = createAuthenticatedSession(
+    'http://localhost:8000',
+    currentSession,
+    Date.now(),
+  );
+  const logout = createLoggedOutSession(
+    authenticated,
+    Date.now(),
+    '8d125649-03c4-4adf-b609-847a431713dd',
+  );
+  await saveAuthAndEnqueue(logout.record, logout.operation);
+  mockFetch.mockImplementation((url: string) => {
+    if (url === API_ROUTES.AUTH.LOGOUT) return Promise.resolve(response({}, 204));
+    if (url === API_ROUTES.AUTH.LOGIN) return Promise.resolve(response({}, 204));
+    if (url === API_ROUTES.AUTH.ME) return Promise.resolve(response(currentSession));
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+
+  renderWithProviders(<LoginForm />);
+  fireEvent.changeText(screen.getByPlaceholderText('Username'), 'testuser');
+  fireEvent.changeText(screen.getByPlaceholderText('Password'), 'correct-password');
+  fireEvent.press(screen.getByLabelText('Submit login'));
+
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/tasks'));
+  expect(mockFetch.mock.calls.map(([url]) => url)).toEqual([
+    API_ROUTES.AUTH.LOGOUT,
+    API_ROUTES.AUTH.LOGIN,
+    API_ROUTES.AUTH.ME,
+  ]);
+  await expect(readAuthRecord('http://localhost:8000')).resolves.toMatchObject({
+    state: 'authenticated',
+    user: { id: currentSession.id },
+  });
 });
 
 test('login form shows required validation messages', async () => {
