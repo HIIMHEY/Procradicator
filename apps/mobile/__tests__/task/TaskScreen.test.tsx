@@ -35,3 +35,10 @@ test('TaskScreen opens analytics from the navigation sheet', () => {
   fireEvent.press(screen.getByLabelText('Go to analytics'));
   expect(mockReplace).toHaveBeenCalledWith('/analytics');
 });
+
+test('TaskScreen opens friends from the navigation sheet', () => {
+  renderWithProviders(<TaskIndex />);
+  fireEvent.press(screen.getByLabelText('Open navigation'));
+  fireEvent.press(screen.getByLabelText('Go to friends'));
+  expect(mockReplace).toHaveBeenCalledWith('/friends');
+});

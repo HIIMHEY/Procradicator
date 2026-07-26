@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui/text';
 import { API_ROUTES } from '@/config/env';
 import { useAcceptFriendRequest, useSendFriendRequest } from '@/friends/hooks/useFriendActions';
-import { useFriendProgress } from '@/friends/hooks/useFriendQueries';
+import { useFriendProgress, useNudges } from '@/friends/hooks/useFriendQueries';
 import { onlineManager } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Pressable } from 'react-native';
@@ -19,8 +19,15 @@ const response = (body: unknown = null, status = 200): Response =>
   }) as Response;
 
 function ProgressProbe() {
-  const { data, fetchStatus } = useFriendProgress(userId);
+  const { data, fetchStatus, isError } = useFriendProgress(userId);
+  if (isError) return <Text>Error</Text>;
   return <Text>{data?.[0]?.focus_min ?? fetchStatus}</Text>;
+}
+
+function NudgeProbe() {
+  const { data, isError } = useNudges(userId);
+  if (isError) return <Text>Error</Text>;
+  return <Text>{data?.[0]?.sender.username ?? 'Loading'}</Text>;
 }
 
 function AcceptProbe() {
@@ -83,7 +90,35 @@ test('does not request friend progress while offline', async () => {
   expect(mockFetch).not.toHaveBeenCalled();
 });
 
-test('friend actions use the mutation contract', async () => {
+test('exposes malformed friend progress to the caller', async () => {
+  mockFetch.mockResolvedValueOnce(
+    response([
+      {
+        user: { id: userId, username: 'test_person_1' },
+        focus_min: -1,
+        completed_subtasks: 0,
+      },
+    ]),
+  );
+  renderWithProviders(<ProgressProbe />);
+  expect(await screen.findByText('Error')).toBeTruthy();
+});
+
+test('loads received nudges for the caller', async () => {
+  mockFetch.mockResolvedValueOnce(
+    response([
+      {
+        id: '4fafc94a-38b0-4f27-9463-1df13a7337b0',
+        sender: { id: userId, username: 'test_person_1' },
+        sent_at: '2026-07-25T03:00:00Z',
+      },
+    ]),
+  );
+  renderWithProviders(<NudgeProbe />);
+  expect(await screen.findByText('test_person_1')).toBeTruthy();
+});
+
+test('accepts a friend request through the API', async () => {
   mockFetch.mockResolvedValueOnce(response(null, 204));
   renderWithProviders(<AcceptProbe />);
   fireEvent.press(screen.getByRole('button', { name: 'Accept' }));
@@ -100,7 +135,7 @@ test('friend actions use the mutation contract', async () => {
   });
 });
 
-test('sends a friend request through the mutation hook', async () => {
+test('returns the new friendship after sending a request', async () => {
   const id = 'ed0d7a74-c737-4899-b7f6-476b1bd4f2c1';
   mockFetch.mockResolvedValueOnce(response({ friendship_id: id }));
   renderWithProviders(<SendProbe />);
