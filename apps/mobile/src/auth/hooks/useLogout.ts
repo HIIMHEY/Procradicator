@@ -1,23 +1,28 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-const logout = async (): Promise<void> => {
-  const response = await fetch(API_ROUTES.AUTH.LOGOUT, {
-    method: 'POST',
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    throw new Error('Could not log out.');
-  }
+const isOnline = (): boolean => {
+  if (typeof navigator === 'undefined' || !('onLine' in navigator)) return true;
+  return navigator.onLine;
 };
 
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
+    mutationKey: ['auth', 'logout'],
+    mutationFn: async () => {
+      if (!isOnline()) return;
+      const res = await fetch(API_ROUTES.AUTH.LOGOUT, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Could not log out.');
+    },
+    onMutate: async () => {
       queryClient.removeQueries({ queryKey: ['analytics'] });
       queryClient.setQueryData(['auth', 'me'], null);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
     },
   });

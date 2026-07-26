@@ -10,7 +10,11 @@ import { buildDepMap, toposort } from '@/task/utils';
 import { focusReducer, initial, State } from '../focusReducer';
 import type { Phase } from '../focusReducer';
 import type { FocusSessionRecovery, SyncPosition, UpdateFocusPayload } from '../schemas';
-import { FocusSessionRecoverySchema } from '../schemas';
+import {
+  readRecovery,
+  writeRecovery as idbWriteRecovery,
+  clearRecovery as idbClearRecovery,
+} from '@/offline/storage';
 import useCreateFocusSession from './useCreateFocusSession';
 import useUpdateFocusSession from './useUpdateFocusSession';
 import useFinaliseFocusSession from './useFinaliseFocusSession';
@@ -55,61 +59,8 @@ function buildPayload(s: State, overrides?: Partial<UpdateFocusPayload>): Update
   };
 }
 
-function getSessionStorage(): Storage | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
-
 function getRecoveryKey(taskId: string, subtaskId: string): string {
   return `focus-session:${taskId}:${subtaskId}`;
-}
-
-function readRecovery(taskId: string, subtaskId: string): FocusSessionRecovery | null {
-  const storage = getSessionStorage();
-  if (!storage) return null;
-  const key = getRecoveryKey(taskId, subtaskId);
-  try {
-    const value = storage.getItem(key);
-    if (!value) return null;
-    const result = FocusSessionRecoverySchema.safeParse(JSON.parse(value));
-    if (result.success) return result.data;
-    clearRecovery(taskId, subtaskId);
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function writeRecovery(
-  taskId: string,
-  subtaskId: string,
-  state: State,
-  synced: SyncPosition,
-): void {
-  const storage = getSessionStorage();
-  if (!storage) return;
-  try {
-    storage.setItem(
-      getRecoveryKey(taskId, subtaskId),
-      JSON.stringify({ version: 1, state, synced }),
-    );
-  } catch {
-    return;
-  }
-}
-
-function clearRecovery(taskId: string, subtaskId: string): void {
-  const storage = getSessionStorage();
-  if (!storage) return;
-  try {
-    storage.removeItem(getRecoveryKey(taskId, subtaskId));
-  } catch {
-    return;
-  }
 }
 
 function getSyncPosition(s: State): SyncPosition {
@@ -140,7 +91,8 @@ function buildPendingPayload(
 export function useFocusSession(subtaskId: string, taskId: string): UseFocusSessionResult {
   const router = useRouter();
   const navigation = useNavigation();
-  const [recovery] = useState(() => readRecovery(taskId, subtaskId));
+  const [recovery, setRecovery] = useState<FocusSessionRecovery | null>(null);
+  const [recoveryLoaded, setRecoveryLoaded] = useState(false);
   const [state, dispatch] = useReducer(focusReducer, initial);
   const queryClient = useQueryClient();
   const hydratedRef = useRef(false);
@@ -161,11 +113,25 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  useEffect(() => {
+    readRecovery(getRecoveryKey(taskId, subtaskId)).then((data) => {
+      setRecovery(data);
+      setRecoveryLoaded(true);
+      if (data?.state.phaseStartedAt) {
+        if (data.state.phase === 'WORK' || data.state.previousPhase === 'WORK') {
+          workLogStartRef.current = new Date(data.state.phaseStartedAt).toISOString();
+        }
+        syncedDataRef.current = data.synced;
+        scheduledDataRef.current = data.synced;
+      }
+    });
+  }, [taskId, subtaskId]);
+
   const allowNavigation = useCallback(() => {
     allowNavigationRef.current = true;
   }, []);
   const finishNavigation = useCallback(() => {
-    clearRecovery(taskId, subtaskId);
+    idbClearRecovery(getRecoveryKey(taskId, subtaskId));
     allowNavigation();
   }, [taskId, subtaskId, allowNavigation]);
   const createSessionMut = useCreateFocusSession();
@@ -214,6 +180,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       setIsHydrating(false);
       return;
     }
+    if (!recoveryLoaded) return;
     if (isTaskPending || (recovery && isRecoveredSessionPending)) return;
     const error = taskError ?? recoveredSessionError;
     if (error) {
@@ -246,7 +213,28 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       return;
     }
 
-    clearRecovery(taskId, subtaskId);
+    const pendingCreate = queryClient.getMutationCache().getAll().find(
+      (m) =>
+        m.options.mutationKey?.[0] === 'focus' &&
+        m.options.mutationKey?.[1] === 'create' &&
+        m.state.status === 'pending' &&
+        (m.state.variables as { subtask_id?: string } | undefined)?.subtask_id === subtaskId,
+    );
+
+    if (pendingCreate) {
+      const tempId = (pendingCreate.state.variables as { _tempId?: string })._tempId as string;
+      dispatch({
+        type: 'CREATE_SESSION',
+        sessionId: tempId,
+        workCycleM: initial.workCycleM,
+        restCycleM: initial.restCycleM,
+        currentIdx,
+      });
+      setIsHydrating(false);
+      return;
+    }
+
+    idbClearRecovery(getRecoveryKey(taskId, subtaskId));
     workLogStartRef.current = null;
     syncedDataRef.current = { logs: 0, rests: 0, completed: 0 };
     scheduledDataRef.current = { logs: 0, rests: 0, completed: 0 };
@@ -291,6 +279,8 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
     createSession,
     hydrationAttempt,
     recovery,
+    recoveryLoaded,
+    queryClient,
   ]);
 
   const retryHydration = useCallback(() => {
@@ -332,11 +322,24 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
         }
         syncedDataRef.current = targetPosition;
         if (!isFinal) {
-          writeRecovery(taskId, subtaskId, stateRef.current, targetPosition);
+          await idbWriteRecovery(getRecoveryKey(taskId, subtaskId), {
+            version: 1,
+            state: stateRef.current,
+            synced: targetPosition,
+          });
         }
       };
-      const queued = updateQueueRef.current.then(operation);
-      updateQueueRef.current = queued.catch(() => {});
+      const queued = updateQueueRef.current.then(operation).catch(() => {
+        syncedDataRef.current = targetPosition;
+        if (!isFinal) {
+          idbWriteRecovery(getRecoveryKey(taskId, subtaskId), {
+            version: 1,
+            state: stateRef.current,
+            synced: targetPosition,
+          });
+        }
+      });
+      updateQueueRef.current = queued;
       return queued;
     },
     [updateSession, finaliseSession, taskId, subtaskId],
@@ -344,7 +347,11 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
 
   useEffect(() => {
     if (!state.sessionId) return;
-    writeRecovery(taskId, subtaskId, state, syncedDataRef.current);
+    idbWriteRecovery(getRecoveryKey(taskId, subtaskId), {
+      version: 1,
+      state,
+      synced: syncedDataRef.current,
+    });
   }, [state, taskId, subtaskId]);
 
   useEffect(() => {
@@ -441,7 +448,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       scheduledDataRef.current = getSyncPosition(nextState);
       await enqueueUpdate(nextState, { abandon_reason: reason });
       queryClient.invalidateQueries({ queryKey: ['task', 'detail', taskId] });
-      clearRecovery(taskId, subtaskId);
+      idbClearRecovery(getRecoveryKey(taskId, subtaskId));
       allowNavigation();
       router.replace(`/tasks/${taskId}`);
     },

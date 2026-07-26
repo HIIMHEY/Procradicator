@@ -1,8 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-
 import { API_ROUTES } from '@/config/env';
-
 import type { UpdateFocusPayload } from '../schemas';
 
 const finaliseSession = async ({
@@ -26,6 +24,7 @@ export default function useFinaliseFocusSession(taskId: string, onBeforeNavigate
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['focus', 'finalise'],
     mutationFn: finaliseSession,
     onSuccess: () => {
       onBeforeNavigate?.();

@@ -9,13 +9,14 @@ const deleteTask = async (id: string) => {
     credentials: 'include',
   });
   if (!res.ok) throw new Error(String(res.status));
-  if (res.status == StatusCodes.NO_CONTENT) return {};
+  if (res.status === StatusCodes.NO_CONTENT) return {};
   return res.json();
 };
 
 export default function useDeleteTask(id: string) {
   const client = useQueryClient();
   return useMutation({
+    mutationKey: ['task', 'delete'],
     mutationFn: () => deleteTask(id),
     onSettled: () => {
       client.invalidateQueries({ queryKey: ['task', 'list'] });

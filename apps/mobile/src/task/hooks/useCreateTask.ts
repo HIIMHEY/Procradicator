@@ -16,7 +16,16 @@ const createTask = async (values: ModifyTaskData) => {
 export default function useCreateTask() {
   const client = useQueryClient();
   return useMutation({
+    mutationKey: ['task', 'create'],
     mutationFn: createTask,
+    onMutate: async (_values) => {
+      await client.cancelQueries({ queryKey: ['task', 'list'] });
+      const tempId = crypto.randomUUID();
+      return { tempId };
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['task', 'list'] });
+    },
     onSettled: () => {
       client.invalidateQueries({ queryKey: ['task', 'list'] });
     },

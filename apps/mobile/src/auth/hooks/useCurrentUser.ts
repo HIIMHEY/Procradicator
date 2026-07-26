@@ -1,5 +1,5 @@
 import { API_ROUTES } from '@/config/env';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UserRead } from '../schemas';
 import { userReadSchema } from '../schemas';
 
@@ -27,9 +27,13 @@ export const fetchCurrentUser = async (): Promise<UserRead | null> => {
 };
 
 export function useCurrentUser() {
+  const queryClient = useQueryClient();
+  const hasCache = queryClient.getQueryData(['auth', 'me']) !== undefined;
+
   return useQuery({
     queryKey: ['auth', 'me'],
     queryFn: fetchCurrentUser,
+    enabled: (typeof navigator?.onLine === 'boolean' ? navigator.onLine : true) || hasCache,
     retry: shouldRetryCurrentUser,
     retryDelay: currentUserRetryDelay,
   });

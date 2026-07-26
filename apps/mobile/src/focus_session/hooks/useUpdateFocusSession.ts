@@ -1,6 +1,5 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation } from '@tanstack/react-query';
-
 import type { UpdateFocusPayload } from '../schemas';
 
 const updateSession = async ({
@@ -20,5 +19,10 @@ const updateSession = async ({
 };
 
 export default function useUpdateFocusSession() {
-  return useMutation({ mutationFn: updateSession, retry: 2, retryDelay: 0 });
+  return useMutation({
+    mutationKey: ['focus', 'update'],
+    mutationFn: updateSession,
+    retry: 2,
+    retryDelay: 0,
+  });
 }
