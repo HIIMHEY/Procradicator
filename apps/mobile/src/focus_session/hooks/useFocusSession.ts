@@ -168,10 +168,9 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
     clearRecovery(taskId, subtaskId);
     allowNavigation();
   }, [taskId, subtaskId, allowNavigation]);
-  const createSessionMut = useCreateFocusSession();
+  const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateFocusSession();
   const updateSessionMut = useUpdateFocusSession();
   const finaliseSessionMut = useFinaliseFocusSession(taskId, finishNavigation);
-  const createSession = createSessionMut.mutateAsync;
   const updateSession = updateSessionMut.mutateAsync;
   const finaliseSession = finaliseSessionMut.mutateAsync;
 
@@ -252,11 +251,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
     scheduledDataRef.current = { logs: 0, rests: 0, completed: 0 };
     let active = true;
 
-    createSession({
-      subtask_id: subtaskId,
-      work_cycle_m: initial.workCycleM,
-      rest_cycle_m: initial.restCycleM,
-    })
+    createSession({ subtask_id: subtaskId })
       .then((result) => {
         if (!active) return;
         dispatch({
@@ -412,7 +407,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
     }
   }, []);
 
-  usePreventRemove(Boolean(state.sessionId) || createSessionMut.isPending, ({ data }) => {
+  usePreventRemove(Boolean(state.sessionId) || isCreatingSession, ({ data }) => {
     if (allowNavigationRef.current) {
       navigation.dispatch(data.action);
       return;

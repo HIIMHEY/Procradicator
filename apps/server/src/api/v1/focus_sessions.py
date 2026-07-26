@@ -33,7 +33,7 @@ async def create(
 ) -> GetFocusSession:
     try:
         return await focus_svc.create(payload, current_user.id)
-    except (ForbiddenError, ItemNotFoundError) as e:
+    except (ForbiddenError, ItemNotFoundError, DependencyUnavailableError) as e:
         raise_focus_http_exception(e)
         raise
 

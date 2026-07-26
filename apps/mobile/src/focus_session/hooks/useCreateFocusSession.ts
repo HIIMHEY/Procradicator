@@ -1,14 +1,10 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation } from '@tanstack/react-query';
 
-import type { FocusSessionResponse } from '../schemas';
+import type { CreateFocusSessionData, FocusSessionResponse } from '../schemas';
 import { FocusSessionResponseSchema } from '../schemas';
 
-const createSession = async (body: {
-  subtask_id: string;
-  work_cycle_m: number;
-  rest_cycle_m: number;
-}): Promise<FocusSessionResponse> => {
+const createSession = async (body: CreateFocusSessionData): Promise<FocusSessionResponse> => {
   const res = await fetch(API_ROUTES.FOCUS.BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

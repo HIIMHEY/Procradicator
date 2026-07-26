@@ -5,7 +5,11 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from src.auth.fastapi_users.setup import current_active_user
-from src.exceptions import ForbiddenError, InvalidOperationError
+from src.exceptions import (
+    DependencyUnavailableError,
+    ForbiddenError,
+    InvalidOperationError,
+)
 from src.main import app
 from src.models.user import User
 from src.schemas.focus_session import (
@@ -99,12 +103,14 @@ class InvalidFocusSessionService:
         raise InvalidOperationError("cannot update a finished session")
 
 
+class UnavailableFocusSessionService:
+    async def create(self, req: CreateFocusSession, user_id: UUID) -> GetFocusSession:
+        raise DependencyUnavailableError("recommendation data unavailable")
+
+
 def test_create_focus_session_requires_login() -> None:
     app.dependency_overrides[FocusSessionService] = lambda: RecordingFocusSessionService()
-    response = TestClient(app).post(
-        "/focus",
-        json={"subtask_id": str(uuid4()), "work_cycle_m": 20, "rest_cycle_m": 5},
-    )
+    response = TestClient(app).post("/focus", json={"subtask_id": str(uuid4())})
     assert response.status_code == 401
 
 
@@ -116,12 +122,22 @@ def test_create_focus_session_passes_data() -> None:
     app.dependency_overrides[FocusSessionService] = lambda: focus_service
     response = TestClient(app).post(
         "/focus",
-        json={"subtask_id": str(subtask_id), "work_cycle_m": 20, "rest_cycle_m": 5},
+        json={"subtask_id": str(subtask_id)},
     )
     assert response.status_code == 201
     assert focus_service.create_req is not None
     assert focus_service.create_req.subtask_id == subtask_id
     assert focus_service.create_user_id == user.id
+
+
+def test_create_focus_session_returns_503_when_dependency_is_unavailable() -> None:
+    app.dependency_overrides[current_active_user] = lambda: logged_in_user()
+    app.dependency_overrides[FocusSessionService] = lambda: UnavailableFocusSessionService()
+    response = TestClient(app).post(
+        "/focus",
+        json={"subtask_id": str(uuid4())},
+    )
+    assert response.status_code == 503
 
 
 def test_get_active_focus_session_returns_null() -> None:

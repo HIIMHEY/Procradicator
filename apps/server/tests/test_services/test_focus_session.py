@@ -4,7 +4,12 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
-from src.exceptions import ForbiddenError, InvalidOperationError
+from src.exceptions import (
+    DatabaseError,
+    DependencyUnavailableError,
+    ForbiddenError,
+    InvalidOperationError,
+)
 from src.models.focus_session import FocusSession
 from src.models.task import Subtask
 from src.repositories.focus_session import FocusSessionRepo
@@ -15,6 +20,7 @@ from src.schemas.focus_session import (
     UpdateFocusSession,
     WorkLogData,
 )
+from src.schemas.recommendation import WorkRestCycle
 from src.services.focus_session import FocusSessionService
 
 pytestmark: pytest.MarkDecorator = pytest.mark.anyio
@@ -48,49 +54,79 @@ def make_session(
     )
 
 
-def make_service() -> tuple[FocusSessionService, AsyncMock, AsyncMock]:
+def make_service() -> tuple[FocusSessionService, AsyncMock, AsyncMock, AsyncMock]:
     focus_repo = AsyncMock()
     task_svc = AsyncMock()
+    reco_svc = AsyncMock()
+    reco_svc.recommend.return_value = WorkRestCycle(
+        work_cycle_m=25,
+        rest_cycle_m=5,
+    )
 
     async def upsert_focus_session(session: FocusSession) -> FocusSession:
         session.id = uuid4()
         return session
 
     focus_repo.upsert.side_effect = upsert_focus_session
-    service = FocusSessionService(focus_repo, task_svc)
-    return service, focus_repo, task_svc
+    service = FocusSessionService(focus_repo, task_svc, reco_svc)
+    return service, focus_repo, task_svc, reco_svc
 
 
 async def test_create_creates_session() -> None:
-    service, focus_repo, task_svc = make_service()
+    service, focus_repo, task_svc, reco_svc = make_service()
     user_id = uuid4()
     subtask = make_subtask()
     task_svc.read_subtask.return_value = subtask
-    req = CreateFocusSession(subtask_id=subtask.id, work_cycle_m=20, rest_cycle_m=5)
+
+    async def recommend(reco_user_id: UUID) -> WorkRestCycle:
+        if reco_user_id == user_id:
+            return WorkRestCycle(work_cycle_m=45, rest_cycle_m=15)
+        return WorkRestCycle(work_cycle_m=25, rest_cycle_m=5)
+
+    reco_svc.recommend.side_effect = recommend
+    req = CreateFocusSession(subtask_id=subtask.id)
     result = await service.create(req, user_id)
-    assert result.work_cycle_m == 20
-    assert result.rest_cycle_m == 5
+    assert result.work_cycle_m == 45
+    assert result.rest_cycle_m == 15
     focus_repo.upsert.assert_awaited_once()
     task_svc.read_subtask.assert_awaited_once_with(subtask.id, user_id)
 
 
 async def test_create_rejects_other_users_subtask() -> None:
-    service, _, task_svc = make_service()
+    service, focus_repo, task_svc, _ = make_service()
     task_svc.read_subtask.side_effect = ForbiddenError("not yours")
-    req = CreateFocusSession(subtask_id=uuid4(), work_cycle_m=20, rest_cycle_m=5)
+    req = CreateFocusSession(subtask_id=uuid4())
     with pytest.raises(ForbiddenError):
+        await service.create(req, uuid4())
+    focus_repo.upsert.assert_not_awaited()
+
+
+async def test_create_stops_when_recommendation_is_unavailable() -> None:
+    service, focus_repo, _, reco_svc = make_service()
+    reco_svc.recommend.side_effect = DependencyUnavailableError("recommendation data unavailable")
+    req = CreateFocusSession(subtask_id=uuid4())
+    with pytest.raises(DependencyUnavailableError):
+        await service.create(req, uuid4())
+    focus_repo.upsert.assert_not_awaited()
+
+
+async def test_create_maps_persistence_failure_to_unavailable() -> None:
+    service, focus_repo, _, _ = make_service()
+    focus_repo.upsert.side_effect = DatabaseError("database connection issue")
+    req = CreateFocusSession(subtask_id=uuid4())
+    with pytest.raises(DependencyUnavailableError):
         await service.create(req, uuid4())
 
 
 async def test_read_active_returns_none() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, _, _ = make_service()
     focus_repo.read_active.return_value = None
     result = await service.read_active(uuid4())
     assert result is None
 
 
 async def test_read_active_returns_session() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, _, _ = make_service()
     user_id = uuid4()
     session = make_session(user_id)
     focus_repo.read_active.return_value = session
@@ -100,7 +136,7 @@ async def test_read_active_returns_session() -> None:
 
 
 async def test_read_forbids_other_user() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, _, _ = make_service()
     session = make_session(uuid4())
     focus_repo.read.return_value = session
     with pytest.raises(ForbiddenError):
@@ -108,7 +144,7 @@ async def test_read_forbids_other_user() -> None:
 
 
 async def test_read_returns_session() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, _, _ = make_service()
     user_id = uuid4()
     session = make_session(user_id)
     focus_repo.read.return_value = session
@@ -117,7 +153,7 @@ async def test_read_returns_session() -> None:
 
 
 async def test_update_adds_focus_logs() -> None:
-    service, focus_repo, task_svc = make_service()
+    service, focus_repo, task_svc, _ = make_service()
     user_id = uuid4()
     subtask = make_subtask()
     session = make_session(user_id)
@@ -137,7 +173,7 @@ async def test_update_adds_focus_logs() -> None:
 
 
 async def test_update_adds_rest_logs() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, _, _ = make_service()
     user_id = uuid4()
     session = make_session(user_id)
     focus_repo.read.return_value = session
@@ -154,7 +190,7 @@ async def test_update_adds_rest_logs() -> None:
 
 
 async def test_update_completes_subtasks() -> None:
-    service, focus_repo, task_svc = make_service()
+    service, focus_repo, task_svc, _ = make_service()
     user_id = uuid4()
     subtask = make_subtask()
     session = make_session(user_id)
@@ -166,7 +202,7 @@ async def test_update_completes_subtasks() -> None:
 
 
 async def test_update_validates_subtasks_sequentially() -> None:
-    service, focus_repo, task_svc = make_service()
+    service, focus_repo, task_svc, _ = make_service()
     user_id = uuid4()
     session = make_session(user_id)
     subtasks = [make_subtask(), make_subtask()]
@@ -191,7 +227,7 @@ async def test_update_validates_subtasks_sequentially() -> None:
 
 
 async def test_update_sets_work_cycles() -> None:
-    service, focus_repo, task_svc = make_service()
+    service, focus_repo, task_svc, _ = make_service()
     user_id = uuid4()
     subtask = make_subtask()
     session = make_session(user_id)
@@ -203,7 +239,7 @@ async def test_update_sets_work_cycles() -> None:
 
 
 async def test_update_rejects_decreasing_cycles() -> None:
-    service, focus_repo, task_svc = make_service()
+    service, focus_repo, task_svc, _ = make_service()
     user_id = uuid4()
     subtask = make_subtask()
     session = make_session(user_id)
@@ -229,7 +265,7 @@ async def test_update_rejects_decreasing_cycles() -> None:
 
 
 async def test_update_abandons_session() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, _, _ = make_service()
     user_id = uuid4()
     session = make_session(user_id)
     focus_repo.read.return_value = session
@@ -240,7 +276,7 @@ async def test_update_abandons_session() -> None:
 
 
 async def test_update_completes_session() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, _, _ = make_service()
     user_id = uuid4()
     session = make_session(user_id)
     focus_repo.read.return_value = session
@@ -251,7 +287,7 @@ async def test_update_completes_session() -> None:
 
 
 async def test_update_guards_finished_session() -> None:
-    service, focus_repo, _ = make_service()
+    service, focus_repo, _, _ = make_service()
     user_id = uuid4()
     session = make_session(user_id, end_at=datetime.now(UTC))
     focus_repo.read.return_value = session
