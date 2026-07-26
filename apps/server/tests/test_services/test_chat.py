@@ -50,7 +50,12 @@ class FakeTaskRepo:
     async def read_map(self, task_id: UUID) -> Task:
         raise NotImplementedError
 
-    async def create_map(self, roadmap: CreateTask, user_id: UUID) -> Task:
+    async def create_map(
+        self,
+        roadmap: CreateTask,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> Task:
         raise NotImplementedError
 
     async def read_subtask(self, subtask_id: UUID) -> Subtask:
@@ -67,7 +72,7 @@ class FakeTaskRepo:
     ) -> Task:
         raise NotImplementedError
 
-    async def delete_soft(self, task_id: UUID) -> None:
+    async def delete_soft(self, task_id: UUID, op_id: UUID | None = None) -> None:
         raise NotImplementedError
 
     async def update_done_subtask(self, subtask_id: UUID) -> Subtask:

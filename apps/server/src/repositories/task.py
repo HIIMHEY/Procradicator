@@ -89,7 +89,12 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error completing subtasks: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
-    async def create_map(self, roadmap: CreateTask, user_id: UUID) -> Task:
+    async def create_map(
+        self,
+        roadmap: CreateTask,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> Task:
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
             main_task = Task(
@@ -98,6 +103,7 @@ class TaskRepo(BaseRepo[Task]):
                 description=roadmap.description,
                 user_id=user_id,
                 due_at=roadmap.due_at,
+                last_op_id=op_id,
             )
             self.session.add(main_task)
             id_map: dict[str, UUID] = {}
@@ -249,7 +255,7 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Failed to update task {task_id}: {e}", exc_info=True)
             raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e
 
-    async def delete_soft(self, task_id: UUID) -> None:
+    async def delete_soft(self, task_id: UUID, op_id: UUID | None = None) -> None:
         logger.info(f"Soft deleting task: {task_id}")
         try:
             stmt: SelectOfScalar[Task] = (
@@ -259,9 +265,11 @@ class TaskRepo(BaseRepo[Task]):
             if not task:
                 logger.warning(f"Soft delete failed: Task {task_id} not found")
                 raise ResourceNotFoundError("task not found")
-            task.deleted_at = datetime.now(UTC)
+            now = datetime.now(UTC)
+            task.record_change(op_id)
+            task.deleted_at = now
             for sub in task.subtasks:
-                sub.deleted_at = datetime.now(UTC)
+                sub.deleted_at = now
             await self.upsert(task)
         except SQLAlchemyError as e:
             await self.session.rollback()

@@ -65,9 +65,14 @@ async def create_task(
     task_svc: Annotated[TaskService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
     response: Response,
+    idempotency_key: Annotated[UUID | None, Header()] = None,
 ) -> GetTask:
     try:
-        task: Task = await task_svc.create_map(payload, current_user.id)
+        task: Task = await task_svc.create_map(
+            payload,
+            current_user.id,
+            op_id=idempotency_key,
+        )
         response.headers["ETag"] = _task_etag(task)
         return GetTask.model_validate(task)
     except DuplicateItemError as e:
@@ -168,9 +173,19 @@ async def del_task(
     task_id: UUID,
     task_svc: Annotated[TaskService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
-) -> None:
+    if_match: Annotated[str | None, Header()] = None,
+    idempotency_key: Annotated[UUID | None, Header()] = None,
+) -> Response:
     try:
-        await task_svc.delete_map(task_id, current_user.id)
+        await task_svc.delete_map(
+            task_id,
+            current_user.id,
+            expected_version=_parse_etag(if_match),
+            op_id=idempotency_key,
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except VersionConflictError as e:
+        return _version_conflict(e)
     except ForbiddenError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Task access forbidden"

@@ -6,6 +6,7 @@ from fastapi import Depends
 
 from src.exceptions import (
     DatabaseError,
+    DuplicateItemError,
     ForbiddenError,
     ItemNotFoundError,
     ServiceError,
@@ -53,9 +54,27 @@ class TaskService:
             logger.error(f"Roadmap read failed: {str(e)}")
             raise ServiceError(f"Could not read roadmap: {str(e)}") from e
 
-    async def create_map(self, roadmap_data: CreateTask, user_id: UUID) -> Task:
+    async def create_map(
+        self,
+        roadmap_data: CreateTask,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> Task:
+        if roadmap_data.id is not None and op_id is not None:
+            try:
+                existing = await self._read_map(roadmap_data.id)
+            except ItemNotFoundError:
+                pass
+            else:
+                if existing.user_id == user_id and existing.last_op_id == op_id:
+                    return existing
+                raise DuplicateItemError("Task ID or operation key was already used")
         try:
-            return await self.task_repo.create_map(roadmap_data, user_id)
+            return await self.task_repo.create_map(
+                roadmap_data,
+                user_id,
+                op_id=op_id,
+            )
         except DatabaseError as e:
             logger.error(f"Task roadmap create failed: {str(e)}")
             raise map_service_exception(e) from e
@@ -150,10 +169,21 @@ class TaskService:
             logger.error(f"Roadmap update faailed: {str(e)}")
             raise ServiceError(f"Could not update roadmap: {str(e)}") from e
 
-    async def delete_map(self, task_id: UUID, user_id: UUID) -> None:
-        await self.read_map(task_id, user_id)
+    async def delete_map(
+        self,
+        task_id: UUID,
+        user_id: UUID,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
+    ) -> None:
+        task = await self.read_map(task_id, user_id)
+        if expected_version is not None and task.version != expected_version:
+            raise VersionConflictError(
+                "Task version changed",
+                {"current": task},
+            )
         try:
-            await self.task_repo.delete_soft(task_id)
+            await self.task_repo.delete_soft(task_id, op_id=op_id)
         except DatabaseError as e:
             logger.error(f"Session create failed: {str(e)}")
             raise map_service_exception(e) from e
