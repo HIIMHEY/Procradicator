@@ -69,6 +69,8 @@ class RecommendationRepoProtocol(Protocol):
         user_id: UUID,
         cycles: Sequence[WorkRestCycle],
     ) -> list[ArmStats]: ...
+
+
 class DailyStatsRepoProtocol(Protocol):
     async def read_daily(
         self,
