@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -12,7 +13,7 @@ from sqlmodel.sql.expression import Select, SelectOfScalar
 from src.db.sqlmodelorm import get_async_session
 from src.models.focus_session import FocusLog, FocusSession, RestLog
 from src.models.task import Subtask, Task
-from src.schemas.analytics import AnalyticsSummary
+from src.schemas.analytics import AnalyticsSummary, DailyStats
 from src.utils.db_exception_mapper import map_db_exception
 
 from .base import BaseRepo
@@ -123,4 +124,72 @@ class AnalyticsRepo(BaseRepo[FocusSession]):
                 f"Failed to read analytics summary for user {user_id}: {str(e)}",
                 exc_info=True,
             )
+            raise map_db_exception(e) from e
+
+    async def read_daily(
+        self,
+        user_ids: list[UUID],
+        start_at: datetime,
+        end_at: datetime,
+    ) -> dict[UUID, DailyStats]:
+        if not user_ids:
+            return {}
+        start_db = start_at.astimezone(UTC).replace(tzinfo=None)
+        end_db = end_at.astimezone(UTC).replace(tzinfo=None)
+        try:
+            focus_s = func.extract(
+                "epoch",
+                func.least(col(FocusLog.stop_at), end_db)
+                - func.greatest(col(FocusLog.start_at), start_db),
+            )
+            focus_statement = (
+                select(
+                    col(FocusSession.user_id),
+                    func.coalesce(func.sum(focus_s), 0),
+                )
+                .select_from(FocusLog)
+                .join(
+                    FocusSession,
+                    col(FocusSession.id) == col(FocusLog.focus_session_id),
+                )
+                .where(
+                    col(FocusSession.user_id).in_(user_ids),
+                    col(FocusLog.start_at) < end_db,
+                    col(FocusLog.stop_at) > start_db,
+                )
+                .group_by(col(FocusSession.user_id))
+            )
+            done_statement = (
+                select(col(Task.user_id), func.count())
+                .select_from(Subtask)
+                .join(Task, col(Task.id) == col(Subtask.task_id))
+                .where(
+                    col(Task.user_id).in_(user_ids),
+                    col(Task.deleted_at).is_(None),
+                    col(Subtask.deleted_at).is_(None),
+                    col(Subtask.completed_at).is_not(None),
+                    col(Subtask.completed_at) >= start_db,
+                    col(Subtask.completed_at) < end_db,
+                )
+                .group_by(col(Task.user_id))
+            )
+            focus_by_user = {
+                user_id: int(float(seconds or 0) // 60)
+                for user_id, seconds in (await self.session.exec(focus_statement)).all()
+            }
+            done_by_user = {
+                user_id: int(count)
+                for user_id, count in (await self.session.exec(done_statement)).all()
+            }
+            return {
+                user_id: DailyStats(
+                    user_id=user_id,
+                    focus_min=focus_by_user.get(user_id, 0),
+                    completed_subtasks=done_by_user.get(user_id, 0),
+                )
+                for user_id in user_ids
+            }
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error("Failed to read daily friend analytics", exc_info=True)
             raise map_db_exception(e) from e
