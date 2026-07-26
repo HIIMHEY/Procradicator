@@ -5,6 +5,7 @@ from uuid import UUID
 from src.models.chat import ChatMessage, ChatSession, Role
 from src.models.task import Subtask, Task
 from src.models.user import User
+from src.schemas.recommendation import WorkRestCycle
 from src.schemas.task import CreateTask, UpdateTask
 
 
@@ -18,6 +19,10 @@ class TaskServiceProtocol(Protocol):
     async def read_map(self, task_id: UUID, user_id: UUID) -> Task: ...
     async def create_map(self, roadmap_data: CreateTask, user_id: UUID) -> Task: ...
     async def update_map(self, task_id: UUID, roadmap_data: UpdateTask, user_id: UUID) -> None: ...
+
+
+class RecommendationServiceProtocol(Protocol):
+    async def recommend(self, user_id: UUID) -> WorkRestCycle: ...
 
 
 class ChatServiceProtocol(Protocol):

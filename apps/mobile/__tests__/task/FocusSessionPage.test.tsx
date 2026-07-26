@@ -118,6 +118,34 @@ test('hydrates, shows READY screen with task details', async () => {
   expect(screen.getByText('Start')).toBeTruthy();
 });
 
+test('starts with the recommended work-rest cycle', async () => {
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(
+      createJsonResponse({
+        ...sessionResponse,
+        work_cycle_m: 45,
+        rest_cycle_m: 15,
+      }),
+    )
+    .mockResolvedValue(createJsonResponse({}));
+
+  renderWithProviders(<FocusSessionPage />);
+
+  expect(await screen.findByText('45:00')).toBeTruthy();
+  const createCall = mockFetch.mock.calls.find(([, options]) => options?.method === 'POST');
+  expect(JSON.parse(createCall?.[1]?.body as string)).toEqual({
+    subtask_id: SUBTASK_ID,
+  });
+
+  fireEvent.press(screen.getByText('Start'));
+  expect(screen.getByText('45:00')).toBeTruthy();
+  fireEvent.press(screen.getByText('Complete Subtask'));
+
+  expect(await screen.findByText('Rest Well')).toBeTruthy();
+  expect(screen.getByText('15:00')).toBeTruthy();
+});
+
 test('refresh restores the active work session', async () => {
   mockFetch
     .mockResolvedValueOnce(createJsonResponse(taskResponse))

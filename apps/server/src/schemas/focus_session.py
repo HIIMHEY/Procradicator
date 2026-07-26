@@ -6,8 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 
 class CreateFocusSession(BaseModel):
     subtask_id: UUID
-    work_cycle_m: int = Field(ge=0)
-    rest_cycle_m: int = Field(ge=0)
 
 
 class WorkLogData(BaseModel):

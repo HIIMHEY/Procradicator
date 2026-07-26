@@ -177,6 +177,7 @@ function ProtectedStack() {
       <Stack.Protected guard={isLoggedIn}>
         <Stack.Screen name="tasks/index" />
         <Stack.Screen name="analytics/index" />
+        <Stack.Screen name="friends/index" />
         <Stack.Screen name="tasks/create" />
         <Stack.Screen name="tasks/create/chat" />
         <Stack.Screen name="tasks/[id]" />

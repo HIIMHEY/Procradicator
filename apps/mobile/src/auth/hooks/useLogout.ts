@@ -20,6 +20,7 @@ export function useLogout() {
     },
     onMutate: async () => {
       queryClient.removeQueries({ queryKey: ['analytics'] });
+      queryClient.removeQueries({ queryKey: ['friends'] });
       queryClient.setQueryData(['auth', 'me'], null);
     },
     onSettled: () => {
