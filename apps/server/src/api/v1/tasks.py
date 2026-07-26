@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 
 from src.auth.fastapi_users.setup import current_active_user
 from src.exceptions import (
@@ -18,15 +18,38 @@ from src.services.task import TaskService
 router = APIRouter(prefix="/tasks", tags=["Task"])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+def _task_etag(task: Task) -> str:
+    return f'"{task.version}"'
+
+
+def _parse_etag(value: str | None) -> int | None:
+    if value is None:
+        return None
+    if len(value) < 3 or not value.startswith('"') or not value.endswith('"'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid If-Match header",
+        )
+    try:
+        return int(value[1:-1])
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid If-Match header",
+        ) from e
+
+
+@router.post("", response_model=GetTask, status_code=status.HTTP_201_CREATED)
 async def create_task(
     payload: CreateTask,
     task_svc: Annotated[TaskService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
-) -> dict[str, UUID | None]:
+    response: Response,
+) -> GetTask:
     try:
         task: Task = await task_svc.create_map(payload, current_user.id)
-        return {"task_id": task.id}
+        response.headers["ETag"] = _task_etag(task)
+        return GetTask.model_validate(task)
     except DuplicateItemError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -61,9 +84,11 @@ async def get_task(
     task_id: UUID,
     task_svc: Annotated[TaskService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
+    response: Response,
 ) -> GetTask:
     try:
         task: Task | None = await task_svc.read_map(task_id, current_user.id)
+        response.headers["ETag"] = _task_etag(task)
         return GetTask.model_validate(task)
     except ForbiddenError as e:
         raise HTTPException(
@@ -78,15 +103,26 @@ async def get_task(
         ) from e
 
 
-@router.put("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put("/{task_id}", response_model=GetTask)
 async def update_task(
     task_id: UUID,
     payload: UpdateTask,
     task_svc: Annotated[TaskService, Depends()],
     current_user: Annotated[User, Depends(current_active_user)],
-) -> None:
+    response: Response,
+    if_match: Annotated[str | None, Header()] = None,
+    idempotency_key: Annotated[UUID | None, Header()] = None,
+) -> GetTask:
     try:
-        await task_svc.update_map(task_id, payload, current_user.id)
+        task = await task_svc.update_map(
+            task_id,
+            payload,
+            current_user.id,
+            expected_version=_parse_etag(if_match),
+            op_id=idempotency_key,
+        )
+        response.headers["ETag"] = _task_etag(task)
+        return GetTask.model_validate(task)
     except ForbiddenError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Task access forbidden"

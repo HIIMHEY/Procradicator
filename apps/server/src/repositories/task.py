@@ -2,7 +2,7 @@ import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
@@ -93,6 +93,7 @@ class TaskRepo(BaseRepo[Task]):
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
             main_task = Task(
+                id=roadmap.id or uuid4(),
                 title=roadmap.title,
                 description=roadmap.description,
                 user_id=user_id,
@@ -102,7 +103,12 @@ class TaskRepo(BaseRepo[Task]):
             id_map: dict[str, UUID] = {}
             links_to_build: list[tuple[UUID, list[str]]] = []
             for st_schema in roadmap.subtasks:
+                try:
+                    subtask_id = UUID(st_schema.id)
+                except ValueError:
+                    subtask_id = uuid4()
                 new_subtask: Subtask = Subtask(
+                    id=subtask_id,
                     title=st_schema.title,
                     description=st_schema.description,
                     task_id=main_task.id,

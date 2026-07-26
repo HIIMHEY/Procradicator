@@ -110,10 +110,18 @@ class TaskService:
             logger.error(f"Roadmap list failed: {str(e)}")
             raise ServiceError(f"Could not list roadmaps: {str(e)}") from e
 
-    async def update_map(self, task_id: UUID, roadmap_data: UpdateTask, user_id: UUID) -> None:
+    async def update_map(
+        self,
+        task_id: UUID,
+        roadmap_data: UpdateTask,
+        user_id: UUID,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
+    ) -> Task:
         await self.read_map(task_id, user_id)
         try:
             await self.task_repo.update_map(task_id, roadmap=roadmap_data)
+            return await self.read_map(task_id, user_id)
         except DatabaseError as e:
             logger.error(f"Task roadmap update failed: {str(e)}")
             raise map_service_exception(e) from e

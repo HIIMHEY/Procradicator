@@ -20,6 +20,8 @@ class Task(SQLModel, table=True):
     description: str | None = None
     due_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    version: int = Field(default=1, ge=1)
     deleted_at: datetime | None = None
     subtasks: list["Subtask"] = Relationship(
         back_populates="task",
