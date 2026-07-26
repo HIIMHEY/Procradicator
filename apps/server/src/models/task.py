@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import CheckConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -26,12 +27,20 @@ class Task(SQLModel, table=True):
 
 
 class Subtask(SQLModel, table=True):
+    __table_args__ = (
+        CheckConstraint(
+            "completed_at IS NULL OR is_done",
+            name="ck_subtask_completed_when_done",
+        ),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     title: str = Field(index=True)
     description: str | None = None
     est_m: int = 1
     is_done: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = Field(default=None, index=True)
     deleted_at: datetime | None = None
     task_id: uuid.UUID = Field(foreign_key="task.id")
     task: "Task" = Relationship(back_populates="subtasks")
@@ -42,3 +51,10 @@ class Subtask(SQLModel, table=True):
             "secondaryjoin": "Subtask.id==SubtaskDependency.successor_id",
         },
     )
+
+    def set_done(self, done: bool, completed_at: datetime | None = None) -> None:
+        if done and not self.is_done:
+            self.completed_at = completed_at or datetime.now(UTC)
+        elif not done:
+            self.completed_at = None
+        self.is_done = done

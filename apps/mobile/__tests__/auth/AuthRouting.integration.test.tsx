@@ -46,6 +46,7 @@ const routes = {
   register: { default: EmptyRoute },
   'auth/sso/callback': { default: EmptyRoute },
   'analytics/index': { default: AnalyticsRoute },
+  'friends/index': { default: EmptyRoute },
   'tasks/index': { default: TaskRoute },
   'tasks/create': { default: EmptyRoute },
   'tasks/create/chat': { default: EmptyRoute },

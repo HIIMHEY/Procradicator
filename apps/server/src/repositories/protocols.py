@@ -1,12 +1,14 @@
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
 from src.models.chat import ChatMessage, ChatSession, Role
 from src.models.focus_session import FocusSession
+from src.models.friendship import Friendship, Nudge
 from src.models.task import Subtask, Task
 from src.models.user import User
-from src.schemas.analytics import AnalyticsSummary
+from src.schemas.analytics import AnalyticsSummary, DailyStats
 from src.schemas.focus_session import RestLogData, WorkLogData
 from src.schemas.task import CreateTask, UpdateTask
 
@@ -58,3 +60,23 @@ class FocusSessionRepoProtocol(Protocol):
 
 class AnalyticsRepoProtocol(Protocol):
     async def read_summary(self, user_id: UUID) -> AnalyticsSummary: ...
+
+
+class DailyStatsRepoProtocol(Protocol):
+    async def read_daily(
+        self,
+        user_ids: list[UUID],
+        start_at: datetime,
+        end_at: datetime,
+    ) -> dict[UUID, DailyStats]: ...
+
+
+class FriendshipRepoProtocol(Protocol):
+    async def find_pair(self, first_id: UUID, second_id: UUID) -> Friendship | None: ...
+    async def upsert(self, obj: Friendship) -> Friendship: ...
+    async def read_for_update(self, link_id: UUID) -> Friendship: ...
+    async def delete_obj(self, link: Friendship) -> None: ...
+    async def list_accepted(self, user_id: UUID) -> list[tuple[Friendship, User]]: ...
+    async def list_pending(self, user_id: UUID) -> list[tuple[Friendship, User]]: ...
+    async def add_nudge(self, nudge: Nudge) -> Nudge: ...
+    async def list_nudges(self, user_id: UUID) -> list[tuple[Nudge, User]]: ...
