@@ -55,6 +55,7 @@ class TestTask:
         subtask_id: uuid.UUID = uuid.uuid4()
         next_subtask_id: uuid.UUID = uuid.uuid4()
         due: datetime = datetime.now(UTC)
+        updated_at: datetime = datetime.now(UTC)
         subtask: dict[str, Any] = {
             "id": subtask_id,
             "title": "subtask title",
@@ -68,6 +69,8 @@ class TestTask:
             "title": "title",
             "description": "desc",
             "due_at": str(due),
+            "updated_at": str(updated_at),
+            "version": 3,
             "subtasks": [subtask],
         }
 
@@ -77,6 +80,8 @@ class TestTask:
         assert model.title == "title"
         assert model.description == "desc"
         assert model.due_at == due
+        assert model.updated_at == updated_at
+        assert model.version == 3
         assert len(model.subtasks) == 1
 
         first_subtask: GetSubtask = model.subtasks[0]
