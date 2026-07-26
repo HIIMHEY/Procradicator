@@ -56,6 +56,9 @@ class RecordingSyncTaskService:
         self.task_id = task_id
         self.expected_version: int | None = None
         self.op_id: UUID | None = None
+        self.create_op_id: UUID | None = None
+        self.delete_expected_version: int | None = None
+        self.delete_op_id: UUID | None = None
 
     @staticmethod
     def _task(task_id: UUID, user_id: UUID) -> Task:
@@ -67,7 +70,13 @@ class RecordingSyncTaskService:
             due_at=datetime.now(UTC),
         )
 
-    async def create_map(self, payload: CreateTask, user_id: UUID) -> Task:
+    async def create_map(
+        self,
+        payload: CreateTask,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> Task:
+        self.create_op_id = op_id
         return self._task(self.task_id or uuid4(), user_id)
 
     async def read_map(self, task_id: UUID, user_id: UUID) -> Task:
@@ -85,6 +94,16 @@ class RecordingSyncTaskService:
         self.op_id = op_id
         return self._task(task_id, user_id)
 
+    async def delete_map(
+        self,
+        task_id: UUID,
+        user_id: UUID,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
+    ) -> None:
+        self.delete_expected_version = expected_version
+        self.delete_op_id = op_id
+
 
 class ConflictTaskService(RecordingSyncTaskService):
     async def update_map(
@@ -95,6 +114,21 @@ class ConflictTaskService(RecordingSyncTaskService):
         expected_version: int | None = None,
         op_id: UUID | None = None,
     ) -> Task:
+        current = self._task(task_id, user_id)
+        current.version = 4
+        error_type = cast(
+            type[ServiceError],
+            getattr(app_exceptions, "VersionConflictError", ServiceError),
+        )
+        raise error_type("Task version changed", {"current": current})
+
+    async def delete_map(
+        self,
+        task_id: UUID,
+        user_id: UUID,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
+    ) -> None:
         current = self._task(task_id, user_id)
         current.version = 4
         error_type = cast(
@@ -125,6 +159,20 @@ def test_create_returns_versioned_task_and_etag() -> None:
     assert response.json().get("id") == str(task_id)
     assert response.json().get("version") == 1
     assert response.headers.get("etag") == '"1"'
+
+
+def test_create_forwards_idempotency_key() -> None:
+    service = RecordingSyncTaskService()
+    op_id = uuid4()
+
+    response = client_with(service).post(
+        "/tasks",
+        json=task_payload(),
+        headers={"Idempotency-Key": str(op_id)},
+    )
+
+    assert response.status_code == 201
+    assert service.create_op_id == op_id
 
 
 def test_get_returns_task_etag() -> None:
@@ -161,6 +209,37 @@ def test_update_returns_server_copy_when_task_version_changed() -> None:
     ).put(
         f"/tasks/{task_id}",
         json=task_payload(task_id),
+        headers={"If-Match": '"2"', "Idempotency-Key": str(uuid4())},
+    )
+
+    assert response.status_code == 412
+    assert response.json().get("server", {}).get("version") == 4
+    assert response.headers.get("etag") == '"4"'
+
+
+def test_delete_forwards_sync_headers() -> None:
+    service = RecordingSyncTaskService()
+    op_id = uuid4()
+    task_id = uuid4()
+
+    response = client_with(service).delete(
+        f"/tasks/{task_id}",
+        headers={"If-Match": '"3"', "Idempotency-Key": str(op_id)},
+    )
+
+    assert response.status_code == 204
+    assert service.delete_expected_version == 3
+    assert service.delete_op_id == op_id
+
+
+def test_delete_returns_server_copy_when_task_version_changed() -> None:
+    task_id = uuid4()
+
+    response = client_with(
+        ConflictTaskService(),
+        raise_server_exceptions=False,
+    ).delete(
+        f"/tasks/{task_id}",
         headers={"If-Match": '"2"', "Idempotency-Key": str(uuid4())},
     )
 

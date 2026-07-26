@@ -15,6 +15,7 @@ pytestmark = pytest.mark.anyio
 async def test_create_map_keeps_client_task_and_subtask_ids() -> None:
     task_id: UUID = uuid4()
     subtask_id: UUID = uuid4()
+    op_id: UUID = uuid4()
     payload = CreateTask(
         id=task_id,
         title="Offline task",
@@ -37,11 +38,12 @@ async def test_create_map_keeps_client_task_and_subtask_ids() -> None:
     session.refresh = AsyncMock()
     repo = TaskRepo(cast(AsyncSession, session))
 
-    task = await repo.create_map(payload, uuid4())
+    task = await repo.create_map(payload, uuid4(), op_id)
     added = [call.args[0] for call in session.add.call_args_list]
     subtask = next(item for item in added if isinstance(item, Subtask))
 
     assert task.id == task_id
+    assert task.last_op_id == op_id
     assert subtask.id == subtask_id
 
 
@@ -78,3 +80,23 @@ async def test_update_map_returns_task_with_advanced_version() -> None:
 
     assert updated is task
     assert task.version == 3
+
+
+async def test_delete_soft_records_version_and_operation() -> None:
+    task_id = uuid4()
+    op_id = uuid4()
+    task = Task(id=task_id, user_id=uuid4(), title="Offline task", version=2)
+    task.subtasks = [Subtask(id=uuid4(), task_id=task_id, title="First step")]
+    result = MagicMock()
+    result.first.return_value = task
+    session = MagicMock(spec=AsyncSession)
+    session.exec = AsyncMock(return_value=result)
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
+    repo = TaskRepo(cast(AsyncSession, session))
+
+    await repo.delete_soft(task_id, op_id)
+
+    assert task.deleted_at is not None
+    assert task.version == 3
+    assert task.last_op_id == op_id
