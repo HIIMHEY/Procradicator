@@ -17,8 +17,8 @@ describe('Workbox config', () => {
   });
 
   test('does not runtime-cache authenticated reads', () => {
-    expect(config.runtimeCaching.every(({ method }) => method !== undefined && method !== 'GET')).toBe(
-      true,
-    );
+    expect(
+      config.runtimeCaching.every(({ method }) => method !== undefined && method !== 'GET'),
+    ).toBe(true);
   });
 });
