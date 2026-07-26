@@ -15,7 +15,7 @@ interface UseModifyTaskFormProps {
   id: string;
   mode: TaskModifyMode;
   onSuccess?: () => void;
-  onError?: (error: Error) => void;
+  onError?: (error: unknown) => void;
 }
 
 export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTaskFormProps) {

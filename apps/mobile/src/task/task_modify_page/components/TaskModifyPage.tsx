@@ -58,7 +58,7 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
         render: () => (
           <Toast action="error">
             <ToastTitle>Task {mode} Fail</ToastTitle>
-            <ToastDescription>{err.message}</ToastDescription>
+            <ToastDescription>{err instanceof Error ? err.message : String(err)}</ToastDescription>
           </Toast>
         ),
       });
