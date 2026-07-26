@@ -8,3 +8,8 @@ from fastapi_users import schemas
 class UserRead(schemas.BaseUser[UUID]):
     username: str
     created_at: datetime
+
+
+class CurrentSessionRead(UserRead):
+    session_expires_at: datetime
+    server_time: datetime
