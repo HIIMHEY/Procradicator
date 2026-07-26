@@ -9,6 +9,7 @@ from src.exceptions import (
     ForbiddenError,
     ItemNotFoundError,
     ServiceError,
+    VersionConflictError,
 )
 from src.models.task import Subtask, Task
 from src.repositories.protocols import TaskRepoProtocol
@@ -26,6 +27,21 @@ class TaskService:
     def _ensure_task_owner(self, task: Task, user_id: UUID) -> None:
         if task.user_id != user_id:
             raise ForbiddenError("Task belongs to another user")
+
+    @staticmethod
+    def _is_replay(
+        task: Task,
+        expected_version: int | None,
+        op_id: UUID | None,
+    ) -> bool:
+        if op_id is not None and task.last_op_id == op_id:
+            return True
+        if expected_version is not None and task.version != expected_version:
+            raise VersionConflictError(
+                "Task version changed",
+                {"current": task},
+            )
+        return False
 
     async def _read_map(self, task_id: UUID) -> Task:
         try:
@@ -118,10 +134,15 @@ class TaskService:
         expected_version: int | None = None,
         op_id: UUID | None = None,
     ) -> Task:
-        await self.read_map(task_id, user_id)
+        task = await self.read_map(task_id, user_id)
+        if self._is_replay(task, expected_version, op_id):
+            return task
         try:
-            await self.task_repo.update_map(task_id, roadmap=roadmap_data)
-            return await self.read_map(task_id, user_id)
+            return await self.task_repo.update_map(
+                task_id,
+                roadmap=roadmap_data,
+                op_id=op_id,
+            )
         except DatabaseError as e:
             logger.error(f"Task roadmap update failed: {str(e)}")
             raise map_service_exception(e) from e

@@ -51,7 +51,7 @@ class FakeTaskRepo:
 
     def _make_task(self) -> Task:
         task = Task(id=self.task_id, title="t", user_id=self.owner_id, version=self.version)
-        task.__dict__["last_op_id"] = self.last_op_id
+        task.last_op_id = self.last_op_id
         task.subtasks = [
             Subtask(id=uuid4(), title="a", task_id=self.task_id),
             Subtask(id=uuid4(), title="b", task_id=self.task_id),
@@ -82,10 +82,16 @@ class FakeTaskRepo:
     async def read_subtask(self, subtask_id: UUID) -> Subtask:
         raise NotImplementedError
 
-    async def update_map(self, task_id: UUID, roadmap: UpdateTask) -> Task:
+    async def update_map(
+        self,
+        task_id: UUID,
+        roadmap: UpdateTask,
+        op_id: UUID | None = None,
+    ) -> Task:
         self.update_calls += 1
         task = self._make_task()
         task.version += 1
+        task.last_op_id = op_id
         return task
 
     async def update_done_subtask(self, subtask_id: UUID) -> Subtask:

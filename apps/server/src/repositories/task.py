@@ -158,7 +158,12 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error listing tasks for user {user_id}: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
-    async def update_map(self, task_id: UUID, roadmap: UpdateTask) -> None:
+    async def update_map(
+        self,
+        task_id: UUID,
+        roadmap: UpdateTask,
+        op_id: UUID | None = None,
+    ) -> Task:
         logger.info(f"Updating roadmap for Task ID: {task_id}")
         try:
             db_task: Task = await self.read_map(task_id)
@@ -235,8 +240,10 @@ class TaskRepo(BaseRepo[Task]):
                 if sub_id not in incoming_sub_ids:
                     sub.deleted_at = now
                     self.session.add(sub)
+            db_task.record_change(op_id)
             await self.session.commit()
             await self.session.refresh(db_task)
+            return db_task
         except (Exception, SQLAlchemyError) as e:
             await self.session.rollback()
             logger.error(f"Failed to update task {task_id}: {e}", exc_info=True)

@@ -2,6 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi.responses import JSONResponse
 
 from src.auth.fastapi_users.setup import current_active_user
 from src.exceptions import (
@@ -9,6 +10,7 @@ from src.exceptions import (
     DuplicateItemError,
     ForbiddenError,
     ItemNotFoundError,
+    VersionConflictError,
 )
 from src.models.task import Task
 from src.models.user import User
@@ -37,6 +39,24 @@ def _parse_etag(value: str | None) -> int | None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid If-Match header",
         ) from e
+
+
+def _version_conflict(error: VersionConflictError) -> JSONResponse:
+    current = error.details["current"] if error.details else None
+    if not isinstance(current, Task):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Task conflict is missing the server version",
+        )
+    task = GetTask.model_validate(current)
+    return JSONResponse(
+        status_code=status.HTTP_412_PRECONDITION_FAILED,
+        content={
+            "detail": "Task changed on the server",
+            "server": task.model_dump(mode="json"),
+        },
+        headers={"ETag": _task_etag(current)},
+    )
 
 
 @router.post("", response_model=GetTask, status_code=status.HTTP_201_CREATED)
@@ -112,7 +132,7 @@ async def update_task(
     response: Response,
     if_match: Annotated[str | None, Header()] = None,
     idempotency_key: Annotated[UUID | None, Header()] = None,
-) -> GetTask:
+) -> GetTask | JSONResponse:
     try:
         task = await task_svc.update_map(
             task_id,
@@ -123,6 +143,8 @@ async def update_task(
         )
         response.headers["ETag"] = _task_etag(task)
         return GetTask.model_validate(task)
+    except VersionConflictError as e:
+        return _version_conflict(e)
     except ForbiddenError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Task access forbidden"

@@ -59,7 +59,12 @@ class FakeTaskRepo:
     async def read_maps(self, user_id: UUID, offset: int, limit: int) -> list[Task]:
         raise NotImplementedError
 
-    async def update_map(self, task_id: UUID, roadmap: UpdateTask) -> None:
+    async def update_map(
+        self,
+        task_id: UUID,
+        roadmap: UpdateTask,
+        op_id: UUID | None = None,
+    ) -> Task:
         raise NotImplementedError
 
     async def delete_soft(self, task_id: UUID) -> None:

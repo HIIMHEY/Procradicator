@@ -60,6 +60,11 @@ class DuplicateItemError(ServiceError):
     pass
 
 
+class VersionConflictError(ServiceError):
+    # raised when a write targets an outdated resource version
+    pass
+
+
 class DependencyUnavailableError(ServiceError):
     # raised when service cannot proceed because a critical resource is locked or offline
     pass
