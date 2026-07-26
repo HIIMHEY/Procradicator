@@ -158,8 +158,8 @@ test('offline logout persists a tombstone and resolves without a request', async
   );
   const queryClient = new QueryClient({
     defaultOptions: {
-      mutations: { retry: false },
-      queries: { retry: false },
+      mutations: { gcTime: Infinity, retry: false },
+      queries: { gcTime: Infinity, retry: false },
     },
   });
 
