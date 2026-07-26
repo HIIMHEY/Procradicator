@@ -10,9 +10,9 @@ jest.mock('react-native-gesture-handler', () => {
 });
 
 import AnalyticsRoute from '@/app/analytics';
+import IndexRoute from '@/app/index';
 import RootLayout from '@/app/_layout';
 import TaskRoute from '@/app/tasks';
-import { LandingScreen } from '@/auth/components/LandingScreen';
 import { LoginForm } from '@/auth/components/LoginForm';
 import { API_ROUTES } from '@/config/env';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
@@ -41,7 +41,7 @@ function EmptyRoute() {
 
 const routes = {
   _layout: { default: RootLayout },
-  index: { default: LandingScreen },
+  index: { default: IndexRoute },
   login: { default: LoginForm },
   register: { default: EmptyRoute },
   'auth/sso/callback': { default: EmptyRoute },

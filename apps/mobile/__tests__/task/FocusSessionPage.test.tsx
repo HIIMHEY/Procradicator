@@ -17,17 +17,19 @@ const SESSION_ID = '22222222-2222-4222-8222-222222222222';
 const TASK_ID = '33333333-3333-4333-8333-333333333333';
 const RECOVERY_KEY = `focus-session:${TASK_ID}:${SUBTASK_ID}`;
 let mockSearchParams = { id: SUBTASK_ID, taskId: TASK_ID };
-const sessionStorageData = new Map<string, string>();
 
-Object.defineProperty(window, 'sessionStorage', {
-  configurable: true,
-  value: {
-    getItem: (key: string) => sessionStorageData.get(key) ?? null,
-    setItem: (key: string, value: string) => sessionStorageData.set(key, value),
-    removeItem: (key: string) => sessionStorageData.delete(key),
-    clear: () => sessionStorageData.clear(),
-  },
-});
+const mockWriteRecovery = jest.fn().mockResolvedValue(undefined);
+const mockReadRecovery = jest.fn().mockResolvedValue(null);
+const mockClearRecovery = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('@/offline/storage', () => ({
+  readRecovery: (...args: unknown[]) => mockReadRecovery(...args),
+  writeRecovery: (...args: unknown[]) => mockWriteRecovery(...args),
+  clearRecovery: (...args: unknown[]) => mockClearRecovery(...args),
+  readConflicts: jest.fn().mockResolvedValue([]),
+  writeConflict: jest.fn().mockResolvedValue(undefined),
+  deleteConflict: jest.fn().mockResolvedValue(undefined),
+}));
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockSearchParams,
@@ -97,7 +99,9 @@ beforeEach(() => {
   mockPreventRemove = false;
   mockPreventRemoveCallback = undefined;
   mockSearchParams = { id: SUBTASK_ID, taskId: TASK_ID };
-  sessionStorageData.clear();
+  mockWriteRecovery.mockClear();
+  mockReadRecovery.mockReset().mockResolvedValue(null);
+  mockClearRecovery.mockClear();
   mockFetch = jest.fn();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
@@ -121,11 +125,16 @@ test('refresh restores the active work session', async () => {
 
   const firstRender = renderWithProviders(<FocusSessionPage />);
   fireEvent.press(await screen.findByText('Start'));
-  await waitFor(() => expect(sessionStorageData.has(RECOVERY_KEY)).toBe(true));
-  const recovery = JSON.parse(sessionStorageData.get(RECOVERY_KEY) ?? '');
+  await waitFor(() => {
+    const writes = mockWriteRecovery.mock.calls.filter(([key]) => key === RECOVERY_KEY);
+    expect(writes.length).toBeGreaterThanOrEqual(2);
+  });
+  const writes = mockWriteRecovery.mock.calls.filter(([key]) => key === RECOVERY_KEY);
+  const recovery = writes[writes.length - 1][1];
   const phaseStartedAt = recovery.state.phaseStartedAt as number;
   firstRender.unmount();
 
+  mockReadRecovery.mockResolvedValue(recovery);
   mockFetch.mockReset();
   mockFetch
     .mockResolvedValueOnce(createJsonResponse(taskResponse))
@@ -366,7 +375,7 @@ test('press Finish PATCH with final data navigates to task', async () => {
   await waitFor(() => {
     expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
-  expect(sessionStorageData.has(RECOVERY_KEY)).toBe(false);
+  expect(mockClearRecovery).toHaveBeenCalledWith(RECOVERY_KEY);
   await act(async () => {});
 });
 
@@ -481,7 +490,7 @@ test('submits abandon reason PATCH with reason navigates back', async () => {
   await waitFor(() => {
     expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
-  expect(sessionStorageData.has(RECOVERY_KEY)).toBe(false);
+  expect(mockClearRecovery).toHaveBeenCalledWith(RECOVERY_KEY);
   const [payload] = getPatchPayloads();
   expect(payload.abandon_reason).toBe('Urgent issue');
   expect(payload.focus_logs).toHaveLength(1);
