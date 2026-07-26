@@ -6,6 +6,7 @@ from fastapi import Depends
 
 from src.exceptions import (
     DatabaseError,
+    DependencyUnavailableError,
     DomainError,
     ForbiddenError,
     InvalidOperationError,
@@ -18,7 +19,8 @@ from src.schemas.focus_session import (
     GetFocusSession,
     UpdateFocusSession,
 )
-from src.services.protocols import TaskServiceProtocol
+from src.services.protocols import RecommendationServiceProtocol, TaskServiceProtocol
+from src.services.recommendation import RecommendationService
 from src.services.task import TaskService
 from src.utils.service_exception_mapper import map_service_exception
 
@@ -30,9 +32,14 @@ class FocusSessionService:
         self,
         focus_repo: Annotated[FocusSessionRepoProtocol, Depends(FocusSessionRepo)],
         task_svc: Annotated[TaskServiceProtocol, Depends(TaskService)],
+        recommendation_svc: Annotated[
+            RecommendationServiceProtocol,
+            Depends(RecommendationService),
+        ],
     ) -> None:
         self.focus_repo: FocusSessionRepoProtocol = focus_repo
         self.task_svc: TaskServiceProtocol = task_svc
+        self.recommendation_svc: RecommendationServiceProtocol = recommendation_svc
 
     async def _acquire(self, session_id: UUID, user_id: UUID) -> FocusSession:
         try:
@@ -74,15 +81,17 @@ class FocusSessionService:
 
     async def create(self, req: CreateFocusSession, user_id: UUID) -> GetFocusSession:
         await self.task_svc.read_subtask(req.subtask_id, user_id)
+        cycle = await self.recommendation_svc.recommend(user_id)
         session = FocusSession(
             user_id=user_id,
-            work_cycle_m=req.work_cycle_m,
-            rest_cycle_m=req.rest_cycle_m,
+            work_cycle_m=cycle.work_cycle_m,
+            rest_cycle_m=cycle.rest_cycle_m,
         )
         try:
             saved: FocusSession = await self.focus_repo.upsert(session)
         except DatabaseError as e:
-            raise map_service_exception(e) from e
+            logger.error(f"Focus session creation failed: {str(e)}")
+            raise DependencyUnavailableError("focus session unavailable") from e
         return self._format(saved)
 
     async def read_active(self, user_id: UUID) -> GetFocusSession | None:

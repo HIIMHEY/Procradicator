@@ -8,6 +8,7 @@ from src.models.task import Subtask, Task
 from src.models.user import User
 from src.schemas.analytics import AnalyticsSummary
 from src.schemas.focus_session import RestLogData, WorkLogData
+from src.schemas.recommendation import ArmStats, WorkRestCycle
 from src.schemas.task import CreateTask, UpdateTask
 
 
@@ -58,3 +59,11 @@ class FocusSessionRepoProtocol(Protocol):
 
 class AnalyticsRepoProtocol(Protocol):
     async def read_summary(self, user_id: UUID) -> AnalyticsSummary: ...
+
+
+class RecommendationRepoProtocol(Protocol):
+    async def read_stats(
+        self,
+        user_id: UUID,
+        cycles: Sequence[WorkRestCycle],
+    ) -> list[ArmStats]: ...
