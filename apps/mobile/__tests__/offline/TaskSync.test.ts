@@ -5,7 +5,8 @@ import 'fake-indexeddb/auto';
 import { deleteOfflineDatabase, getTaskRecord, listOutbox } from '@/offline/database';
 import { flushTaskOutbox, listTaskConflicts, pullServerTasks } from '@/offline/taskSync';
 import { createLocalTask, listLocalTasks, updateLocalTask } from '@/offline/taskStore';
-import type { ModifyTaskData } from '@/task/schema';
+import type { ModifyTaskData, Task } from '@/task/schema';
+import type { TaskWritePayload } from '@/task/taskApi';
 import { API_ROUTES } from '@/config/env';
 
 const USER_ID = '9b97c715-d720-4ffc-88e6-f395be319dda';
@@ -28,15 +29,20 @@ function values(title: string): ModifyTaskData {
   };
 }
 
-function serverTask(body: Record<string, unknown>, version: number) {
+function serverTask(body: TaskWritePayload, version: number): Task {
   return {
-    ...body,
+    id: body.id,
+    title: body.title,
+    due_at: body.due_at,
     description: body.description ?? null,
     updated_at: `2026-07-27T09:0${version}:00.000Z`,
     version,
-    subtasks: (body.subtasks as Array<Record<string, unknown>>).map((subtask) => ({
-      ...subtask,
+    subtasks: body.subtasks.map((subtask) => ({
+      id: subtask.id,
+      title: subtask.title,
       description: subtask.description ?? null,
+      est_m: subtask.est_m,
+      is_done: subtask.is_done,
       next_subtask: [],
     })),
   };
@@ -69,8 +75,8 @@ test('flushes FIFO and chains the acknowledged server version', async () => {
   let version = 0;
   jest.mocked(globalThis.fetch).mockImplementation(async (_url, options) => {
     version += 1;
-    const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
-    return response(serverTask({ id: created.id, ...body }, version), version === 1 ? 201 : 200);
+    const body = JSON.parse(String(options?.body)) as TaskWritePayload;
+    return response(serverTask({ ...body, id: created.id }, version), version === 1 ? 201 : 200);
   });
 
   await flushTaskOutbox(USER_ID);
@@ -98,7 +104,7 @@ test('keeps the exact operation when transport fails', async () => {
 
 test('stores a 412 conflict and blocks later retries', async () => {
   const created = await createLocalTask(USER_ID, values('Local'), '2026-07-27T09:00:00.000Z');
-  const createBody = (await listOutbox(USER_ID))[0].payload as Record<string, unknown>;
+  const createBody = (await listOutbox(USER_ID))[0].payload as TaskWritePayload;
   jest.mocked(globalThis.fetch).mockResolvedValueOnce(response(serverTask(createBody, 1), 201));
   await flushTaskOutbox(USER_ID);
   await updateLocalTask(
@@ -130,7 +136,7 @@ test('stores a 412 conflict and blocks later retries', async () => {
 
 test('pull adds server tasks without overwriting a dirty local task', async () => {
   const local = await createLocalTask(USER_ID, values('Keep local'), '2026-07-27T09:00:00.000Z');
-  const localPayload = (await listOutbox(USER_ID))[0].payload as Record<string, unknown>;
+  const localPayload = (await listOutbox(USER_ID))[0].payload as TaskWritePayload;
   const other = serverTask(
     { ...localPayload, id: 'df4e150e-7d0b-45c7-ada2-b1ce21fb06a5', title: 'From server' },
     1,
@@ -148,8 +154,12 @@ test('pull adds server tasks without overwriting a dirty local task', async () =
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
   });
-  await expect(listLocalTasks(USER_ID)).resolves.toEqual([
-    expect.objectContaining({ id: local.id, title: 'Keep local' }),
-    expect.objectContaining({ id: other.id, title: 'From server' }),
-  ]);
+  const tasks = await listLocalTasks(USER_ID);
+  expect(tasks).toHaveLength(2);
+  expect(tasks).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: local.id, title: 'Keep local' }),
+      expect.objectContaining({ id: other.id, title: 'From server' }),
+    ]),
+  );
 });

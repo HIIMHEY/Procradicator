@@ -16,6 +16,17 @@ export interface LocalTaskRecord {
   deleted: boolean;
 }
 
+export interface TaskConflictRecord {
+  id: string;
+  userId: string;
+  entityId: string;
+  operation: 'create' | 'update' | 'delete';
+  localTask: OfflineTask | null;
+  serverTask: OfflineTask;
+  baseVersion: number | null;
+  createdAt: string;
+}
+
 export interface AuthenticatedSessionRecord {
   key: string;
   apiOrigin: string;
