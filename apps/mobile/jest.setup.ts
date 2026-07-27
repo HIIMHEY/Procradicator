@@ -95,3 +95,9 @@ jest.mock('@/offline/components/ConflictModal', () => {
   const { View } = jest.requireActual('react-native');
   return { __esModule: true, default: View };
 });
+
+jest.mock('@/offline/TaskSyncProvider', () => {
+  const { View } = jest.requireActual('react-native');
+  const original = jest.requireActual('@/offline/TaskSyncProvider');
+  return { __esModule: true, default: View, requestSync: original.requestSync };
+});
