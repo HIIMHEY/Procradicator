@@ -119,7 +119,12 @@ class InvalidFocusSessionService:
 
 
 class UnavailableFocusSessionService:
-    async def create(self, req: CreateFocusSession, user_id: UUID) -> GetFocusSession:
+    async def create(
+        self,
+        req: CreateFocusSession,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> GetFocusSession:
         raise DependencyUnavailableError("recommendation data unavailable")
 
 

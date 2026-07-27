@@ -1,6 +1,6 @@
 import logging
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
@@ -42,6 +42,7 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
             for log in logs:
                 self.session.add(
                     FocusLog(
+                        id=log.id or uuid4(),
                         focus_session_id=session_id,
                         subtask_id=log.subtask_id,
                         start_at=log.start_at,
@@ -59,6 +60,7 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
             for log in logs:
                 self.session.add(
                     RestLog(
+                        id=log.id or uuid4(),
                         focus_session_id=session_id,
                         start_at=log.start_at,
                         stop_at=log.stop_at,
