@@ -1,5 +1,12 @@
 /// <reference types="jest" />
 
+beforeEach(() => {
+  Object.defineProperty(globalThis.navigator, 'onLine', {
+    configurable: true,
+    value: true,
+  });
+});
+
 jest.mock(
   '@tanstack/devtools-event-client',
   () => {
