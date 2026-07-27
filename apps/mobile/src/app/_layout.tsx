@@ -20,6 +20,7 @@ import { Platform, UIManager } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import OfflineIndicator from '@/offline/components/OfflineIndicator';
 import ConflictModal from '@/offline/components/ConflictModal';
+import TaskSyncProvider from '@/offline/TaskSyncProvider';
 import '../global.css';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -175,6 +176,7 @@ function SyncProvider() {
   return (
     <>
       <OfflineIndicator />
+      <TaskSyncProvider />
       <ConflictModal />
     </>
   );

@@ -5,6 +5,13 @@ import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react
 import { FocusSessionPage } from '@/focus_session/components/FocusSessionPage';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
+jest.mock('@/auth/hooks/useCurrentUser', () => ({
+  useCurrentUser: () => ({
+    data: { id: '55555555-5555-4555-8555-555555555555' },
+    isPending: false,
+  }),
+}));
+
 const mockReplace = jest.fn();
 const mockDispatch = jest.fn();
 let mockPreventRemove = false;
@@ -50,6 +57,9 @@ jest.mock('expo-router/react-navigation', () => ({
 const taskResponse = {
   id: TASK_ID,
   title: 'Test Task',
+  due_at: '2026-08-01T09:00:00.000Z',
+  updated_at: '2026-07-27T09:00:00.000Z',
+  version: 1,
   subtasks: [
     {
       id: SUBTASK_ID,

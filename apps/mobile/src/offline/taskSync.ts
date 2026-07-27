@@ -8,6 +8,7 @@ import {
 } from '@/task/taskApi';
 
 export { listTaskConflicts } from './taskSyncDatabase';
+export { resolveTaskConflictWithLocal, resolveTaskConflictWithServer } from './taskSyncDatabase';
 
 export async function flushTaskOutbox(userId: string): Promise<void> {
   const operations = (await listOutbox(userId)).filter(

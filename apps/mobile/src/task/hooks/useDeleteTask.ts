@@ -1,26 +1,23 @@
-import { API_ROUTES } from '@/config/env';
+import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { deleteLocalTask } from '@/offline/taskStore';
+import { requestTaskSync } from '@/offline/TaskSyncProvider';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { StatusCodes } from 'http-status-codes';
-
-const deleteTask = async (id: string) => {
-  const res = await fetch(`${API_ROUTES.TASKS.BASE}/${id}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error(String(res.status));
-  if (res.status === StatusCodes.NO_CONTENT) return {};
-  return res.json();
-};
 
 export default function useDeleteTask(id: string) {
   const client = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id;
   return useMutation({
-    mutationKey: ['task', 'delete'],
-    mutationFn: () => deleteTask(id),
-    onSettled: () => {
-      client.invalidateQueries({ queryKey: ['task', 'list'] });
-      client.invalidateQueries({ queryKey: ['task', 'detail', id] });
+    mutationKey: ['task', userId, 'delete', id],
+    mutationFn: async () => {
+      if (!userId) throw new Error('You must be logged in to delete a task');
+      await deleteLocalTask(userId, id);
+    },
+    networkMode: 'always',
+    onSuccess: () => {
+      client.setQueryData(['task', userId, 'detail', id], null);
+      void client.invalidateQueries({ queryKey: ['task', userId, 'list'] });
+      requestTaskSync();
     },
   });
 }

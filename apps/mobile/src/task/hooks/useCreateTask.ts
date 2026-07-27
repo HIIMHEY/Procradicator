@@ -1,33 +1,24 @@
-import { API_ROUTES } from '@/config/env';
+import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { createLocalTask } from '@/offline/taskStore';
+import { requestTaskSync } from '@/offline/TaskSyncProvider';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ModifyTaskData } from '../schema';
-
-const createTask = async (values: ModifyTaskData) => {
-  const res = await fetch(API_ROUTES.TASKS.BASE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(values),
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error(String(res.status));
-  return res.json();
-};
+import type { ModifyTaskData } from '../schema';
 
 export default function useCreateTask() {
   const client = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id;
   return useMutation({
-    mutationKey: ['task', 'create'],
-    mutationFn: createTask,
-    onMutate: async (_values) => {
-      await client.cancelQueries({ queryKey: ['task', 'list'] });
-      const tempId = crypto.randomUUID();
-      return { tempId };
+    mutationKey: ['task', userId, 'create'],
+    mutationFn: (values: ModifyTaskData) => {
+      if (!userId) throw new Error('You must be logged in to create a task');
+      return createLocalTask(userId, values);
     },
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ['task', 'list'] });
-    },
-    onSettled: () => {
-      client.invalidateQueries({ queryKey: ['task', 'list'] });
+    networkMode: 'always',
+    onSuccess: (task) => {
+      client.setQueryData(['task', userId, 'detail', task.id], task);
+      void client.invalidateQueries({ queryKey: ['task', userId, 'list'] });
+      requestTaskSync();
     },
   });
 }

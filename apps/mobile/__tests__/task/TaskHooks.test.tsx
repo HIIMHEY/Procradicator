@@ -2,6 +2,7 @@
 
 import 'fake-indexeddb/auto';
 
+import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { createAuthenticatedSession } from '@/auth/offlineSession';
 import { deleteOfflineDatabase, saveAuthRecord } from '@/offline/database';
 import { createLocalTask } from '@/offline/taskStore';
@@ -13,7 +14,7 @@ import useUpdateTask from '@/task/hooks/useUpdateTask';
 import type { ModifyTaskData } from '@/task/schema';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Pressable, Text } from 'react-native';
 
 const USER_ID = '9b97c715-d720-4ffc-88e6-f395be319dda';
@@ -56,11 +57,13 @@ async function seedSession(): Promise<void> {
 }
 
 function CreateProbe() {
+  const { data: currentUser } = useCurrentUser();
   const tasks = useReadTasks();
   const create = useCreateTask();
   const titles = tasks.data?.pages.flat().map((task) => task.title) ?? [];
   return (
     <>
+      <Text>{currentUser ? 'Ready' : 'Checking'}</Text>
       <Text>{titles.join(',') || 'Empty'}</Text>
       <Pressable
         accessibilityLabel="Create offline"
@@ -92,7 +95,7 @@ function ExistingProbe({ taskId }: { taskId: string }) {
   );
 }
 
-function renderProbe(ui: ReactNode): {
+function renderProbe(ui: ReactElement): {
   queryClient: QueryClient;
   unmount: () => void;
 } {
@@ -133,6 +136,7 @@ afterAll(async () => {
 test('creates and lists a task offline with an account-scoped query key', async () => {
   const view = renderProbe(<CreateProbe />);
   try {
+    expect(await screen.findByText('Ready')).toBeTruthy();
     expect(await screen.findByText('Empty')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Create offline'));
     expect(await screen.findByText('Created')).toBeTruthy();

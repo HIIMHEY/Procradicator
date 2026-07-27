@@ -1,26 +1,20 @@
-import { API_ROUTES } from '@/config/env';
+import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { getLocalTask } from '@/offline/taskStore';
+import { readServerTask } from '@/task/taskApi';
 import { useQuery } from '@tanstack/react-query';
-import { StatusCodes } from 'http-status-codes';
 
-interface readTaskOptions {
+interface ReadTaskOptions {
   isEnabled?: boolean;
 }
 
-const readTask = async (id: string) => {
-  const res = await fetch(`${API_ROUTES.TASKS.BASE}/${id}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error(String(res.status));
-  if (res.status == StatusCodes.NO_CONTENT) return {};
-  return res.json();
-};
-
-export default function useReadTask(id: string, options: readTaskOptions = {}) {
+export default function useReadTask(id: string, options: ReadTaskOptions = {}) {
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id;
+  const hasLocalDatabase = typeof indexedDB !== 'undefined';
   return useQuery({
-    queryKey: ['task', 'detail', id],
-    queryFn: () => readTask(id),
-    enabled: options.isEnabled ?? true,
+    queryKey: ['task', userId ?? 'server-session', 'detail', id],
+    queryFn: () => (hasLocalDatabase && userId ? getLocalTask(userId, id) : readServerTask(id)),
+    enabled: (Boolean(userId) || !hasLocalDatabase) && (options.isEnabled ?? true),
+    networkMode: 'always',
   });
 }

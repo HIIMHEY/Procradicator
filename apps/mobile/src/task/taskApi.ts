@@ -104,3 +104,13 @@ export async function listServerTasks(page: number, limit: number): Promise<Task
   if (!response.ok) throw new TaskRequestError(response.status);
   return TaskSchema.array().parse(await response.json());
 }
+
+export async function readServerTask(taskId: string): Promise<Task> {
+  const response = await fetch(API_ROUTES.TASKS.DETAIL(taskId), {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) throw new TaskRequestError(response.status);
+  return TaskSchema.parse(await response.json());
+}
