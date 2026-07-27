@@ -8,8 +8,8 @@ import type {
 import {
   findFocusSessionRecord,
   getFocusSessionRecord,
+  saveFocusAndEnqueue,
   saveFocusSession,
-  saveFocusSessionAndEnqueue,
 } from './database';
 import type { LocalFocusSessionRecord, OutboxRecord } from './databaseTypes';
 
@@ -76,16 +76,9 @@ export async function createLocalFocusSession(
     syncStatus: 'pending',
     terminal: false,
   };
-  await saveFocusSessionAndEnqueue(
+  await saveFocusAndEnqueue(
     record,
-    focusOperation(
-      userId,
-      id,
-      'focus-create',
-      { id, subtask_id: subtaskId },
-      null,
-      now,
-    ),
+    focusOperation(userId, id, 'focus-create', { id, subtask_id: subtaskId }, null, now),
   );
   return record;
 }
@@ -136,7 +129,7 @@ export async function saveLocalFocusProgress(
     syncStatus: 'pending',
     terminal: current.terminal || terminal,
   };
-  await saveFocusSessionAndEnqueue(
+  await saveFocusAndEnqueue(
     record,
     focusOperation(
       userId,
@@ -165,7 +158,7 @@ export async function findLocalFocusSession(
   return findFocusSessionRecord(userId, taskId, subtaskId);
 }
 
-export function buildFullFocusPayload(record: LocalFocusSessionRecord): UpdateFocusPayload {
+export function buildFocusPayload(record: LocalFocusSessionRecord): UpdateFocusPayload {
   return {
     focus_logs: record.state.focusLogs,
     rest_logs: record.state.restLogs,

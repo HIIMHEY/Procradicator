@@ -1,9 +1,9 @@
 import type { CurrentSessionRead, UserRead } from './schemas';
 import { userReadSchema } from './schemas';
 import type {
-  AuthenticatedSessionRecord,
-  AuthSessionRecord,
-  LoggedOutSessionRecord,
+  ActiveSession,
+  AuthSession,
+  LogoutSession,
   OutboxRecord,
 } from '@/offline/databaseTypes';
 
@@ -11,11 +11,11 @@ function canonicalOrigin(apiOrigin: string): string {
   return new URL(apiOrigin).origin;
 }
 
-export function createAuthenticatedSession(
+export function createAuthSession(
   apiOrigin: string,
   session: CurrentSessionRead,
   validatedAtClientMs: number,
-): AuthenticatedSessionRecord {
+): ActiveSession {
   const serverTime = Date.parse(session.server_time);
   const sessionExpiry = Date.parse(session.session_expires_at);
   if (!Number.isFinite(serverTime) || !Number.isFinite(sessionExpiry)) {
@@ -31,7 +31,7 @@ export function createAuthenticatedSession(
   };
 }
 
-export function getOfflineUser(record: AuthSessionRecord | null, nowMs: number): UserRead | null {
+export function getOfflineUser(record: AuthSession | null, nowMs: number): UserRead | null {
   if (!record || record.state !== 'authenticated') return null;
   const elapsed = nowMs - record.validatedAtClientMs;
   if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed >= record.remainingMsAtValidation) {
@@ -40,12 +40,12 @@ export function getOfflineUser(record: AuthSessionRecord | null, nowMs: number):
   return record.user;
 }
 
-export function createLoggedOutSession(
-  authenticated: AuthenticatedSessionRecord,
+export function createLogoutSession(
+  authenticated: ActiveSession,
   requestedAtClientMs: number,
   logoutId = crypto.randomUUID(),
-): { record: LoggedOutSessionRecord; operation: OutboxRecord } {
-  const record: LoggedOutSessionRecord = {
+): { record: LogoutSession; operation: OutboxRecord } {
+  const record: LogoutSession = {
     key: authenticated.key,
     apiOrigin: authenticated.apiOrigin,
     state: 'logged_out',

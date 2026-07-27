@@ -5,12 +5,8 @@ import {
   saveAuthAndEnqueue,
   saveAuthRecord,
 } from '@/offline/database';
-import type { AuthSessionRecord } from '@/offline/databaseTypes';
-import {
-  createAuthenticatedSession,
-  createLoggedOutSession,
-  getOfflineUser,
-} from './offlineSession';
+import type { AuthSession } from '@/offline/databaseTypes';
+import { createAuthSession, createLogoutSession, getOfflineUser } from './offlineSession';
 import { currentSessionReadSchema, type UserRead } from './schemas';
 
 export const AUTH_API_ORIGIN = new URL(API_ROUTES.AUTH.ME).origin;
@@ -18,13 +14,13 @@ export const AUTH_API_ORIGIN = new URL(API_ROUTES.AUTH.ME).origin;
 export const isDefinitelyOffline = (): boolean =>
   typeof navigator !== 'undefined' && navigator.onLine === false;
 
-export async function readCurrentAuthRecord(): Promise<AuthSessionRecord | null> {
+export async function readAuthSession(): Promise<AuthSession | null> {
   if (typeof indexedDB === 'undefined') return null;
   return readAuthRecord(AUTH_API_ORIGIN);
 }
 
 export async function fetchCurrentUser(options?: {
-  replaceLoggedOutSession?: boolean;
+  replaceLogout?: boolean;
 }): Promise<UserRead | null> {
   const validatedAtClientMs = Date.now();
   const response = await fetch(API_ROUTES.AUTH.ME, {
@@ -37,9 +33,9 @@ export async function fetchCurrentUser(options?: {
   }
 
   const session = currentSessionReadSchema.parse(await response.json());
-  const record = createAuthenticatedSession(AUTH_API_ORIGIN, session, validatedAtClientMs);
-  const currentRecord = await readCurrentAuthRecord();
-  if (currentRecord?.state === 'logged_out' && !options?.replaceLoggedOutSession) {
+  const record = createAuthSession(AUTH_API_ORIGIN, session, validatedAtClientMs);
+  const currentRecord = await readAuthSession();
+  if (currentRecord?.state === 'logged_out' && !options?.replaceLogout) {
     return null;
   }
   if (typeof indexedDB !== 'undefined') {
@@ -49,7 +45,7 @@ export async function fetchCurrentUser(options?: {
 }
 
 export async function loadCurrentUser(): Promise<UserRead | null> {
-  const record = await readCurrentAuthRecord();
+  const record = await readAuthSession();
   if (record?.state === 'logged_out') return null;
 
   const offlineUser = getOfflineUser(record, Date.now());
@@ -59,10 +55,10 @@ export async function loadCurrentUser(): Promise<UserRead | null> {
 }
 
 export async function persistLocalLogout(): Promise<boolean> {
-  const record = await readCurrentAuthRecord();
+  const record = await readAuthSession();
   if (!record || record.state === 'logged_out') return record?.state === 'logged_out';
 
-  const logout = createLoggedOutSession(record, Date.now());
+  const logout = createLogoutSession(record, Date.now());
   await saveAuthAndEnqueue(logout.record, logout.operation);
   return true;
 }
@@ -75,7 +71,7 @@ async function requestRemoteLogout(): Promise<Response> {
 }
 
 export async function flushPendingLogout(): Promise<boolean> {
-  const record = await readCurrentAuthRecord();
+  const record = await readAuthSession();
   if (record?.state !== 'logged_out' || record.remoteLogout !== 'pending') return true;
   if (isDefinitelyOffline()) return false;
 
@@ -89,11 +85,11 @@ export async function flushPendingLogout(): Promise<boolean> {
   }
 }
 
-export async function requestLogoutWithoutLocalSession(): Promise<void> {
+export async function tryRemoteLogout(): Promise<void> {
   if (isDefinitelyOffline()) return;
   try {
     await requestRemoteLogout();
   } catch {
-    // There is no local authenticated session to retain in this fallback path.
+    // Best-effort logout.
   }
 }

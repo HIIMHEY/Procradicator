@@ -1,24 +1,24 @@
 import { openDatabase, requestResult, STORES, transactionDone } from './databaseCore';
-import type { AuthSessionRecord, OutboxRecord } from './databaseTypes';
+import type { AuthSession, OutboxRecord } from './databaseTypes';
 
-export async function saveAuthRecord(record: AuthSessionRecord): Promise<void> {
+export async function saveAuthRecord(record: AuthSession): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction(STORES.sessions, 'readwrite');
   transaction.objectStore(STORES.sessions).put(record);
   await transactionDone(transaction);
 }
 
-export async function readAuthRecord(apiOrigin: string): Promise<AuthSessionRecord | null> {
+export async function readAuthRecord(apiOrigin: string): Promise<AuthSession | null> {
   const database = await openDatabase();
   const transaction = database.transaction(STORES.sessions, 'readonly');
-  const result = await requestResult<AuthSessionRecord | undefined>(
+  const result = await requestResult<AuthSession | undefined>(
     transaction.objectStore(STORES.sessions).get(apiOrigin),
   );
   return result ?? null;
 }
 
 export async function saveAuthAndEnqueue(
-  record: AuthSessionRecord,
+  record: AuthSession,
   operation: OutboxRecord,
 ): Promise<void> {
   if (
@@ -43,7 +43,7 @@ export async function acknowledgeLogout(apiOrigin: string, operationId: string):
   const sessionStore = transaction.objectStore(STORES.sessions);
   const request = sessionStore.get(apiOrigin);
   request.onsuccess = () => {
-    const record = request.result as AuthSessionRecord | undefined;
+    const record = request.result as AuthSession | undefined;
     if (record?.state !== 'logged_out' || record.logoutId !== operationId) {
       transaction.abort();
       return;

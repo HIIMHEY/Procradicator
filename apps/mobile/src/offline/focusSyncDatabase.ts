@@ -1,13 +1,9 @@
 import type { FocusSessionResponse } from '@/focus_session/schemas';
-import { buildFullFocusPayload } from './focusStore';
+import { buildFocusPayload } from './focusStore';
 import { openDatabase, requestResult, STORES, transactionDone } from './databaseCore';
-import type {
-  FocusConflictRecord,
-  LocalFocusSessionRecord,
-  OutboxRecord,
-} from './databaseTypes';
+import type { FocusConflictRecord, LocalFocusSessionRecord, OutboxRecord } from './databaseTypes';
 
-export async function acknowledgeFocusOperation(
+export async function ackFocusOp(
   operation: OutboxRecord,
   serverSession: FocusSessionResponse,
 ): Promise<void> {
@@ -61,10 +57,7 @@ export async function saveFocusConflict(
   serverSession: FocusSessionResponse,
 ): Promise<void> {
   const database = await openDatabase();
-  const transaction = database.transaction(
-    [STORES.focusSessions, STORES.conflicts],
-    'readwrite',
-  );
+  const transaction = database.transaction([STORES.focusSessions, STORES.conflicts], 'readwrite');
   const done = transactionDone(transaction);
   const sessionStore = transaction.objectStore(STORES.focusSessions);
   const record = await requestResult<LocalFocusSessionRecord | undefined>(
@@ -101,9 +94,7 @@ export async function listFocusConflicts(userId: string): Promise<FocusConflictR
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
-export async function resolveFocusConflictWithLocal(
-  conflict: FocusConflictRecord,
-): Promise<void> {
+export async function keepLocalFocus(conflict: FocusConflictRecord): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction(
     [STORES.focusSessions, STORES.outbox, STORES.conflicts],
@@ -138,7 +129,7 @@ export async function resolveFocusConflictWithLocal(
     entityType: 'focusSession',
     entityId: conflict.entityId,
     operation: 'focus-update',
-    payload: buildFullFocusPayload(localSession),
+    payload: buildFocusPayload(localSession),
     baseVersion: conflict.serverSession.version,
     createdAt: now,
   } satisfies OutboxRecord);
@@ -146,9 +137,7 @@ export async function resolveFocusConflictWithLocal(
   await done;
 }
 
-export async function resolveFocusConflictWithServer(
-  conflict: FocusConflictRecord,
-): Promise<void> {
+export async function keepServerFocus(conflict: FocusConflictRecord): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction(
     [STORES.focusSessions, STORES.outbox, STORES.conflicts],

@@ -36,9 +36,7 @@ function operationHeaders(operation: OutboxRecord): Record<string, string> {
   return headers;
 }
 
-export async function sendFocusOperation(
-  operation: OutboxRecord,
-): Promise<FocusSessionResponse> {
+export async function sendFocusOp(operation: OutboxRecord): Promise<FocusSessionResponse> {
   if (operation.entityType !== 'focusSession') {
     throw new Error('Expected a focus session operation');
   }

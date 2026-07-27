@@ -51,7 +51,7 @@ async function parseTaskResponse(response: Response): Promise<Task> {
   return TaskSchema.parse(await response.json());
 }
 
-export async function sendTaskOperation(operation: OutboxRecord): Promise<Task | null> {
+export async function sendTaskOp(operation: OutboxRecord): Promise<Task | null> {
   if (operation.entityType !== 'task') throw new Error('Expected a task operation');
   const headers = versionHeaders(operation);
   let response: Response;

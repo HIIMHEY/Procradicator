@@ -3,7 +3,7 @@ import {
   flushPendingLogout,
   isDefinitelyOffline,
   persistLocalLogout,
-  requestLogoutWithoutLocalSession,
+  tryRemoteLogout,
 } from '../sessionManager';
 
 export function useLogout() {
@@ -20,7 +20,7 @@ export function useLogout() {
           void flushPendingLogout();
         }
       } else {
-        void requestLogoutWithoutLocalSession();
+        void tryRemoteLogout();
       }
     },
   });

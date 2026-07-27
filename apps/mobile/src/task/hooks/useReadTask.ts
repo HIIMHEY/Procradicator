@@ -10,11 +10,11 @@ interface ReadTaskOptions {
 export default function useReadTask(id: string, options: ReadTaskOptions = {}) {
   const { data: currentUser } = useCurrentUser();
   const userId = currentUser?.id;
-  const hasLocalDatabase = typeof indexedDB !== 'undefined';
+  const hasLocalDb = typeof indexedDB !== 'undefined';
   return useQuery({
     queryKey: ['task', userId ?? 'server-session', 'detail', id],
-    queryFn: () => (hasLocalDatabase && userId ? getLocalTask(userId, id) : readServerTask(id)),
-    enabled: (Boolean(userId) || !hasLocalDatabase) && (options.isEnabled ?? true),
+    queryFn: () => (hasLocalDb && userId ? getLocalTask(userId, id) : readServerTask(id)),
+    enabled: (Boolean(userId) || !hasLocalDb) && (options.isEnabled ?? true),
     networkMode: 'always',
   });
 }

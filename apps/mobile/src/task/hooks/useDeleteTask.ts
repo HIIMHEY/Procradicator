@@ -1,6 +1,6 @@
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { deleteLocalTask } from '@/offline/taskStore';
-import { requestTaskSync } from '@/offline/TaskSyncProvider';
+import { requestSync } from '@/offline/TaskSyncProvider';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function useDeleteTask(id: string) {
@@ -17,7 +17,7 @@ export default function useDeleteTask(id: string) {
     onSuccess: () => {
       client.setQueryData(['task', userId, 'detail', id], null);
       void client.invalidateQueries({ queryKey: ['task', userId, 'list'] });
-      requestTaskSync();
+      requestSync();
     },
   });
 }

@@ -72,7 +72,6 @@ def _session_expiry(token: str) -> datetime:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED) from error
 
 
-# Return the currently logged-in user and the verified cookie expiry.
 @router.get("/me", response_model=CurrentSessionRead)
 async def get_current_user(
     current_session: Annotated[tuple[User, str], Depends(current_active_user_token)],

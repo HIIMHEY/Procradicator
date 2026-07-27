@@ -1,6 +1,6 @@
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { createLocalTask } from '@/offline/taskStore';
-import { requestTaskSync } from '@/offline/TaskSyncProvider';
+import { requestSync } from '@/offline/TaskSyncProvider';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ModifyTaskData } from '../schema';
 
@@ -18,7 +18,7 @@ export default function useCreateTask() {
     onSuccess: (task) => {
       client.setQueryData(['task', userId, 'detail', task.id], task);
       void client.invalidateQueries({ queryKey: ['task', userId, 'list'] });
-      requestTaskSync();
+      requestSync();
     },
   });
 }

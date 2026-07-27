@@ -9,15 +9,10 @@ import type { Task } from '@/task/schema';
 
 export type SyncStatus = 'synced' | 'pending' | 'conflict';
 
-export type OfflineTask = Task & {
-  updated_at: string;
-  version: number;
-};
-
 export interface LocalTaskRecord {
   key: string;
   userId: string;
-  task: OfflineTask;
+  task: Task;
   syncStatus: SyncStatus;
   deleted: boolean;
 }
@@ -27,8 +22,8 @@ export interface TaskConflictRecord {
   userId: string;
   entityId: string;
   operation: 'create' | 'update' | 'delete';
-  localTask: OfflineTask | null;
-  serverTask: OfflineTask;
+  localTask: Task | null;
+  serverTask: Task;
   baseVersion: number | null;
   createdAt: string;
 }
@@ -55,7 +50,7 @@ export interface FocusConflictRecord {
   createdAt: string;
 }
 
-export interface AuthenticatedSessionRecord {
+export interface ActiveSession {
   key: string;
   apiOrigin: string;
   state: 'authenticated';
@@ -64,7 +59,7 @@ export interface AuthenticatedSessionRecord {
   validatedAtClientMs: number;
 }
 
-export interface LoggedOutSessionRecord {
+export interface LogoutSession {
   key: string;
   apiOrigin: string;
   state: 'logged_out';
@@ -74,7 +69,7 @@ export interface LoggedOutSessionRecord {
   remoteLogout: 'pending' | 'acknowledged';
 }
 
-export type AuthSessionRecord = AuthenticatedSessionRecord | LoggedOutSessionRecord;
+export type AuthSession = ActiveSession | LogoutSession;
 
 export type OutboxOperation =
   | 'create'
@@ -84,9 +79,7 @@ export type OutboxOperation =
   | 'focus-update'
   | 'logout';
 
-export type FocusOutboxPayload =
-  | { id: string; subtask_id: string }
-  | UpdateFocusPayload;
+export type FocusOutboxPayload = { id: string; subtask_id: string } | UpdateFocusPayload;
 
 export interface OutboxRecord {
   id: string;

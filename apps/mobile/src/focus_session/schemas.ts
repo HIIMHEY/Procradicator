@@ -8,9 +8,9 @@ export const CreateFocusSessionSchema = z.object({
 export const FocusSessionResponseSchema = z.object({
   id: z.uuid(),
   user_id: z.uuid().optional(),
-  start_at: z.iso.datetime({ offset: true }).default('1970-01-01T00:00:00.000Z'),
-  updated_at: z.iso.datetime({ offset: true }).default('1970-01-01T00:00:00.000Z'),
-  end_at: z.iso.datetime({ offset: true }).nullable(),
+  start_at: z.iso.datetime({ local: true }).default('1970-01-01T00:00:00.000Z'),
+  updated_at: z.iso.datetime({ local: true }).default('1970-01-01T00:00:00.000Z'),
+  end_at: z.iso.datetime({ local: true }).nullable(),
   version: z.number().int().nonnegative().default(0),
   work_cycle_m: z.number(),
   rest_cycle_m: z.number(),

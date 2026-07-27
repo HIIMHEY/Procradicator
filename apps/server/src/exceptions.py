@@ -61,7 +61,6 @@ class DuplicateItemError(ServiceError):
 
 
 class VersionConflictError(ServiceError):
-    # raised when a write targets an outdated resource version
     pass
 
 

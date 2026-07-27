@@ -100,7 +100,7 @@ const startGoogleSso = async (): Promise<UserRead> => {
     const authorizationUrl = await readAuthorizationUrl(frontendCallbackUrl);
     popup.location.href = authorizationUrl;
     await waitForSsoMessage(popup, window.location.origin);
-    const currentUser = await fetchCurrentUser({ replaceLoggedOutSession: true });
+    const currentUser = await fetchCurrentUser({ replaceLogout: true });
     if (!currentUser) {
       throw new Error('Google login completed, but no user session was found.');
     }

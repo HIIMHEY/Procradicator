@@ -1,14 +1,15 @@
 import { getTaskRecord, listOutbox } from './database';
-import { acknowledgeTaskOperation, replaceServerTasks, saveTaskConflict } from './taskSyncDatabase';
+import { ackTaskOp, replaceServerTasks, saveTaskConflict } from './taskSyncDatabase';
 import {
   listServerTasks,
-  sendTaskOperation,
+  readServerTask,
+  sendTaskOp,
   TaskConflictError,
   TaskRequestError,
 } from '@/task/taskApi';
 
 export { listTaskConflicts } from './taskSyncDatabase';
-export { resolveTaskConflictWithLocal, resolveTaskConflictWithServer } from './taskSyncDatabase';
+export { keepLocalTask, keepServerTask } from './taskSyncDatabase';
 
 export async function flushTaskOutbox(userId: string): Promise<void> {
   const operations = (await listOutbox(userId)).filter(
@@ -18,8 +19,8 @@ export async function flushTaskOutbox(userId: string): Promise<void> {
     const task = await getTaskRecord(userId, operation.entityId);
     if (!task || task.syncStatus === 'conflict') continue;
     try {
-      const serverTask = await sendTaskOperation(operation);
-      await acknowledgeTaskOperation(operation, serverTask);
+      const serverTask = await sendTaskOp(operation);
+      await ackTaskOp(operation, serverTask);
       if (serverTask) {
         for (const pending of operations) {
           if (pending.entityId === operation.entityId && pending.id !== operation.id) {
@@ -34,8 +35,20 @@ export async function flushTaskOutbox(userId: string): Promise<void> {
       }
       if (error instanceof TaskRequestError && error.status === 404) {
         if (operation.operation === 'delete') {
-          await acknowledgeTaskOperation(operation, null);
+          await ackTaskOp(operation, null);
           continue;
+        }
+      }
+      if (
+        error instanceof TaskRequestError &&
+        error.status === 409 &&
+        operation.operation === 'create'
+      ) {
+        try {
+          await saveTaskConflict(operation, await readServerTask(operation.entityId));
+          continue;
+        } catch {
+          return;
         }
       }
       return;

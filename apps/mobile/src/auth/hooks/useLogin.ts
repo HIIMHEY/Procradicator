@@ -19,7 +19,7 @@ const login = async ({ username, password }: LoginInput): Promise<UserRead> => {
   if (!response.ok) {
     throw new Error('Invalid username or password.');
   }
-  const currentUser = await fetchCurrentUser({ replaceLoggedOutSession: true });
+  const currentUser = await fetchCurrentUser({ replaceLogout: true });
   if (!currentUser) {
     throw new Error('Login completed, but no user session was found.');
   }

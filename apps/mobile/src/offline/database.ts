@@ -1,9 +1,5 @@
 import { openDatabase, requestResult, STORES, transactionDone } from './databaseCore';
-import type {
-  LocalFocusSessionRecord,
-  LocalTaskRecord,
-  OutboxRecord,
-} from './databaseTypes';
+import type { LocalFocusSessionRecord, LocalTaskRecord, OutboxRecord } from './databaseTypes';
 
 export {
   acknowledgeLogout,
@@ -44,7 +40,7 @@ export async function getTaskRecord(
   return result ?? null;
 }
 
-export async function saveFocusSessionAndEnqueue(
+export async function saveFocusAndEnqueue(
   session: LocalFocusSessionRecord,
   operation: OutboxRecord,
 ): Promise<void> {

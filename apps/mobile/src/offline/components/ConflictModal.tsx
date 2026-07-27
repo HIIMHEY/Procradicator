@@ -3,20 +3,10 @@ import { Box } from '@/components/ui/box';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
-import {
-  listTaskConflicts,
-  resolveTaskConflictWithLocal,
-  resolveTaskConflictWithServer,
-} from '@/offline/taskSync';
-import {
-  listFocusConflicts,
-  resolveFocusConflictWithLocal,
-  resolveFocusConflictWithServer,
-} from '@/offline/focusSync';
-import type {
-  FocusConflictRecord,
-  TaskConflictRecord,
-} from '@/offline/databaseTypes';
+import { keepLocalTask, keepServerTask, listTaskConflicts } from '@/offline/taskSync';
+import { keepLocalFocus, keepServerFocus, listFocusConflicts } from '@/offline/focusSync';
+import type { FocusConflictRecord, TaskConflictRecord } from '@/offline/databaseTypes';
+import { requestSync } from '@/offline/TaskSyncProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
@@ -25,9 +15,7 @@ import { Pressable } from 'react-native';
 export default function ConflictModal() {
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
-  const [conflict, setConflict] = useState<
-    TaskConflictRecord | FocusConflictRecord | null
-  >(null);
+  const [conflict, setConflict] = useState<TaskConflictRecord | FocusConflictRecord | null>(null);
 
   const refresh = useCallback(async () => {
     if (!currentUser) {
@@ -57,19 +45,20 @@ export default function ConflictModal() {
   const handleKeepMine = async () => {
     if (!conflict) return;
     if ('localSession' in conflict) {
-      await resolveFocusConflictWithLocal(conflict);
+      await keepLocalFocus(conflict);
     } else {
-      await resolveTaskConflictWithLocal(conflict);
+      await keepLocalTask(conflict);
     }
+    requestSync();
     await finishResolution();
   };
 
   const handleKeepServer = async () => {
     if (!conflict) return;
     if ('localSession' in conflict) {
-      await resolveFocusConflictWithServer(conflict);
+      await keepServerFocus(conflict);
     } else {
-      await resolveTaskConflictWithServer(conflict);
+      await keepServerTask(conflict);
     }
     await finishResolution();
   };

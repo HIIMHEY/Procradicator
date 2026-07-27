@@ -7,10 +7,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import useReadTask from '@/task/hooks/useReadTask';
 import { buildDepMap, toposort } from '@/task/utils';
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
-import {
-  findLocalFocusSession,
-  saveLocalFocusState,
-} from '@/offline/focusStore';
+import { findLocalFocusSession, saveLocalFocusState } from '@/offline/focusStore';
 
 import { focusReducer, initial, State } from '../focusReducer';
 import type { Phase } from '../focusReducer';
@@ -98,7 +95,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
   const navigation = useNavigation();
   const { data: currentUser, isPending: isCurrentUserPending } = useCurrentUser();
   const userId = currentUser?.id;
-  const hasLocalDatabase = typeof indexedDB !== 'undefined';
+  const hasLocalDb = typeof indexedDB !== 'undefined';
   const [recovery, setRecovery] = useState<FocusSessionRecovery | null>(null);
   const [recoveryLoaded, setRecoveryLoaded] = useState(false);
   const [state, dispatch] = useReducer(focusReducer, initial);
@@ -122,11 +119,11 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
   stateRef.current = state;
 
   useEffect(() => {
-    if (hasLocalDatabase && !userId) {
+    if (hasLocalDb && !userId) {
       if (!isCurrentUserPending) setRecoveryLoaded(true);
       return;
     }
-    const load = hasLocalDatabase
+    const load = hasLocalDb
       ? findLocalFocusSession(userId as string, taskId, subtaskId).then((record) =>
           record
             ? {
@@ -150,23 +147,17 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       })
       .catch(() => setRecovery(null))
       .finally(() => setRecoveryLoaded(true));
-  }, [
-    hasLocalDatabase,
-    isCurrentUserPending,
-    taskId,
-    subtaskId,
-    userId,
-  ]);
+  }, [hasLocalDb, isCurrentUserPending, taskId, subtaskId, userId]);
 
   const allowNavigation = useCallback(() => {
     allowNavigationRef.current = true;
   }, []);
   const finishNavigation = useCallback(() => {
-    if (!hasLocalDatabase) {
+    if (!hasLocalDb) {
       void idbClearRecovery(getRecoveryKey(taskId, subtaskId));
     }
     allowNavigation();
-  }, [taskId, subtaskId, allowNavigation, hasLocalDatabase]);
+  }, [taskId, subtaskId, allowNavigation, hasLocalDb]);
   const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateFocusSession();
   const updateSessionMut = useUpdateFocusSession();
   const finaliseSessionMut = useFinaliseFocusSession(taskId, finishNavigation);
@@ -212,7 +203,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       setIsHydrating(false);
       return;
     }
-    if (hasLocalDatabase && isCurrentUserPending) return;
+    if (hasLocalDb && isCurrentUserPending) return;
     if (!recoveryLoaded) return;
     if (isTaskPending || (recovery && isRecoveredSessionPending)) return;
     const error = taskError ?? recoveredSessionError;
@@ -246,7 +237,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       return;
     }
 
-    if (!hasLocalDatabase) {
+    if (!hasLocalDb) {
       void idbClearRecovery(getRecoveryKey(taskId, subtaskId));
     }
     workLogStartRef.current = null;
@@ -283,7 +274,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
     hydrationAttempt,
     recovery,
     recoveryLoaded,
-    hasLocalDatabase,
+    hasLocalDb,
     isCurrentUserPending,
   ]);
 
@@ -335,7 +326,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
           await updateSession(variables);
         }
         syncedDataRef.current = targetPosition;
-        if (!options.terminal && !hasLocalDatabase) {
+        if (!options.terminal && !hasLocalDb) {
           await idbWriteRecovery(getRecoveryKey(taskId, subtaskId), {
             version: 1,
             state: stateRef.current,
@@ -347,18 +338,12 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       updateQueueRef.current = queued.catch(() => undefined);
       return queued;
     },
-    [
-      updateSession,
-      finaliseSession,
-      taskId,
-      subtaskId,
-      hasLocalDatabase,
-    ],
+    [updateSession, finaliseSession, taskId, subtaskId, hasLocalDb],
   );
 
   useEffect(() => {
     if (!state.sessionId) return;
-    if (hasLocalDatabase && userId) {
+    if (hasLocalDb && userId) {
       void saveLocalFocusState(userId, state.sessionId, state);
       return;
     }
@@ -367,7 +352,7 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       state,
       synced: syncedDataRef.current,
     });
-  }, [state, taskId, subtaskId, hasLocalDatabase, userId]);
+  }, [state, taskId, subtaskId, hasLocalDb, userId]);
 
   useEffect(() => {
     const s = stateRef.current;
@@ -465,28 +450,15 @@ export function useFocusSession(subtaskId: string, taskId: string): UseFocusSess
       } as const;
       const nextState = focusReducer(s, action);
       scheduledDataRef.current = getSyncPosition(nextState);
-      await enqueueUpdate(
-        nextState,
-        { abandon_reason: reason },
-        { terminal: true },
-      );
+      await enqueueUpdate(nextState, { abandon_reason: reason }, { terminal: true });
       void queryClient.invalidateQueries({ queryKey: ['task', userId] });
-      if (!hasLocalDatabase) {
+      if (!hasLocalDb) {
         void idbClearRecovery(getRecoveryKey(taskId, subtaskId));
       }
       allowNavigation();
       router.replace(`/tasks/${taskId}`);
     },
-    [
-      enqueueUpdate,
-      queryClient,
-      taskId,
-      subtaskId,
-      allowNavigation,
-      router,
-      userId,
-      hasLocalDatabase,
-    ],
+    [enqueueUpdate, queryClient, taskId, subtaskId, allowNavigation, router, userId, hasLocalDb],
   );
 
   const closeExitReason = useCallback(() => {

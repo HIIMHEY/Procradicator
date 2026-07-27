@@ -3,10 +3,7 @@ import type { LocalTaskRecord, OutboxRecord, TaskConflictRecord } from './databa
 import type { Task } from '@/task/schema';
 import type { TaskWritePayload } from '@/task/taskApi';
 
-export async function acknowledgeTaskOperation(
-  operation: OutboxRecord,
-  serverTask: Task | null,
-): Promise<void> {
+export async function ackTaskOp(operation: OutboxRecord, serverTask: Task | null): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction([STORES.tasks, STORES.outbox], 'readwrite');
   const done = transactionDone(transaction);
@@ -152,7 +149,7 @@ function writePayload(task: Task): TaskWritePayload {
   };
 }
 
-export async function resolveTaskConflictWithLocal(conflict: TaskConflictRecord): Promise<void> {
+export async function keepLocalTask(conflict: TaskConflictRecord): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction(
     [STORES.tasks, STORES.outbox, STORES.conflicts],
@@ -205,7 +202,7 @@ export async function resolveTaskConflictWithLocal(conflict: TaskConflictRecord)
   await done;
 }
 
-export async function resolveTaskConflictWithServer(conflict: TaskConflictRecord): Promise<void> {
+export async function keepServerTask(conflict: TaskConflictRecord): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction(
     [STORES.tasks, STORES.outbox, STORES.conflicts],

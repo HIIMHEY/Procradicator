@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { loadCurrentUser, readCurrentAuthRecord } from '../sessionManager';
+import { loadCurrentUser, readAuthSession } from '../sessionManager';
 
 export { fetchCurrentUser } from '../sessionManager';
 
@@ -25,7 +25,7 @@ export function useCurrentUser() {
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
-    void readCurrentAuthRecord().then((record) => {
+    void readAuthSession().then((record) => {
       if (disposed || record?.state !== 'authenticated') return;
       const expiresInMs =
         record.remainingMsAtValidation - (Date.now() - record.validatedAtClientMs);

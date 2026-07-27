@@ -4,15 +4,15 @@ import { flushTaskOutbox, pullServerTasks } from './taskSync';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
 
-const TASK_SYNC_EVENT = 'procradicator:task-sync';
+const SYNC_EVENT = 'procradicator:task-sync';
 
-export function requestTaskSync(): void {
+export function requestSync(): void {
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-    window.dispatchEvent(new Event(TASK_SYNC_EVENT));
+    window.dispatchEvent(new Event(SYNC_EVENT));
   }
 }
 
-export default function TaskSyncProvider() {
+export default function OfflineSyncProvider() {
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
 
@@ -23,7 +23,7 @@ export default function TaskSyncProvider() {
     try {
       await pullServerTasks(currentUser.id);
     } catch {
-      // A failed pull leaves the durable local projection and outbox unchanged.
+      // Keep local data on pull failure.
     }
     await queryClient.invalidateQueries({ queryKey: ['task', currentUser.id] });
   }, [currentUser, queryClient]);
@@ -40,11 +40,11 @@ export default function TaskSyncProvider() {
     const handleSync = () => void synchronize();
     window.addEventListener('online', handleSync);
     window.addEventListener('focus', handleSync);
-    window.addEventListener(TASK_SYNC_EVENT, handleSync);
+    window.addEventListener(SYNC_EVENT, handleSync);
     return () => {
       window.removeEventListener('online', handleSync);
       window.removeEventListener('focus', handleSync);
-      window.removeEventListener(TASK_SYNC_EVENT, handleSync);
+      window.removeEventListener(SYNC_EVENT, handleSync);
     };
   }, [synchronize]);
 

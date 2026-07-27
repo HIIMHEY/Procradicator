@@ -1,7 +1,7 @@
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { API_ROUTES } from '@/config/env';
 import { saveLocalFocusProgress } from '@/offline/focusStore';
-import { requestTaskSync } from '@/offline/TaskSyncProvider';
+import { requestSync } from '@/offline/TaskSyncProvider';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 
@@ -43,7 +43,7 @@ export default function useFinaliseFocusSession(taskId: string, onBeforeNavigate
         new Date().toISOString(),
         variables.queued,
       );
-      requestTaskSync();
+      requestSync();
     },
     onSuccess: () => {
       onBeforeNavigate?.();

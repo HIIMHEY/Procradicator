@@ -6,17 +6,17 @@ import { useQuery } from '@tanstack/react-query';
 export default function useReadFocusSession(sessionId: string | null) {
   const { data: currentUser } = useCurrentUser();
   const userId = currentUser?.id;
-  const hasLocalDatabase = typeof indexedDB !== 'undefined';
+  const hasLocalDb = typeof indexedDB !== 'undefined';
   return useQuery({
     queryKey: ['focus', userId ?? 'server-session', 'detail', sessionId],
     queryFn: async () => {
-      if (hasLocalDatabase && userId) {
+      if (hasLocalDb && userId) {
         const local = await getLocalFocusSession(userId, sessionId as string);
         if (local) return local.session;
       }
       return readServerFocusSession(sessionId as string);
     },
-    enabled: Boolean(sessionId) && (Boolean(userId) || !hasLocalDatabase),
+    enabled: Boolean(sessionId) && (Boolean(userId) || !hasLocalDb),
     networkMode: 'always',
   });
 }

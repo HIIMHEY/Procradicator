@@ -2,7 +2,7 @@ import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { API_ROUTES } from '@/config/env';
 import { createLocalFocusSession, getLocalFocusSession } from '@/offline/focusStore';
 import { flushFocusOutbox } from '@/offline/focusSync';
-import { requestTaskSync } from '@/offline/TaskSyncProvider';
+import { requestSync } from '@/offline/TaskSyncProvider';
 import { useMutation } from '@tanstack/react-query';
 
 import type { FocusSessionResponse } from '../schemas';
@@ -40,13 +40,8 @@ export default function useCreateFocusSession() {
         return createServerSession(subtask_id);
       }
       if (!userId) throw new Error('You must be logged in to start a focus session');
-      const local = await createLocalFocusSession(
-        userId,
-        taskId,
-        subtask_id,
-        currentIdx,
-      );
-      requestTaskSync();
+      const local = await createLocalFocusSession(userId, taskId, subtask_id, currentIdx);
+      requestSync();
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         await flushFocusOutbox(userId);
         const synced = await getLocalFocusSession(userId, local.session.id);
