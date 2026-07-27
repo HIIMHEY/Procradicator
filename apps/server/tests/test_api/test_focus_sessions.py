@@ -5,7 +5,11 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from src.auth.fastapi_users.setup import current_active_user
-from src.exceptions import ForbiddenError, InvalidOperationError
+from src.exceptions import (
+    DependencyUnavailableError,
+    ForbiddenError,
+    InvalidOperationError,
+)
 from src.main import app
 from src.models.user import User
 from src.schemas.focus_session import (
@@ -53,15 +57,24 @@ class RecordingFocusSessionService:
     def __init__(self) -> None:
         self.create_req: CreateFocusSession | None = None
         self.create_user_id: UUID | None = None
+        self.create_op_id: UUID | None = None
         self.read_session_id: UUID | None = None
         self.read_user_id: UUID | None = None
         self.update_session_id: UUID | None = None
         self.update_user_id: UUID | None = None
         self.update_req: UpdateFocusSession | None = None
+        self.update_expected_version: int | None = None
+        self.update_op_id: UUID | None = None
 
-    async def create(self, req: CreateFocusSession, user_id: UUID) -> GetFocusSession:
+    async def create(
+        self,
+        req: CreateFocusSession,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> GetFocusSession:
         self.create_req = req
         self.create_user_id = user_id
+        self.create_op_id = op_id
         return focus_session_response(user_id)
 
     async def read_active(self, user_id: UUID) -> GetFocusSession | None:
@@ -77,10 +90,14 @@ class RecordingFocusSessionService:
         session_id: UUID,
         user_id: UUID,
         req: UpdateFocusSession,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
     ) -> GetFocusSession:
         self.update_session_id = session_id
         self.update_user_id = user_id
         self.update_req = req
+        self.update_expected_version = expected_version
+        self.update_op_id = op_id
         return focus_session_response(user_id)
 
 
@@ -95,16 +112,25 @@ class InvalidFocusSessionService:
         session_id: UUID,
         user_id: UUID,
         req: UpdateFocusSession,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
     ) -> GetFocusSession:
         raise InvalidOperationError("cannot update a finished session")
 
 
+class UnavailableFocusSessionService:
+    async def create(
+        self,
+        req: CreateFocusSession,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> GetFocusSession:
+        raise DependencyUnavailableError("recommendation data unavailable")
+
+
 def test_create_focus_session_requires_login() -> None:
     app.dependency_overrides[FocusSessionService] = lambda: RecordingFocusSessionService()
-    response = TestClient(app).post(
-        "/focus",
-        json={"subtask_id": str(uuid4()), "work_cycle_m": 20, "rest_cycle_m": 5},
-    )
+    response = TestClient(app).post("/focus", json={"subtask_id": str(uuid4())})
     assert response.status_code == 401
 
 
@@ -116,12 +142,43 @@ def test_create_focus_session_passes_data() -> None:
     app.dependency_overrides[FocusSessionService] = lambda: focus_service
     response = TestClient(app).post(
         "/focus",
-        json={"subtask_id": str(subtask_id), "work_cycle_m": 20, "rest_cycle_m": 5},
+        json={"subtask_id": str(subtask_id)},
     )
     assert response.status_code == 201
     assert focus_service.create_req is not None
     assert focus_service.create_req.subtask_id == subtask_id
     assert focus_service.create_user_id == user.id
+
+
+def test_create_focus_session_accepts_client_id_and_operation_key() -> None:
+    user = logged_in_user()
+    focus_service = RecordingFocusSessionService()
+    session_id = uuid4()
+    operation_id = uuid4()
+    app.dependency_overrides[current_active_user] = lambda: user
+    app.dependency_overrides[FocusSessionService] = lambda: focus_service
+
+    response = TestClient(app).post(
+        "/focus",
+        json={"id": str(session_id), "subtask_id": str(uuid4())},
+        headers={"Idempotency-Key": str(operation_id)},
+    )
+
+    assert response.status_code == 201
+    assert focus_service.create_req is not None
+    assert focus_service.create_req.model_dump().get("id") == session_id
+    assert focus_service.create_op_id == operation_id
+    assert response.headers.get("etag") == '"1"'
+
+
+def test_create_focus_session_returns_503_when_dependency_is_unavailable() -> None:
+    app.dependency_overrides[current_active_user] = lambda: logged_in_user()
+    app.dependency_overrides[FocusSessionService] = lambda: UnavailableFocusSessionService()
+    response = TestClient(app).post(
+        "/focus",
+        json={"subtask_id": str(uuid4())},
+    )
+    assert response.status_code == 503
 
 
 def test_get_active_focus_session_returns_null() -> None:
@@ -161,6 +218,29 @@ def test_update_focus_session_passes_data() -> None:
     assert focus_service.update_user_id == user.id
     assert focus_service.update_req is not None
     assert focus_service.update_req.work_cycles == 3
+
+
+def test_update_focus_session_uses_version_and_operation_headers() -> None:
+    user = logged_in_user()
+    focus_service = RecordingFocusSessionService()
+    session_id = uuid4()
+    operation_id = uuid4()
+    app.dependency_overrides[current_active_user] = lambda: user
+    app.dependency_overrides[FocusSessionService] = lambda: focus_service
+
+    response = TestClient(app).patch(
+        f"/focus/{session_id}",
+        json={"work_cycles": 3},
+        headers={
+            "If-Match": '"7"',
+            "Idempotency-Key": str(operation_id),
+        },
+    )
+
+    assert response.status_code == 200
+    assert focus_service.update_expected_version == 7
+    assert focus_service.update_op_id == operation_id
+    assert response.headers.get("etag") == '"1"'
 
 
 def test_other_users_focus_session_returns_403() -> None:

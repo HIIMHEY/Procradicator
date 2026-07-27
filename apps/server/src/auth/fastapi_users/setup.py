@@ -12,6 +12,7 @@ fastapi_users = FastAPIUsers[Any, uuid.UUID](
 )
 
 current_active_user = fastapi_users.current_user(active=True)
+current_active_user_token = fastapi_users.authenticator.current_user_token(active=True)
 # Verify JWT etc and then check if user can access protected routes
 
 # current_user: Annotated[User, Depends(current_active_user)]:

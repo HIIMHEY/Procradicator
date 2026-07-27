@@ -5,6 +5,13 @@ import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react
 import { FocusSessionPage } from '@/focus_session/components/FocusSessionPage';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
+jest.mock('@/auth/hooks/useCurrentUser', () => ({
+  useCurrentUser: () => ({
+    data: { id: '55555555-5555-4555-8555-555555555555' },
+    isPending: false,
+  }),
+}));
+
 const mockReplace = jest.fn();
 const mockDispatch = jest.fn();
 let mockPreventRemove = false;
@@ -50,6 +57,9 @@ jest.mock('expo-router/react-navigation', () => ({
 const taskResponse = {
   id: TASK_ID,
   title: 'Test Task',
+  due_at: '2026-08-01T09:00:00.000Z',
+  updated_at: '2026-07-27T09:00:00.000Z',
+  version: 1,
   subtasks: [
     {
       id: SUBTASK_ID,
@@ -116,6 +126,34 @@ test('hydrates, shows READY screen with task details', async () => {
   expect(await screen.findByText('Write report')).toBeTruthy();
   expect(screen.getByText('Complete section 3')).toBeTruthy();
   expect(screen.getByText('Start')).toBeTruthy();
+});
+
+test('starts with the recommended work-rest cycle', async () => {
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(
+      createJsonResponse({
+        ...sessionResponse,
+        work_cycle_m: 45,
+        rest_cycle_m: 15,
+      }),
+    )
+    .mockResolvedValue(createJsonResponse({}));
+
+  renderWithProviders(<FocusSessionPage />);
+
+  expect(await screen.findByText('45:00')).toBeTruthy();
+  const createCall = mockFetch.mock.calls.find(([, options]) => options?.method === 'POST');
+  expect(JSON.parse(createCall?.[1]?.body as string)).toEqual({
+    subtask_id: SUBTASK_ID,
+  });
+
+  fireEvent.press(screen.getByText('Start'));
+  expect(screen.getByText('45:00')).toBeTruthy();
+  fireEvent.press(screen.getByText('Complete Subtask'));
+
+  expect(await screen.findByText('Rest Well')).toBeTruthy();
+  expect(screen.getByText('15:00')).toBeTruthy();
 });
 
 test('refresh restores the active work session', async () => {

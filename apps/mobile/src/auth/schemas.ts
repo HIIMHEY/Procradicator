@@ -35,6 +35,11 @@ export const userReadSchema = z.object({
   created_at: z.string().optional(),
 });
 
+export const currentSessionReadSchema = userReadSchema.extend({
+  session_expires_at: z.iso.datetime({ offset: true }),
+  server_time: z.iso.datetime({ offset: true }),
+});
+
 export const ssoCallbackMessageSchema = z.discriminatedUnion('status', [
   z.object({
     type: z.literal('procradicator:sso-complete'),
@@ -52,4 +57,5 @@ export const ssoCallbackMessageSchema = z.discriminatedUnion('status', [
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type UserRead = z.infer<typeof userReadSchema>;
+export type CurrentSessionRead = z.infer<typeof currentSessionReadSchema>;
 export type SsoCallbackMessage = z.infer<typeof ssoCallbackMessageSchema>;

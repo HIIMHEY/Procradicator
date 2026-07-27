@@ -4,8 +4,12 @@ from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
+import jwt
 import pytest
+import src.auth.fastapi_users.setup as auth_setup
 from fastapi.testclient import TestClient
+from fastapi_users.jwt import decode_jwt
+from src.auth.fastapi_users.backend import get_jwt_strategy
 from src.auth.fastapi_users.manager import get_user_manager
 from src.core.config import settings
 from src.exceptions import (
@@ -163,13 +167,58 @@ def test_login_me_logout_flow() -> None:
     assert "httponly" in login_response.headers["set-cookie"].lower()
     me_response = client.get("/auth/me")
     assert me_response.status_code == 200
-    assert me_response.json()["email"] == "user@example.com"
-    assert me_response.json()["username"] == "testuser"
-    assert "hashed_password" not in me_response.json()
+    body = me_response.json()
+    assert body["email"] == "user@example.com"
+    assert body["username"] == "testuser"
+    assert "hashed_password" not in body
+    strategy = get_jwt_strategy()
+    token = client.cookies.get(settings.access_cookie_name)
+    assert token is not None
+    claims = decode_jwt(
+        token,
+        strategy.decode_key,
+        strategy.token_audience,
+        algorithms=[strategy.algorithm],
+    )
+    session_expires_at = datetime.fromisoformat(body["session_expires_at"].replace("Z", "+00:00"))
+    server_time = datetime.fromisoformat(body["server_time"].replace("Z", "+00:00"))
+    assert session_expires_at == datetime.fromtimestamp(claims["exp"], UTC)
+    assert server_time < session_expires_at
+    assert me_response.headers["cache-control"] == "no-store"
+    assert "token" not in body
+    assert "cookie" not in body
     logout_response = client.post("/auth/logout")
     assert logout_response.status_code == 204
     assert settings.access_cookie_name not in client.cookies
     assert client.get("/auth/me").status_code == 401
+
+
+def test_me_rejects_authenticated_token_without_expiry() -> None:
+    user = User(
+        id=uuid4(),
+        email="user@example.com",
+        username="testuser",
+        hashed_password="stored-hash",
+        is_active=True,
+    )
+    token = jwt.encode(
+        {
+            "sub": str(user.id),
+            "aud": ["fastapi-users:auth"],
+        },
+        settings.access_token_secret.get_secret_value(),
+        algorithm="HS256",
+    )
+    current_active_user_token = getattr(
+        auth_setup,
+        "current_active_user_token",
+        auth_setup.current_active_user,
+    )
+    app.dependency_overrides[current_active_user_token] = lambda: (user, token)
+
+    response = TestClient(app, raise_server_exceptions=False).get("/auth/me")
+
+    assert response.status_code == 401
 
 
 def test_login_with_invalid_credentials_returns_400() -> None:

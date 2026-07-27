@@ -115,6 +115,8 @@ test('Google SSO opens a blank popup immediately then navigates it after authori
       is_active: true,
       is_superuser: false,
       is_verified: false,
+      server_time: '2026-07-27T09:00:00.000Z',
+      session_expires_at: '2026-07-27T10:00:00.000Z',
     }),
   } as Response);
   renderWithProviders(<GoogleSsoProbe />);

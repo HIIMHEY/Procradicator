@@ -2,7 +2,7 @@ import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
@@ -63,7 +63,7 @@ class TaskRepo(BaseRepo[Task]):
         logger.info(f"Completing subtask: {subtask_id}")
         try:
             subtask: Subtask = await self.read_subtask(subtask_id)
-            subtask.is_done = True
+            subtask.set_done(True)
             self.session.add(subtask)
             await self.session.commit()
             await self.session.refresh(subtask)
@@ -79,7 +79,7 @@ class TaskRepo(BaseRepo[Task]):
         try:
             for sid in subtask_ids:
                 sub: Subtask = await self.read_subtask(sid)
-                sub.is_done = True
+                sub.set_done(True)
                 self.session.add(sub)
                 results.append(sub)
             await self.session.flush()
@@ -89,26 +89,38 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error completing subtasks: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
-    async def create_map(self, roadmap: CreateTask, user_id: UUID) -> Task:
+    async def create_map(
+        self,
+        roadmap: CreateTask,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> Task:
         logger.info(f"Starting roadmap generation: '{roadmap.title}'")
         try:
             main_task = Task(
+                id=roadmap.id or uuid4(),
                 title=roadmap.title,
                 description=roadmap.description,
                 user_id=user_id,
                 due_at=roadmap.due_at,
+                last_op_id=op_id,
             )
             self.session.add(main_task)
             id_map: dict[str, UUID] = {}
             links_to_build: list[tuple[UUID, list[str]]] = []
             for st_schema in roadmap.subtasks:
+                try:
+                    subtask_id = UUID(st_schema.id)
+                except ValueError:
+                    subtask_id = uuid4()
                 new_subtask: Subtask = Subtask(
+                    id=subtask_id,
                     title=st_schema.title,
                     description=st_schema.description,
                     task_id=main_task.id,
-                    is_done=st_schema.is_done,
                     est_m=st_schema.est_m,
                 )
+                new_subtask.set_done(st_schema.is_done)
                 self.session.add(new_subtask)
                 await self.session.flush()
                 id_map[st_schema.id] = new_subtask.id
@@ -152,7 +164,12 @@ class TaskRepo(BaseRepo[Task]):
             logger.error(f"Error listing tasks for user {user_id}: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
-    async def update_map(self, task_id: UUID, roadmap: UpdateTask) -> None:
+    async def update_map(
+        self,
+        task_id: UUID,
+        roadmap: UpdateTask,
+        op_id: UUID | None = None,
+    ) -> Task:
         logger.info(f"Updating roadmap for Task ID: {task_id}")
         try:
             db_task: Task = await self.read_map(task_id)
@@ -171,21 +188,22 @@ class TaskRepo(BaseRepo[Task]):
                 )
                 if isinstance(clean_id, UUID) and clean_id in existing_subs:
                     sub: Subtask = existing_subs[clean_id]
-                    sub.title, sub.description, sub.est_m, sub.is_done = (
+                    sub.title, sub.description, sub.est_m = (
                         st.title,
                         st.description,
                         st.est_m,
-                        st.is_done,
                     )
+                    sub.set_done(st.is_done)
                     incoming_sub_ids.add(sub.id)
                 else:
                     sub = Subtask(
+                        id=clean_id if isinstance(clean_id, UUID) else uuid4(),
                         title=st.title,
                         description=st.description,
                         task_id=db_task.id,
                         est_m=st.est_m,
-                        is_done=st.is_done,
                     )
+                    sub.set_done(st.is_done)
                     self.session.add(sub)
                     await self.session.flush()
                 id_map[st.id] = sub.id
@@ -229,14 +247,16 @@ class TaskRepo(BaseRepo[Task]):
                 if sub_id not in incoming_sub_ids:
                     sub.deleted_at = now
                     self.session.add(sub)
+            db_task.record_change(op_id)
             await self.session.commit()
             await self.session.refresh(db_task)
+            return db_task
         except (Exception, SQLAlchemyError) as e:
             await self.session.rollback()
             logger.error(f"Failed to update task {task_id}: {e}", exc_info=True)
             raise map_db_exception(e) if isinstance(e, SQLAlchemyError) else e from e
 
-    async def delete_soft(self, task_id: UUID) -> None:
+    async def delete_soft(self, task_id: UUID, op_id: UUID | None = None) -> None:
         logger.info(f"Soft deleting task: {task_id}")
         try:
             stmt: SelectOfScalar[Task] = (
@@ -246,9 +266,11 @@ class TaskRepo(BaseRepo[Task]):
             if not task:
                 logger.warning(f"Soft delete failed: Task {task_id} not found")
                 raise ResourceNotFoundError("task not found")
-            task.deleted_at = datetime.now(UTC)
+            now = datetime.now(UTC)
+            task.record_change(op_id)
+            task.deleted_at = now
             for sub in task.subtasks:
-                sub.deleted_at = datetime.now(UTC)
+                sub.deleted_at = now
             await self.upsert(task)
         except SQLAlchemyError as e:
             await self.session.rollback()

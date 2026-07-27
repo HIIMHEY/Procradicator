@@ -3,12 +3,12 @@ import { HStack } from '@/components/ui/hstack';
 import { MenuIcon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
-import { BarChart3, LayoutGrid, X } from 'lucide-react-native';
+import { BarChart3, LayoutGrid, UserRound, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Modal, View } from 'react-native';
 
-type NavPage = 'analytics' | 'tasks';
+type NavPage = 'analytics' | 'friends' | 'tasks';
 
 interface NavBarProps {
   active: NavPage;
@@ -18,13 +18,14 @@ interface NavBarProps {
 const items = [
   { key: 'tasks', label: 'Dashboard', route: '/tasks', icon: LayoutGrid },
   { key: 'analytics', label: 'Analytics', route: '/analytics', icon: BarChart3 },
+  { key: 'friends', label: 'Friends', route: '/friends', icon: UserRound },
 ] as const;
 
 export function NavBar({ active, title }: NavBarProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
-  const goTo = (page: NavPage, route: '/analytics' | '/tasks') => {
+  const goTo = (page: NavPage, route: '/analytics' | '/friends' | '/tasks') => {
     setOpen(false);
     if (page !== active) router.replace(route);
   };

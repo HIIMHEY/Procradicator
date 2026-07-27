@@ -1,14 +1,18 @@
 import logging
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import Depends
 
 from src.exceptions import (
     DatabaseError,
+    DependencyUnavailableError,
     DomainError,
+    DuplicateItemError,
     ForbiddenError,
     InvalidOperationError,
+    ItemNotFoundError,
+    VersionConflictError,
 )
 from src.models.focus_session import FocusSession
 from src.repositories.focus_session import FocusSessionRepo
@@ -18,7 +22,8 @@ from src.schemas.focus_session import (
     GetFocusSession,
     UpdateFocusSession,
 )
-from src.services.protocols import TaskServiceProtocol
+from src.services.protocols import RecommendationServiceProtocol, TaskServiceProtocol
+from src.services.recommendation import RecommendationService
 from src.services.task import TaskService
 from src.utils.service_exception_mapper import map_service_exception
 
@@ -30,9 +35,14 @@ class FocusSessionService:
         self,
         focus_repo: Annotated[FocusSessionRepoProtocol, Depends(FocusSessionRepo)],
         task_svc: Annotated[TaskServiceProtocol, Depends(TaskService)],
+        recommendation_svc: Annotated[
+            RecommendationServiceProtocol,
+            Depends(RecommendationService),
+        ],
     ) -> None:
         self.focus_repo: FocusSessionRepoProtocol = focus_repo
         self.task_svc: TaskServiceProtocol = task_svc
+        self.recommendation_svc: RecommendationServiceProtocol = recommendation_svc
 
     async def _acquire(self, session_id: UUID, user_id: UUID) -> FocusSession:
         try:
@@ -72,17 +82,50 @@ class FocusSessionService:
     def _format(self, session: FocusSession) -> GetFocusSession:
         return GetFocusSession.model_validate(session)
 
-    async def create(self, req: CreateFocusSession, user_id: UUID) -> GetFocusSession:
+    @staticmethod
+    def _is_replay(
+        session: FocusSession,
+        expected_version: int | None,
+        op_id: UUID | None,
+    ) -> bool:
+        if op_id is not None and session.last_op_id == op_id:
+            return True
+        if expected_version is not None and session.version != expected_version:
+            raise VersionConflictError(
+                "Focus session version changed",
+                {"current": session},
+            )
+        return False
+
+    async def create(
+        self,
+        req: CreateFocusSession,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> GetFocusSession:
+        if req.id is not None and op_id is not None:
+            try:
+                existing = await self._acquire(req.id, user_id)
+            except ItemNotFoundError:
+                pass
+            else:
+                if existing.last_op_id == op_id:
+                    return self._format(existing)
+                raise DuplicateItemError("Focus session ID or operation key was already used")
         await self.task_svc.read_subtask(req.subtask_id, user_id)
+        cycle = await self.recommendation_svc.recommend(user_id)
         session = FocusSession(
+            id=req.id or uuid4(),
             user_id=user_id,
-            work_cycle_m=req.work_cycle_m,
-            rest_cycle_m=req.rest_cycle_m,
+            work_cycle_m=cycle.work_cycle_m,
+            rest_cycle_m=cycle.rest_cycle_m,
+            last_op_id=op_id,
         )
         try:
             saved: FocusSession = await self.focus_repo.upsert(session)
         except DatabaseError as e:
-            raise map_service_exception(e) from e
+            logger.error(f"Focus session creation failed: {str(e)}")
+            raise DependencyUnavailableError("focus session unavailable") from e
         return self._format(saved)
 
     async def read_active(self, user_id: UUID) -> GetFocusSession | None:
@@ -103,8 +146,12 @@ class FocusSessionService:
         session_id: UUID,
         user_id: UUID,
         req: UpdateFocusSession,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
     ) -> GetFocusSession:
         session: FocusSession = await self._acquire(session_id, user_id)
+        if self._is_replay(session, expected_version, op_id):
+            return self._format(session)
         try:
             session.guard_active()
         except DomainError as e:
@@ -120,5 +167,6 @@ class FocusSessionService:
             raise InvalidOperationError(str(e)) from e
         await self._record(session.id, req)
         await self._done_subtasks(req.completed_subtask_ids, user_id)
+        session.record_change(op_id)
         await self._flush(session)
         return self._format(session)
