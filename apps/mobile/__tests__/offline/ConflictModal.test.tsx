@@ -3,11 +3,7 @@
 jest.unmock('@/offline/components/ConflictModal');
 
 import ConflictModal from '@/offline/components/ConflictModal';
-import {
-  listTaskConflicts,
-  resolveTaskConflictWithLocal,
-  resolveTaskConflictWithServer,
-} from '@/offline/taskSync';
+import { keepLocalTask, keepServerTask, listTaskConflicts } from '@/offline/taskSync';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
@@ -20,15 +16,15 @@ jest.mock('@/auth/hooks/useCurrentUser', () => ({
 }));
 
 jest.mock('@/offline/taskSync', () => ({
+  keepLocalTask: jest.fn(),
+  keepServerTask: jest.fn(),
   listTaskConflicts: jest.fn(),
-  resolveTaskConflictWithLocal: jest.fn(),
-  resolveTaskConflictWithServer: jest.fn(),
 }));
 
 jest.mock('@/offline/focusSync', () => ({
+  keepLocalFocus: jest.fn(),
+  keepServerFocus: jest.fn(),
   listFocusConflicts: jest.fn().mockResolvedValue([]),
-  resolveFocusConflictWithLocal: jest.fn(),
-  resolveFocusConflictWithServer: jest.fn(),
 }));
 
 const conflict = {
@@ -80,20 +76,28 @@ function renderModal() {
 beforeEach(() => {
   globalThis.fetch = jest.fn() as unknown as typeof fetch;
   jest.mocked(listTaskConflicts).mockReset().mockResolvedValue([conflict]);
-  jest.mocked(resolveTaskConflictWithLocal).mockReset().mockResolvedValue();
-  jest.mocked(resolveTaskConflictWithServer).mockReset().mockResolvedValue();
+  jest.mocked(keepLocalTask).mockReset().mockResolvedValue();
+  jest.mocked(keepServerTask).mockReset().mockResolvedValue();
 });
 
 test('offers both task versions and keeps local without a request', async () => {
+  const originalDispatch = window.dispatchEvent;
+  window.dispatchEvent = jest.fn();
   const view = renderModal();
   try {
     expect(await screen.findByText('Conflict Detected')).toBeTruthy();
     expect(screen.getByText('Mine')).toBeTruthy();
     expect(screen.getByText('Server')).toBeTruthy();
     fireEvent.press(screen.getByText('Keep Mine'));
-    await waitFor(() => expect(resolveTaskConflictWithLocal).toHaveBeenCalledWith(conflict));
+    await waitFor(() => expect(keepLocalTask).toHaveBeenCalledWith(conflict));
+    await waitFor(() =>
+      expect(window.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'procradicator:task-sync' }),
+      ),
+    );
     expect(globalThis.fetch).not.toHaveBeenCalled();
   } finally {
+    window.dispatchEvent = originalDispatch;
     view.cleanup();
   }
 });
@@ -103,7 +107,7 @@ test('can choose the server copy', async () => {
   try {
     expect(await screen.findByText('Conflict Detected')).toBeTruthy();
     fireEvent.press(screen.getByText('Keep Server'));
-    await waitFor(() => expect(resolveTaskConflictWithServer).toHaveBeenCalledWith(conflict));
+    await waitFor(() => expect(keepServerTask).toHaveBeenCalledWith(conflict));
   } finally {
     view.cleanup();
   }

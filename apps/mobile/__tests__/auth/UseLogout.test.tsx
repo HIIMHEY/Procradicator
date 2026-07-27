@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 
 import useAnalyticsSummary from '@/analytics/hooks/useAnalyticsSummary';
 import { useLogout } from '@/auth/hooks/useLogout';
-import { createAuthenticatedSession } from '@/auth/offlineSession';
+import { createAuthSession } from '@/auth/offlineSession';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { Text } from '@/components/ui/text';
 import { API_ROUTES } from '@/config/env';
@@ -141,7 +141,7 @@ test('offline logout persists a tombstone and resolves without a request', async
   const now = Date.now();
   const userId = '7cf2a63f-45da-4af7-9917-306abc624759';
   await saveAuthRecord(
-    createAuthenticatedSession(
+    createAuthSession(
       'http://localhost:8000',
       {
         id: userId,

@@ -5,9 +5,9 @@ import 'fake-indexeddb/auto';
 import { deleteOfflineDatabase, getTaskRecord, listOutbox } from '@/offline/database';
 import {
   flushTaskOutbox,
+  keepLocalTask,
   listTaskConflicts,
   pullServerTasks,
-  resolveTaskConflictWithLocal,
 } from '@/offline/taskSync';
 import { createLocalTask, listLocalTasks, updateLocalTask } from '@/offline/taskStore';
 import type { ModifyTaskData, Task } from '@/task/schema';
@@ -139,6 +139,35 @@ test('stores a 412 conflict and blocks later retries', async () => {
   });
 });
 
+test('turns a conflicting create replay into a user-resolvable conflict', async () => {
+  const created = await createLocalTask(USER_ID, values('Original'), '2026-07-27T09:00:00.000Z');
+  const createBody = (await listOutbox(USER_ID))[0].payload as TaskWritePayload;
+  await updateLocalTask(
+    USER_ID,
+    created.id,
+    { ...values('My offline edit'), id: created.id },
+    '2026-07-27T09:05:00.000Z',
+  );
+  const remote = serverTask({ ...createBody, title: 'Their online edit' }, 2);
+  jest
+    .mocked(globalThis.fetch)
+    .mockResolvedValueOnce(response({ detail: 'Task already exists' }, 409))
+    .mockResolvedValueOnce(response(remote));
+
+  await flushTaskOutbox(USER_ID);
+
+  await expect(listTaskConflicts(USER_ID)).resolves.toEqual([
+    expect.objectContaining({
+      entityId: created.id,
+      localTask: expect.objectContaining({ title: 'My offline edit' }),
+      serverTask: expect.objectContaining({ title: 'Their online edit', version: 2 }),
+    }),
+  ]);
+  await expect(getTaskRecord(USER_ID, created.id)).resolves.toMatchObject({
+    syncStatus: 'conflict',
+  });
+});
+
 test('keeping local replaces blocked operations with one write against the server version', async () => {
   const created = await createLocalTask(USER_ID, values('Local'), '2026-07-27T09:00:00.000Z');
   const createBody = (await listOutbox(USER_ID))[0].payload as TaskWritePayload;
@@ -162,7 +191,7 @@ test('keeping local replaces blocked operations with one write against the serve
   await flushTaskOutbox(USER_ID);
   const [conflict] = await listTaskConflicts(USER_ID);
 
-  await resolveTaskConflictWithLocal(conflict);
+  await keepLocalTask(conflict);
 
   await expect(listTaskConflicts(USER_ID)).resolves.toEqual([]);
   await expect(listOutbox(USER_ID)).resolves.toEqual([

@@ -8,11 +8,7 @@ import {
   saveAuthAndEnqueue,
   saveAuthRecord,
 } from '@/offline/database';
-import {
-  createAuthenticatedSession,
-  createLoggedOutSession,
-  getOfflineUser,
-} from '@/auth/offlineSession';
+import { createAuthSession, createLogoutSession, getOfflineUser } from '@/auth/offlineSession';
 import type { CurrentSessionRead } from '@/auth/schemas';
 
 const API_ORIGIN = 'https://api.procradicator.test';
@@ -40,7 +36,7 @@ afterAll(async () => {
 
 it('uses the server-derived remaining lifetime for offline authentication', () => {
   const validatedAt = 5_000;
-  const record = createAuthenticatedSession(API_ORIGIN, currentSession, validatedAt);
+  const record = createAuthSession(API_ORIGIN, currentSession, validatedAt);
 
   expect(getOfflineUser(record, validatedAt + 3_599_999)).toEqual({
     id: USER_ID,
@@ -55,13 +51,13 @@ it('uses the server-derived remaining lifetime for offline authentication', () =
 });
 
 it('fails closed when the client clock moves behind validation time', () => {
-  const record = createAuthenticatedSession(API_ORIGIN, currentSession, 5_000);
+  const record = createAuthSession(API_ORIGIN, currentSession, 5_000);
 
   expect(getOfflineUser(record, 4_999)).toBeNull();
 });
 
 it('persists a validated session independently of the query cache', async () => {
-  const record = createAuthenticatedSession(API_ORIGIN, currentSession, 5_000);
+  const record = createAuthSession(API_ORIGIN, currentSession, 5_000);
 
   await saveAuthRecord(record);
 
@@ -69,9 +65,9 @@ it('persists a validated session independently of the query cache', async () => 
 });
 
 it('atomically stores an offline logout tombstone and logout operation', async () => {
-  const authenticated = createAuthenticatedSession(API_ORIGIN, currentSession, 5_000);
+  const authenticated = createAuthSession(API_ORIGIN, currentSession, 5_000);
   await saveAuthRecord(authenticated);
-  const { record, operation } = createLoggedOutSession(
+  const { record, operation } = createLogoutSession(
     authenticated,
     6_000,
     '1b8c7988-fd4d-4275-8986-c7334ac6d0e1',
@@ -85,8 +81,8 @@ it('atomically stores an offline logout tombstone and logout operation', async (
 });
 
 it('keeps the logout tombstone after the server acknowledges logout', async () => {
-  const authenticated = createAuthenticatedSession(API_ORIGIN, currentSession, 5_000);
-  const { record, operation } = createLoggedOutSession(
+  const authenticated = createAuthSession(API_ORIGIN, currentSession, 5_000);
+  const { record, operation } = createLogoutSession(
     authenticated,
     6_000,
     '1b8c7988-fd4d-4275-8986-c7334ac6d0e1',

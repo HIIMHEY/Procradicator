@@ -2,20 +2,13 @@
 
 import 'fake-indexeddb/auto';
 
-import {
-  deleteOfflineDatabase,
-  getFocusSessionRecord,
-  listOutbox,
-} from '@/offline/database';
-import {
-  createLocalFocusSession,
-  saveLocalFocusProgress,
-} from '@/offline/focusStore';
+import { deleteOfflineDatabase, getFocusSessionRecord, listOutbox } from '@/offline/database';
+import { createLocalFocusSession, saveLocalFocusProgress } from '@/offline/focusStore';
 import {
   flushFocusOutbox,
+  keepLocalFocus,
+  keepServerFocus,
   listFocusConflicts,
-  resolveFocusConflictWithLocal,
-  resolveFocusConflictWithServer,
 } from '@/offline/focusSync';
 
 const USER_ID = '9b97c715-d720-4ffc-88e6-f395be319dda';
@@ -156,6 +149,63 @@ test('flushes focus operations FIFO and chains the acknowledged version', async 
   });
 });
 
+test('accepts timezone-less timestamps returned by the backend', async () => {
+  const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
+  jest.mocked(globalThis.fetch).mockResolvedValue(
+    response({
+      ...created.session,
+      start_at: '2026-07-27T09:00:00.000000',
+      updated_at: '2026-07-27T09:01:00.000000',
+      version: 1,
+    }),
+  );
+
+  await flushFocusOutbox(USER_ID);
+
+  await expect(listOutbox(USER_ID)).resolves.toEqual([]);
+});
+
+test('turns a conflicting focus create replay into a user choice', async () => {
+  const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
+  await saveLocalFocusProgress(
+    USER_ID,
+    created.session.id,
+    { ...created.state, phase: 'CONGRATS' },
+    {
+      focus_logs: [],
+      rest_logs: [],
+      completed_subtask_ids: [],
+      work_cycles: 1,
+      rest_cycles: 0,
+      total_overtime_s: 0,
+    },
+    true,
+    '2026-07-27T09:30:00.000Z',
+  );
+  const remote = {
+    ...created.session,
+    updated_at: '2026-07-27T09:20:00.000Z',
+    version: 2,
+    work_cycles: 1,
+  };
+  jest
+    .mocked(globalThis.fetch)
+    .mockResolvedValueOnce(response({ detail: 'Focus session already exists' }, 409))
+    .mockResolvedValueOnce(response(remote));
+
+  await flushFocusOutbox(USER_ID);
+
+  await expect(listFocusConflicts(USER_ID)).resolves.toEqual([
+    expect.objectContaining({
+      entityId: created.session.id,
+      localSession: expect.objectContaining({
+        state: expect.objectContaining({ phase: 'CONGRATS' }),
+      }),
+      serverSession: expect.objectContaining({ version: 2 }),
+    }),
+  ]);
+});
+
 test('retains failed operations and lets the user resolve a version conflict', async () => {
   const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
   const before = await listOutbox(USER_ID);
@@ -192,7 +242,7 @@ test('retains failed operations and lets the user resolve a version conflict', a
 
   const [localChoice] = await listFocusConflicts(USER_ID);
   expect(localChoice.serverSession.version).toBe(4);
-  await resolveFocusConflictWithLocal(localChoice);
+  await keepLocalFocus(localChoice);
   await expect(listOutbox(USER_ID)).resolves.toEqual([
     expect.objectContaining({
       operation: 'focus-update',
@@ -207,7 +257,7 @@ test('retains failed operations and lets the user resolve a version conflict', a
     );
   await flushFocusOutbox(USER_ID);
   const [serverChoice] = await listFocusConflicts(USER_ID);
-  await resolveFocusConflictWithServer(serverChoice);
+  await keepServerFocus(serverChoice);
 
   await expect(listFocusConflicts(USER_ID)).resolves.toEqual([]);
   await expect(listOutbox(USER_ID)).resolves.toEqual([]);

@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { TaskConflictError, sendTaskOperation } from '@/task/taskApi';
+import { listServerTasks, sendTaskOp, TaskConflictError } from '@/task/taskApi';
 import type { OutboxRecord } from '@/offline/database';
 import { API_ROUTES } from '@/config/env';
 
@@ -70,7 +70,7 @@ beforeEach(() => {
 test('create sends stable task and operation IDs', async () => {
   jest.mocked(globalThis.fetch).mockResolvedValue(response(serverTask, 201));
 
-  await expect(sendTaskOperation(operation('create', null))).resolves.toEqual(serverTask);
+  await expect(sendTaskOp(operation('create', null))).resolves.toEqual(serverTask);
 
   expect(globalThis.fetch).toHaveBeenCalledWith(API_ROUTES.TASKS.BASE, {
     method: 'POST',
@@ -88,7 +88,7 @@ test('update sends If-Match and exposes a 412 server version', async () => {
     .mocked(globalThis.fetch)
     .mockResolvedValue(response({ detail: 'Task changed on the server', server: serverTask }, 412));
 
-  const error = await sendTaskOperation(operation('update', 2)).catch((caught) => caught);
+  const error = await sendTaskOp(operation('update', 2)).catch((caught) => caught);
 
   expect(globalThis.fetch).toHaveBeenCalledWith(API_ROUTES.TASKS.DETAIL(TASK_ID), {
     method: 'PUT',
@@ -107,7 +107,7 @@ test('update sends If-Match and exposes a 412 server version', async () => {
 test('delete sends the frozen version and accepts an empty response', async () => {
   jest.mocked(globalThis.fetch).mockResolvedValue(response(undefined, 204));
 
-  await expect(sendTaskOperation(operation('delete', 3))).resolves.toBeNull();
+  await expect(sendTaskOp(operation('delete', 3))).resolves.toBeNull();
 
   expect(globalThis.fetch).toHaveBeenCalledWith(API_ROUTES.TASKS.DETAIL(TASK_ID), {
     method: 'DELETE',
@@ -118,4 +118,15 @@ test('delete sends the frozen version and accepts an empty response', async () =
     },
     credentials: 'include',
   });
+});
+
+test('task pull accepts timezone-less timestamps returned by the backend', async () => {
+  const backendTask = {
+    ...serverTask,
+    due_at: '2026-07-27T01:02:15.520000',
+    updated_at: '2026-07-27T01:02:41.864056',
+  };
+  jest.mocked(globalThis.fetch).mockResolvedValue(response([backendTask], 200));
+
+  await expect(listServerTasks(1, 100)).resolves.toEqual([backendTask]);
 });

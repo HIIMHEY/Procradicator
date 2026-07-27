@@ -5,7 +5,7 @@ import 'fake-indexeddb/auto';
 import { LandingScreen } from '@/auth/components/LandingScreen';
 import { LoginForm } from '@/auth/components/LoginForm';
 import { RegisterForm } from '@/auth/components/RegisterForm';
-import { createAuthenticatedSession, createLoggedOutSession } from '@/auth/offlineSession';
+import { createAuthSession, createLogoutSession } from '@/auth/offlineSession';
 import { API_ROUTES } from '@/config/env';
 import { deleteOfflineDatabase, readAuthRecord, saveAuthAndEnqueue } from '@/offline/database';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
@@ -110,12 +110,8 @@ test('login form sends username and password as form data', async () => {
 });
 
 test('login flushes an offline logout before replacing its tombstone', async () => {
-  const authenticated = createAuthenticatedSession(
-    'http://localhost:8000',
-    currentSession,
-    Date.now(),
-  );
-  const logout = createLoggedOutSession(
+  const authenticated = createAuthSession('http://localhost:8000', currentSession, Date.now());
+  const logout = createLogoutSession(
     authenticated,
     Date.now(),
     '8d125649-03c4-4adf-b609-847a431713dd',

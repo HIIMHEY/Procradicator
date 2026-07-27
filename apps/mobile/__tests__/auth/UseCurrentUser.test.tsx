@@ -10,7 +10,7 @@ import {
   shouldRetryCurrentUser,
   useCurrentUser,
 } from '@/auth/hooks/useCurrentUser';
-import { createAuthenticatedSession } from '@/auth/offlineSession';
+import { createAuthSession } from '@/auth/offlineSession';
 import type { CurrentSessionRead } from '@/auth/schemas';
 import { deleteOfflineDatabase, readAuthRecord, saveAuthRecord } from '@/offline/database';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -66,7 +66,7 @@ test('current user check retries for the backend startup window', () => {
 test('a valid stored session authenticates immediately while offline', async () => {
   setOnline(false);
   const fetchSpy = jest.spyOn(globalThis, 'fetch');
-  const record = createAuthenticatedSession('http://localhost:8000', currentSession, Date.now());
+  const record = createAuthSession('http://localhost:8000', currentSession, Date.now());
   await saveAuthRecord(record);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },

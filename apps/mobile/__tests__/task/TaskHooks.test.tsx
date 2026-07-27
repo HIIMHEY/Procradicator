@@ -3,7 +3,7 @@
 import 'fake-indexeddb/auto';
 
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
-import { createAuthenticatedSession } from '@/auth/offlineSession';
+import { createAuthSession } from '@/auth/offlineSession';
 import { deleteOfflineDatabase, saveAuthRecord } from '@/offline/database';
 import { createLocalTask } from '@/offline/taskStore';
 import useCreateTask from '@/task/hooks/useCreateTask';
@@ -39,7 +39,7 @@ function values(title: string): ModifyTaskData {
 
 async function seedSession(): Promise<void> {
   await saveAuthRecord(
-    createAuthenticatedSession(
+    createAuthSession(
       'http://localhost:8000',
       {
         id: USER_ID,
