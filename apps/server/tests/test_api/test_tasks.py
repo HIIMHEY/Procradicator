@@ -55,7 +55,12 @@ class RecordingTaskService:
         self.page: int | None = None
         self.limit: int | None = None
 
-    async def create_map(self, payload: CreateTask, user_id: UUID) -> Task:
+    async def create_map(
+        self,
+        payload: CreateTask,
+        user_id: UUID,
+        op_id: UUID | None = None,
+    ) -> Task:
         self.user_id = user_id
         return Task(
             id=uuid4(),

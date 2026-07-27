@@ -1,26 +1,22 @@
-import { API_ROUTES } from '@/config/env';
+import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { readServerFocusSession } from '@/focus_session/focusApi';
+import { getLocalFocusSession } from '@/offline/focusStore';
 import { useQuery } from '@tanstack/react-query';
-import { StatusCodes } from 'http-status-codes';
-
-import type { FocusSessionResponse } from '../schemas';
-import { FocusSessionResponseSchema } from '../schemas';
-
-const readFocusSession = async (sessionId: string): Promise<FocusSessionResponse | null> => {
-  const res = await fetch(API_ROUTES.FOCUS.DETAIL(sessionId), {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-  });
-  if (res.status === StatusCodes.NOT_FOUND) return null;
-  if (!res.ok) throw new Error(String(res.status));
-  const data = await res.json();
-  return FocusSessionResponseSchema.parse(data);
-};
 
 export default function useReadFocusSession(sessionId: string | null) {
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id;
+  const hasLocalDb = typeof indexedDB !== 'undefined';
   return useQuery({
-    queryKey: ['focus', 'detail', sessionId],
-    queryFn: () => readFocusSession(sessionId as string),
-    enabled: !!sessionId,
+    queryKey: ['focus', userId ?? 'server-session', 'detail', sessionId],
+    queryFn: async () => {
+      if (hasLocalDb && userId) {
+        const local = await getLocalFocusSession(userId, sessionId as string);
+        if (local) return local.session;
+      }
+      return readServerFocusSession(sessionId as string);
+    },
+    enabled: Boolean(sessionId) && (Boolean(userId) || !hasLocalDb),
+    networkMode: 'always',
   });
 }

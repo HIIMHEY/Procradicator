@@ -20,10 +20,18 @@ class Task(SQLModel, table=True):
     description: str | None = None
     due_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    version: int = Field(default=1, ge=1)
+    last_op_id: uuid.UUID | None = None
     deleted_at: datetime | None = None
     subtasks: list["Subtask"] = Relationship(
         back_populates="task",
     )
+
+    def record_change(self, op_id: uuid.UUID | None = None) -> None:
+        self.updated_at = datetime.now(UTC)
+        self.version += 1
+        self.last_op_id = op_id
 
 
 class Subtask(SQLModel, table=True):

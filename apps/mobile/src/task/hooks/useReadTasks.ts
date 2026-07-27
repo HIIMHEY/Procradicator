@@ -1,29 +1,25 @@
-import { API_ROUTES } from '@/config/env';
+import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { listLocalTasks } from '@/offline/taskStore';
+import { listServerTasks } from '@/task/taskApi';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { StatusCodes } from 'http-status-codes';
 
-const readTask = async ({ pageParam, limit }: { pageParam: number; limit: number }) => {
-  const res = await fetch(`${API_ROUTES.TASKS.BASE}?page=${pageParam}&limit=${limit}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error(String(res.status));
-  if (res.status == StatusCodes.NO_CONTENT) return {};
-  return res.json();
-};
-
-//inf scroll tasklist
-export default function useReadTask(limit: number = 20) {
+export default function useReadTasks(limit = 20) {
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id;
+  const hasLocalDb = typeof indexedDB !== 'undefined';
   return useInfiniteQuery({
-    queryKey: ['task', 'list', limit],
-    queryFn: ({ pageParam }) => readTask({ pageParam, limit }),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage || lastPage.length === 0 || lastPage.length < limit) {
-        return undefined;
-      }
-      return allPages.length + 1;
+    queryKey: ['task', userId ?? 'server-session', 'list', limit],
+    queryFn: async ({ pageParam }) => {
+      if (!hasLocalDb) return listServerTasks(pageParam, limit);
+      if (!userId) return [];
+      const tasks = await listLocalTasks(userId);
+      const start = (pageParam - 1) * limit;
+      return tasks.slice(start, start + limit);
     },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < limit ? undefined : allPages.length + 1,
+    enabled: Boolean(userId) || !hasLocalDb,
+    networkMode: 'always',
   });
 }

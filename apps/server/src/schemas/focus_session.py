@@ -1,14 +1,16 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 class CreateFocusSession(BaseModel):
+    id: UUID | None = None
     subtask_id: UUID
 
 
 class WorkLogData(BaseModel):
+    id: UUID | None = None
     subtask_id: UUID
     start_at: datetime
     stop_at: datetime
@@ -23,6 +25,7 @@ class WorkLogData(BaseModel):
 
 
 class RestLogData(BaseModel):
+    id: UUID | None = None
     start_at: datetime
     stop_at: datetime
 
@@ -36,9 +39,9 @@ class RestLogData(BaseModel):
 
 
 class UpdateFocusSession(BaseModel):
-    focus_logs: list[WorkLogData] = []
-    rest_logs: list[RestLogData] = []
-    completed_subtask_ids: list[UUID] = []
+    focus_logs: list[WorkLogData] = Field(default_factory=list)
+    rest_logs: list[RestLogData] = Field(default_factory=list)
+    completed_subtask_ids: list[UUID] = Field(default_factory=list)
     work_cycles: int | None = None
     rest_cycles: int | None = None
     abandon_reason: str | None = Field(default=None, max_length=500)
@@ -49,7 +52,9 @@ class GetFocusSession(BaseModel):
     id: UUID
     user_id: UUID
     start_at: datetime
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_at: datetime | None
+    version: int = 1
     work_cycle_m: int
     rest_cycle_m: int
     work_cycles: int

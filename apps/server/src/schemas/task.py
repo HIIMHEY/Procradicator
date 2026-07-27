@@ -22,6 +22,7 @@ class CreateSubtask(BaseModel):
 
 
 class CreateTask(BaseModel):
+    id: UUID | None = None
     title: str = Field(..., description="The overall goal")
     description: str | None = None
     due_at: datetime = Field(..., description="When the task is due")
@@ -71,5 +72,7 @@ class GetTask(BaseModel):
     title: str
     description: str | None
     due_at: datetime
-    subtasks: list[GetSubtask] = []
+    updated_at: datetime
+    version: int
+    subtasks: list[GetSubtask] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)

@@ -10,8 +10,10 @@
     "@hookform/resolvers": "^5.4.0",
     "@legendapp/motion": "^2.5.3",
     "@tailwindcss/postcss": "^4.3.0",
+    "@tanstack/query-async-storage-persister": "^5.101.0",
     "@tanstack/react-form": "^1.33.0",
     "@tanstack/react-query": "^5.101.0",
+    "@tanstack/react-query-persist-client": "^5.101.0",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.21",
     "expo": "~56.0.12",
@@ -69,6 +71,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-native": "^5.0.0",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^17.6.0",
     "jest": "29.7.0",
     "jest-environment-jsdom": "29.7.0",
@@ -80,7 +83,8 @@
     "react-test-renderer": "19.2.3",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.61.1"
+    "typescript-eslint": "^8.61.1",
+    "workbox-cli": "^7.4.1"
   },
   "scripts": {
     "start": "expo start",
@@ -90,6 +94,7 @@
     "web": "expo start --web",
     "lint": "eslint . --fix",
     "test": "jest --watchAll=false --detectOpenHandles",
+    "build:web": "npx expo export --platform web && npx workbox generateSW workbox-config.js",
     "format": "prettier . --write",
     "typechk": "pnpm exec tsc --noEmit"
   },

@@ -60,6 +60,10 @@ class DuplicateItemError(ServiceError):
     pass
 
 
+class VersionConflictError(ServiceError):
+    pass
+
+
 class DependencyUnavailableError(ServiceError):
     # raised when service cannot proceed because a critical resource is locked or offline
     pass

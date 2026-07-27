@@ -1,4 +1,3 @@
-import dayjs from 'dayjs';
 import { Subtask, ModifySubtaskData } from '@/task/schema';
 
 //maps curr subtask id -> prev subtask id
@@ -59,7 +58,7 @@ export function formatSubtasks(
 ): ModifySubtaskData[] {
   return (toposort(subtasks, depMap) || []).map((subtask) => ({
     ...subtask,
-    id: subtask.id || `temp-${dayjs().toISOString()}`,
+    id: subtask.id || crypto.randomUUID(),
     depends_on: depMap.get(subtask.id) || [],
   })) as ModifySubtaskData[];
 }

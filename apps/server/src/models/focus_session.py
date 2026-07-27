@@ -11,7 +11,10 @@ class FocusSession(SQLModel, table=True):
     user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
     abandon_reason: str | None = None
     start_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_at: datetime | None = None
+    version: int = Field(default=1, ge=1)
+    last_op_id: uuid.UUID | None = None
     work_cycle_m: int
     rest_cycle_m: int
     work_cycles: int = Field(default=0)
@@ -19,6 +22,11 @@ class FocusSession(SQLModel, table=True):
     total_overtime_s: int = Field(default=0)
     focus_logs: list["FocusLog"] = Relationship(back_populates="focus_session")
     rest_logs: list["RestLog"] = Relationship(back_populates="focus_session")
+
+    def record_change(self, op_id: uuid.UUID | None = None) -> None:
+        self.updated_at = datetime.now(UTC)
+        self.version += 1
+        self.last_op_id = op_id
 
     def guard_active(self) -> None:
         if self.end_at is not None:

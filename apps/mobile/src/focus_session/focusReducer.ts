@@ -53,6 +53,7 @@ function closeActiveSegment(state: State, subtaskId: string | null) {
     focusLogs = [
       ...focusLogs,
       {
+        id: crypto.randomUUID(),
         subtask_id: subtaskId,
         start_at: new Date(state.phaseStartedAt).toISOString(),
         stop_at: now,
@@ -61,7 +62,11 @@ function closeActiveSegment(state: State, subtaskId: string | null) {
   } else if (activePhase === 'REST' && state.phaseStartedAt) {
     restLogs = [
       ...restLogs,
-      { start_at: new Date(state.phaseStartedAt).toISOString(), stop_at: now },
+      {
+        id: crypto.randomUUID(),
+        start_at: new Date(state.phaseStartedAt).toISOString(),
+        stop_at: now,
+      },
     ];
   }
 
@@ -105,6 +110,7 @@ export function focusReducer(state: State, action: Action): State {
         focusLogs: [
           ...state.focusLogs,
           {
+            id: crypto.randomUUID(),
             subtask_id: action.subtaskId,
             start_at: action.startAt,
             stop_at: new Date(action.now).toISOString(),
@@ -127,7 +133,10 @@ export function focusReducer(state: State, action: Action): State {
         phase: action.hasMore ? 'READY' : 'CONGRATS',
         currentIdx: action.hasMore ? state.currentIdx + 1 : state.currentIdx,
         restCycles: state.restCycles + (action.incrCycles ? 1 : 0),
-        restLogs: [...state.restLogs, { start_at: startAt, stop_at: now }],
+        restLogs: [
+          ...state.restLogs,
+          { id: crypto.randomUUID(), start_at: startAt, stop_at: now },
+        ],
         phaseStartedAt: action.hasMore ? Date.now() : state.phaseStartedAt,
       };
     }

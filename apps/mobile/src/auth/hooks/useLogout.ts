@@ -1,25 +1,27 @@
-import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-
-const logout = async (): Promise<void> => {
-  const response = await fetch(API_ROUTES.AUTH.LOGOUT, {
-    method: 'POST',
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    throw new Error('Could not log out.');
-  }
-};
+import {
+  flushPendingLogout,
+  isDefinitelyOffline,
+  persistLocalLogout,
+  tryRemoteLogout,
+} from '../sessionManager';
 
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
-      queryClient.removeQueries({ queryKey: ['analytics'] });
-      queryClient.removeQueries({ queryKey: ['friends'] });
+    mutationKey: ['auth', 'logout'],
+    mutationFn: async () => {
+      const hasLocalLogout = await persistLocalLogout();
+      await queryClient.cancelQueries();
+      queryClient.removeQueries();
       queryClient.setQueryData(['auth', 'me'], null);
-      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      if (hasLocalLogout) {
+        if (!isDefinitelyOffline()) {
+          void flushPendingLogout();
+        }
+      } else {
+        void tryRemoteLogout();
+      }
     },
   });
 }

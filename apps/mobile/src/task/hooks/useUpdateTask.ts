@@ -1,27 +1,24 @@
-import { API_ROUTES } from '@/config/env';
+import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { updateLocalTask } from '@/offline/taskStore';
+import { requestSync } from '@/offline/TaskSyncProvider';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ModifyTaskData } from '../schema';
-import { StatusCodes } from 'http-status-codes';
-
-const updateTask = (id: string) => async (values: ModifyTaskData) => {
-  const res = await fetch(`${API_ROUTES.TASKS.BASE}/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(values),
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error(String(res.status));
-  if (res.status == StatusCodes.NO_CONTENT) return {};
-  return res.json();
-};
+import type { ModifyTaskData } from '../schema';
 
 export default function useUpdateTask(id: string) {
   const client = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id;
   return useMutation({
-    mutationFn: updateTask(id),
-    onSettled: () => {
-      client.invalidateQueries({ queryKey: ['task', 'list'] });
-      client.invalidateQueries({ queryKey: ['task', 'detail', id] });
+    mutationKey: ['task', userId, 'update', id],
+    mutationFn: (values: ModifyTaskData) => {
+      if (!userId) throw new Error('You must be logged in to update a task');
+      return updateLocalTask(userId, id, values);
+    },
+    networkMode: 'always',
+    onSuccess: (task) => {
+      client.setQueryData(['task', userId, 'detail', id], task);
+      void client.invalidateQueries({ queryKey: ['task', userId, 'list'] });
+      requestSync();
     },
   });
 }

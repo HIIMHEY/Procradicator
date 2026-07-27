@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 
 from src.exceptions import (
     DependencyUnavailableError,
+    DuplicateItemError,
     ForbiddenError,
     InvalidOperationError,
     ItemNotFoundError,
@@ -23,6 +24,11 @@ def raise_focus_http_exception(error: Exception) -> None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(error),
+        ) from error
+    if isinstance(error, DuplicateItemError):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Focus session creation violated a uniqueness constraint",
         ) from error
     if isinstance(error, DependencyUnavailableError):
         raise HTTPException(
