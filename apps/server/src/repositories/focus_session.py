@@ -40,6 +40,10 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
     async def create_focus_logs(self, session_id: UUID, logs: list[WorkLogData]) -> None:
         try:
             for log in logs:
+                if log.id is not None:
+                    existing = await self.session.get(FocusLog, log.id)
+                    if existing is not None and existing.focus_session_id == session_id:
+                        continue
                 self.session.add(
                     FocusLog(
                         id=log.id or uuid4(),
@@ -58,6 +62,10 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
     async def create_rest_logs(self, session_id: UUID, logs: list[RestLogData]) -> None:
         try:
             for log in logs:
+                if log.id is not None:
+                    existing = await self.session.get(RestLog, log.id)
+                    if existing is not None and existing.focus_session_id == session_id:
+                        continue
                 self.session.add(
                     RestLog(
                         id=log.id or uuid4(),

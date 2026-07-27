@@ -8,7 +8,15 @@ import {
   resolveTaskConflictWithLocal,
   resolveTaskConflictWithServer,
 } from '@/offline/taskSync';
-import type { TaskConflictRecord } from '@/offline/databaseTypes';
+import {
+  listFocusConflicts,
+  resolveFocusConflictWithLocal,
+  resolveFocusConflictWithServer,
+} from '@/offline/focusSync';
+import type {
+  FocusConflictRecord,
+  TaskConflictRecord,
+} from '@/offline/databaseTypes';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
@@ -17,14 +25,19 @@ import { Pressable } from 'react-native';
 export default function ConflictModal() {
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
-  const [conflict, setConflict] = useState<TaskConflictRecord | null>(null);
+  const [conflict, setConflict] = useState<
+    TaskConflictRecord | FocusConflictRecord | null
+  >(null);
 
   const refresh = useCallback(async () => {
     if (!currentUser) {
       setConflict(null);
       return;
     }
-    const conflicts = await listTaskConflicts(currentUser.id);
+    const conflicts = [
+      ...(await listTaskConflicts(currentUser.id)),
+      ...(await listFocusConflicts(currentUser.id)),
+    ].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     setConflict(conflicts[0] ?? null);
   }, [currentUser]);
 
@@ -37,22 +50,44 @@ export default function ConflictModal() {
   const finishResolution = async () => {
     if (!currentUser || !conflict) return;
     await queryClient.invalidateQueries({ queryKey: ['task', currentUser.id] });
+    await queryClient.invalidateQueries({ queryKey: ['focus', currentUser.id] });
     await refresh();
   };
 
   const handleKeepMine = async () => {
     if (!conflict) return;
-    await resolveTaskConflictWithLocal(conflict);
+    if ('localSession' in conflict) {
+      await resolveFocusConflictWithLocal(conflict);
+    } else {
+      await resolveTaskConflictWithLocal(conflict);
+    }
     await finishResolution();
   };
 
   const handleKeepServer = async () => {
     if (!conflict) return;
-    await resolveTaskConflictWithServer(conflict);
+    if ('localSession' in conflict) {
+      await resolveFocusConflictWithServer(conflict);
+    } else {
+      await resolveTaskConflictWithServer(conflict);
+    }
     await finishResolution();
   };
 
   if (!conflict) return null;
+  const isFocusConflict = 'localSession' in conflict;
+  const localLabel = isFocusConflict
+    ? `${conflict.localSession.state.completedIds.length} completed subtasks`
+    : (conflict.localTask?.title ?? 'Deleted on this device');
+  const serverLabel = isFocusConflict
+    ? `${conflict.serverSession.work_cycles} work cycles`
+    : conflict.serverTask.title;
+  const localUpdatedAt = isFocusConflict
+    ? conflict.localSession.session.updated_at
+    : (conflict.localTask?.updated_at ?? conflict.createdAt);
+  const serverUpdatedAt = isFocusConflict
+    ? conflict.serverSession.updated_at
+    : conflict.serverTask.updated_at;
 
   return (
     <Box className="absolute inset-0 z-50 items-center justify-center bg-black/50">
@@ -61,21 +96,21 @@ export default function ConflictModal() {
           Conflict Detected
         </Heading>
         <Text className="mb-4 text-sm text-gray-600">
-          This task changed on the server while you were offline. Choose which version to keep.
+          This {isFocusConflict ? 'focus session' : 'task'} changed on the server while you were
+          offline. Choose which version to keep.
         </Text>
         <Box className="mb-2 rounded-lg border border-gray-200 p-3">
           <Text className="mb-1 text-xs font-semibold text-gray-500">YOUR LOCAL VERSION</Text>
-          <Text>{conflict.localTask?.title ?? 'Deleted on this device'}</Text>
+          <Text>{localLabel}</Text>
           <Text className="text-xs text-gray-400">
-            Modified:{' '}
-            {dayjs(conflict.localTask?.updated_at ?? conflict.createdAt).format('MMM D, h:mm A')}
+            Modified: {dayjs(localUpdatedAt).format('MMM D, h:mm A')}
           </Text>
         </Box>
         <Box className="mb-4 rounded-lg border border-gray-200 p-3">
           <Text className="mb-1 text-xs font-semibold text-gray-500">SERVER VERSION</Text>
-          <Text>{conflict.serverTask.title}</Text>
+          <Text>{serverLabel}</Text>
           <Text className="text-xs text-gray-400">
-            Modified: {dayjs(conflict.serverTask.updated_at).format('MMM D, h:mm A')}
+            Modified: {dayjs(serverUpdatedAt).format('MMM D, h:mm A')}
           </Text>
         </Box>
         <Box className="flex-row justify-end gap-2">

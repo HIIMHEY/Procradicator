@@ -1,4 +1,5 @@
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { flushFocusOutbox } from './focusSync';
 import { flushTaskOutbox, pullServerTasks } from './taskSync';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
@@ -18,6 +19,7 @@ export default function TaskSyncProvider() {
   const synchronize = useCallback(async () => {
     if (!currentUser) return;
     await flushTaskOutbox(currentUser.id);
+    await flushFocusOutbox(currentUser.id);
     try {
       await pullServerTasks(currentUser.id);
     } catch {

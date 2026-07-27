@@ -234,6 +234,7 @@ test('EXIT_TO_CONGRATS records the active partial focus log', () => {
   expect(s.phase).toBe('CONGRATS');
   expect(s.focusLogs).toHaveLength(1);
   expect(s.focusLogs[0]).toEqual({
+    id: expect.any(String),
     subtask_id: 'st-2',
     start_at: '2026-06-01T12:05:00.000Z',
     stop_at: '2026-06-01T12:10:00.000Z',

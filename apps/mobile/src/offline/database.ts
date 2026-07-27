@@ -1,5 +1,9 @@
 import { openDatabase, requestResult, STORES, transactionDone } from './databaseCore';
-import type { LocalTaskRecord, OutboxRecord } from './databaseTypes';
+import type {
+  LocalFocusSessionRecord,
+  LocalTaskRecord,
+  OutboxRecord,
+} from './databaseTypes';
 
 export {
   acknowledgeLogout,
@@ -38,6 +42,67 @@ export async function getTaskRecord(
     transaction.objectStore(STORES.tasks).get(`${userId}:${taskId}`),
   );
   return result ?? null;
+}
+
+export async function saveFocusSessionAndEnqueue(
+  session: LocalFocusSessionRecord,
+  operation: OutboxRecord,
+): Promise<void> {
+  if (
+    session.userId !== operation.userId ||
+    session.session.id !== operation.entityId ||
+    operation.entityType !== 'focusSession'
+  ) {
+    throw new Error('Focus session and outbox operation must target the same user and entity');
+  }
+  const database = await openDatabase();
+  const transaction = database.transaction([STORES.focusSessions, STORES.outbox], 'readwrite');
+  transaction.objectStore(STORES.focusSessions).put(session);
+  transaction.objectStore(STORES.outbox).add(operation);
+  await transactionDone(transaction);
+}
+
+export async function saveFocusSession(session: LocalFocusSessionRecord): Promise<void> {
+  const database = await openDatabase();
+  const transaction = database.transaction(STORES.focusSessions, 'readwrite');
+  transaction.objectStore(STORES.focusSessions).put(session);
+  await transactionDone(transaction);
+}
+
+export async function getFocusSessionRecord(
+  userId: string,
+  sessionId: string,
+): Promise<LocalFocusSessionRecord | null> {
+  const database = await openDatabase();
+  const transaction = database.transaction(STORES.focusSessions, 'readonly');
+  const result = await requestResult<LocalFocusSessionRecord | undefined>(
+    transaction.objectStore(STORES.focusSessions).get(`${userId}:${sessionId}`),
+  );
+  return result ?? null;
+}
+
+export async function findFocusSessionRecord(
+  userId: string,
+  taskId: string,
+  subtaskId: string,
+): Promise<LocalFocusSessionRecord | null> {
+  const database = await openDatabase();
+  const transaction = database.transaction(STORES.focusSessions, 'readonly');
+  const records = await requestResult<LocalFocusSessionRecord[]>(
+    transaction.objectStore(STORES.focusSessions).getAll(),
+  );
+  return (
+    records
+      .filter(
+        (record) =>
+          record.userId === userId &&
+          record.taskId === taskId &&
+          record.subtaskId === subtaskId &&
+          !record.terminal,
+      )
+      .sort((left, right) => right.session.updated_at.localeCompare(left.session.updated_at))[0] ??
+    null
+  );
 }
 
 export async function listTaskRecords(userId: string): Promise<LocalTaskRecord[]> {

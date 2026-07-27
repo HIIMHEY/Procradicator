@@ -25,6 +25,12 @@ jest.mock('@/offline/taskSync', () => ({
   resolveTaskConflictWithServer: jest.fn(),
 }));
 
+jest.mock('@/offline/focusSync', () => ({
+  listFocusConflicts: jest.fn().mockResolvedValue([]),
+  resolveFocusConflictWithLocal: jest.fn(),
+  resolveFocusConflictWithServer: jest.fn(),
+}));
+
 const conflict = {
   id: '6ebca865-95b8-4128-b1a5-6c41897cd4df',
   userId: '9b97c715-d720-4ffc-88e6-f395be319dda',
