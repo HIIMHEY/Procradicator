@@ -14,6 +14,7 @@ import IndexRoute from '@/app/index';
 import RootLayout from '@/app/_layout';
 import TaskRoute from '@/app/tasks';
 import { LoginForm } from '@/auth/components/LoginForm';
+import { RegisterForm } from '@/auth/components/RegisterForm';
 import { API_ROUTES } from '@/config/env';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
@@ -45,7 +46,7 @@ const routes = {
   _layout: { default: RootLayout },
   index: { default: IndexRoute },
   login: { default: LoginForm },
-  register: { default: EmptyRoute },
+  register: { default: RegisterForm },
   'auth/sso/callback': { default: EmptyRoute },
   'analytics/index': { default: AnalyticsRoute },
   'friends/index': { default: EmptyRoute },
@@ -121,5 +122,37 @@ test('logged-out user cannot remain on the task dashboard', async () => {
   await waitFor(() => {
     expect(view.getPathname()).toBe('/');
     expect(screen.getByText('Procradicator')).toBeTruthy();
+  });
+});
+
+test('logout allows immediate login and registration', async () => {
+  mockFetch.mockImplementation((url: string) => {
+    if (url === API_ROUTES.AUTH.ME) {
+      return Promise.resolve(response(user));
+    }
+    if (url === API_ROUTES.AUTH.LOGOUT) {
+      return Promise.resolve(response({}));
+    }
+    return new Promise<Response>(() => undefined);
+  });
+  const view = renderRouter(routes, { initialUrl: '/tasks' });
+  expect(await screen.findByText('Your Tasks')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Log out' }));
+  await waitFor(() => {
+    expect(view.getPathname()).toBe('/');
+    expect(screen.getByLabelText('Go to register')).toBeTruthy();
+    expect(screen.getByLabelText('Go to login')).toBeTruthy();
+  });
+  fireEvent.press(screen.getByLabelText('Go to register'));
+  await waitFor(() => {
+    expect(view.getPathname()).toBe('/register');
+    expect(screen.getByPlaceholderText('Email')).toBeTruthy();
+  });
+  fireEvent.press(screen.getByLabelText('Go back'));
+  await waitFor(() => expect(view.getPathname()).toBe('/'));
+  fireEvent.press(screen.getByLabelText('Go to login'));
+  await waitFor(() => {
+    expect(view.getPathname()).toBe('/login');
+    expect(screen.getByPlaceholderText('Username')).toBeTruthy();
   });
 });

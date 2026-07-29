@@ -21,13 +21,19 @@ const loadRootHtml = (): RootHtml | null => {
   }
 };
 
-const renderRootHtml = (): string => {
+const renderRootHtml = (nodeEnv = process.env.NODE_ENV): string => {
   const RootHtml = loadRootHtml();
   if (!RootHtml) {
     expect(RootHtml).not.toBeNull();
     throw new Error('Root HTML is missing');
   }
-  return renderToStaticMarkup(<RootHtml>App</RootHtml>);
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = nodeEnv;
+  try {
+    return renderToStaticMarkup(<RootHtml>App</RootHtml>);
+  } finally {
+    process.env.NODE_ENV = previousNodeEnv;
+  }
 };
 
 describe('PWA shell', () => {
@@ -38,8 +44,8 @@ describe('PWA shell', () => {
     expect(manifest).toContain('href="/manifest.json"');
   });
 
-  test('registers the service worker after the page loads', () => {
-    const markup = renderRootHtml();
+  test('registers the service worker in production after the page loads', () => {
+    const markup = renderRootHtml('production');
     const script = markup.match(/<script\b[^>]*data-register-sw[^>]*>([\s\S]*?)<\/script>/)?.[1];
     const register = jest.fn<() => Promise<void>>().mockResolvedValue();
     let handleLoad: (() => void) | undefined;
@@ -56,5 +62,23 @@ describe('PWA shell', () => {
 
     handleLoad?.();
     expect(register).toHaveBeenCalledWith('/sw.js');
+  });
+
+  test('does not register a service worker during development', () => {
+    const markup = renderRootHtml('development');
+    const script = markup.match(/<script\b[^>]*data-register-sw[^>]*>([\s\S]*?)<\/script>/)?.[1];
+    const register = jest.fn<() => Promise<void>>().mockResolvedValue();
+    let handleLoad: (() => void) | undefined;
+    const windowStub = {
+      addEventListener: (_event: string, listener: () => void) => {
+        handleLoad = listener;
+      },
+    };
+    const navigatorStub = { serviceWorker: { register } };
+
+    new Function('window', 'navigator', script ?? '')(windowStub, navigatorStub);
+    handleLoad?.();
+
+    expect(register).not.toHaveBeenCalled();
   });
 });

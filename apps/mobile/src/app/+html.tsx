@@ -22,7 +22,9 @@ export default function Root({ children }: PropsWithChildren) {
       </head>
       <body>
         {children}
-        <script data-register-sw dangerouslySetInnerHTML={{ __html: registerSw }} />
+        {process.env.NODE_ENV === 'production' ? (
+          <script data-register-sw dangerouslySetInnerHTML={{ __html: registerSw }} />
+        ) : null}
       </body>
     </html>
   );
