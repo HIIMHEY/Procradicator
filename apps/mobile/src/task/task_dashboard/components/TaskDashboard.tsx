@@ -37,7 +37,6 @@ export function TaskDashboard() {
   const handleLogout = async () => {
     try {
       await logout();
-      router.replace('/');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not log out.';
       toast.show({
