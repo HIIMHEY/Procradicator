@@ -1,10 +1,19 @@
 import { API_ROUTES } from '@/config/env';
-import type { FocusOutboxPayload, OutboxRecord } from '@/offline/databaseTypes';
 import {
+  CreateFocusSessionSchema,
   FocusSessionResponseSchema,
+  ReplaceFocusPayloadSchema,
+  UpdateFocusPayloadSchema,
   type FocusSessionResponse,
-  type UpdateFocusPayload,
 } from './schemas';
+
+export interface FocusRequest {
+  opId: string;
+  sessionId: string;
+  operation: 'focus-create' | 'focus-update' | 'focus-replace';
+  payload: unknown;
+  baseVersion: number | null;
+}
 
 export class FocusRequestError extends Error {
   constructor(public readonly status: number) {
@@ -18,46 +27,42 @@ export class FocusConflictError extends FocusRequestError {
   }
 }
 
-function focusPayload(operation: OutboxRecord): FocusOutboxPayload {
-  if (!operation.payload || typeof operation.payload !== 'object') {
-    throw new Error('Focus operation payload is missing');
-  }
-  return operation.payload as FocusOutboxPayload;
+function focusPayload(request: FocusRequest) {
+  if (request.operation === 'focus-create') return CreateFocusSessionSchema.parse(request.payload);
+  if (request.operation === 'focus-update') return UpdateFocusPayloadSchema.parse(request.payload);
+  return ReplaceFocusPayloadSchema.parse(request.payload);
 }
 
-function operationHeaders(operation: OutboxRecord): Record<string, string> {
+function operationHeaders(request: FocusRequest): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Idempotency-Key': operation.id,
+    'Idempotency-Key': request.opId,
   };
-  if (operation.baseVersion !== null) {
-    headers['If-Match'] = `"${operation.baseVersion}"`;
+  if (request.baseVersion !== null) {
+    headers['If-Match'] = `"${request.baseVersion}"`;
   }
   return headers;
 }
 
-export async function sendFocusOp(operation: OutboxRecord): Promise<FocusSessionResponse> {
-  if (operation.entityType !== 'focusSession') {
-    throw new Error('Expected a focus session operation');
-  }
-  const headers = operationHeaders(operation);
+export async function sendFocusOp(request: FocusRequest): Promise<FocusSessionResponse> {
+  const headers = operationHeaders(request);
   let response: Response;
-  if (operation.operation === 'focus-create') {
+  if (request.operation === 'focus-create') {
     response = await fetch(API_ROUTES.FOCUS.BASE, {
       method: 'POST',
       headers,
       credentials: 'include',
-      body: JSON.stringify(focusPayload(operation)),
+      body: JSON.stringify(focusPayload(request)),
     });
-  } else if (operation.operation === 'focus-update') {
-    response = await fetch(API_ROUTES.FOCUS.DETAIL(operation.entityId), {
-      method: 'PATCH',
+  } else if (request.operation === 'focus-update' || request.operation === 'focus-replace') {
+    response = await fetch(API_ROUTES.FOCUS.DETAIL(request.sessionId), {
+      method: request.operation === 'focus-replace' ? 'PUT' : 'PATCH',
       headers,
       credentials: 'include',
-      body: JSON.stringify(focusPayload(operation) as UpdateFocusPayload),
+      body: JSON.stringify(focusPayload(request)),
     });
   } else {
-    throw new Error(`Unsupported focus operation: ${operation.operation}`);
+    throw new Error(`Unsupported focus operation: ${request.operation}`);
   }
 
   if (response.status === 412) {

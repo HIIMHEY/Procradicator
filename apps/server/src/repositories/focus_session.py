@@ -3,12 +3,14 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import Depends
+from sqlalchemy import delete
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel.sql.expression import SelectOfScalar
 
 from src.db.sqlmodelorm import get_async_session
+from src.exceptions import ResourceNotFoundError
 from src.models.focus_session import FocusLog, FocusSession, RestLog
 from src.schemas.focus_session import RestLogData, WorkLogData
 from src.utils.db_exception_mapper import map_db_exception
@@ -35,6 +37,37 @@ class FocusSessionRepo(BaseRepo[FocusSession]):
         except SQLAlchemyError as e:
             await self.session.rollback()
             logger.error(f"Failed to read active focus session: {str(e)}", exc_info=True)
+            raise map_db_exception(e) from e
+
+    async def read_for_update(self, session_id: UUID) -> FocusSession:
+        try:
+            statement: SelectOfScalar[FocusSession] = (
+                select(FocusSession)
+                .where(col(FocusSession.id) == session_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            focus_session: FocusSession | None = (await self.session.exec(statement)).first()
+            if focus_session is None:
+                raise ResourceNotFoundError("record not found")
+            return focus_session
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error(f"Failed to lock focus session: {str(e)}", exc_info=True)
+            raise map_db_exception(e) from e
+
+    async def clear_logs(self, session_id: UUID) -> None:
+        try:
+            await self.session.exec(
+                delete(FocusLog).where(col(FocusLog.focus_session_id) == session_id)
+            )
+            await self.session.exec(
+                delete(RestLog).where(col(RestLog.focus_session_id) == session_id)
+            )
+            await self.session.flush()
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error(f"Failed to clear focus logs: {str(e)}", exc_info=True)
             raise map_db_exception(e) from e
 
     async def create_focus_logs(self, session_id: UUID, logs: list[WorkLogData]) -> None:

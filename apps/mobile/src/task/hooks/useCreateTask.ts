@@ -1,6 +1,6 @@
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { createLocalTask } from '@/offline/taskStore';
-import { requestSync } from '@/offline/TaskSyncProvider';
+import { requestSync } from '@/offline/syncEvents';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ModifyTaskData } from '../schema';
 

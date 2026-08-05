@@ -18,6 +18,7 @@ from src.models.user import User
 from src.schemas.focus_session import (
     CreateFocusSession,
     GetFocusSession,
+    ReplaceFocusSession,
     UpdateFocusSession,
 )
 from src.services.focus_session import FocusSessionService
@@ -138,6 +139,38 @@ async def update(
 ) -> GetFocusSession | JSONResponse:
     try:
         session = await focus_svc.update(
+            session_id,
+            current_user.id,
+            payload,
+            expected_version=_parse_etag(if_match),
+            op_id=idempotency_key,
+        )
+        response.headers["ETag"] = _focus_etag(session)
+        return session
+    except VersionConflictError as e:
+        return _version_conflict(e)
+    except (
+        ForbiddenError,
+        ItemNotFoundError,
+        InvalidOperationError,
+        DependencyUnavailableError,
+    ) as e:
+        raise_focus_http_exception(e)
+        raise
+
+
+@router.put("/{session_id}", response_model=GetFocusSession)
+async def replace(
+    session_id: UUID,
+    payload: ReplaceFocusSession,
+    focus_svc: Annotated[FocusSessionService, Depends()],
+    current_user: Annotated[User, Depends(current_active_user)],
+    response: Response,
+    if_match: Annotated[str | None, Header()] = None,
+    idempotency_key: Annotated[UUID | None, Header()] = None,
+) -> GetFocusSession | JSONResponse:
+    try:
+        session = await focus_svc.replace(
             session_id,
             current_user.id,
             payload,

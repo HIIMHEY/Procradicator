@@ -15,6 +15,7 @@ from src.models.user import User
 from src.schemas.focus_session import (
     CreateFocusSession,
     GetFocusSession,
+    ReplaceFocusSession,
     UpdateFocusSession,
 )
 from src.services.focus_session import FocusSessionService
@@ -38,52 +39,42 @@ def logged_in_user(user_id: UUID | None = None) -> User:
 
 
 def focus_session_response(user_id: UUID, **overrides: object) -> GetFocusSession:
-    return GetFocusSession(
-        id=uuid4(),
-        user_id=user_id,
-        start_at=datetime.now(UTC),
-        end_at=None,
-        work_cycle_m=20,
-        rest_cycle_m=5,
-        work_cycles=0,
-        rest_cycles=0,
-        total_overtime_s=0,
-        abandon_reason=None,
-        **overrides,  # type: ignore[arg-type]
-    )
+    values: dict[str, object] = {
+        "id": uuid4(),
+        "user_id": user_id,
+        "start_at": datetime.now(UTC),
+        "end_at": None,
+        "work_cycle_m": 20,
+        "rest_cycle_m": 5,
+        "work_cycles": 0,
+        "rest_cycles": 0,
+        "total_overtime_s": 0,
+        "abandon_reason": None,
+    }
+    values.update(overrides)
+    return GetFocusSession.model_validate(values)
 
 
-class RecordingFocusSessionService:
-    def __init__(self) -> None:
-        self.create_req: CreateFocusSession | None = None
-        self.create_user_id: UUID | None = None
-        self.create_op_id: UUID | None = None
-        self.read_session_id: UUID | None = None
-        self.read_user_id: UUID | None = None
-        self.update_session_id: UUID | None = None
-        self.update_user_id: UUID | None = None
-        self.update_req: UpdateFocusSession | None = None
-        self.update_expected_version: int | None = None
-        self.update_op_id: UUID | None = None
-
+class FakeFocusSessionService:
     async def create(
         self,
         req: CreateFocusSession,
         user_id: UUID,
         op_id: UUID | None = None,
     ) -> GetFocusSession:
-        self.create_req = req
-        self.create_user_id = user_id
-        self.create_op_id = op_id
-        return focus_session_response(user_id)
+        return focus_session_response(
+            user_id,
+            id=req.id or uuid4(),
+            start_at=req.start_at or datetime.now(UTC),
+            work_cycle_m=req.work_cycle_m or 20,
+            rest_cycle_m=req.rest_cycle_m or 5,
+        )
 
     async def read_active(self, user_id: UUID) -> GetFocusSession | None:
         return None
 
     async def read(self, session_id: UUID, user_id: UUID) -> GetFocusSession:
-        self.read_session_id = session_id
-        self.read_user_id = user_id
-        return focus_session_response(user_id)
+        return focus_session_response(user_id, id=session_id)
 
     async def update(
         self,
@@ -93,12 +84,35 @@ class RecordingFocusSessionService:
         expected_version: int | None = None,
         op_id: UUID | None = None,
     ) -> GetFocusSession:
-        self.update_session_id = session_id
-        self.update_user_id = user_id
-        self.update_req = req
-        self.update_expected_version = expected_version
-        self.update_op_id = op_id
-        return focus_session_response(user_id)
+        return focus_session_response(
+            user_id,
+            id=session_id,
+            work_cycles=req.work_cycles or 0,
+            rest_cycles=req.rest_cycles or 0,
+            version=(expected_version or 0) + 1,
+        )
+
+    async def replace(
+        self,
+        session_id: UUID,
+        user_id: UUID,
+        req: ReplaceFocusSession,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
+    ) -> GetFocusSession:
+        return focus_session_response(
+            user_id,
+            id=session_id,
+            start_at=req.start_at,
+            end_at=req.end_at,
+            work_cycle_m=req.work_cycle_m,
+            rest_cycle_m=req.rest_cycle_m,
+            work_cycles=req.work_cycles,
+            rest_cycles=req.rest_cycles,
+            total_overtime_s=req.total_overtime_s,
+            abandon_reason=req.abandon_reason,
+            version=(expected_version or 0) + 1,
+        )
 
 
 class ForbiddenFocusSessionService:
@@ -129,46 +143,56 @@ class UnavailableFocusSessionService:
 
 
 def test_create_focus_session_requires_login() -> None:
-    app.dependency_overrides[FocusSessionService] = lambda: RecordingFocusSessionService()
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
     response = TestClient(app).post("/focus", json={"subtask_id": str(uuid4())})
     assert response.status_code == 401
 
 
-def test_create_focus_session_passes_data() -> None:
+def test_create_focus_session_returns_a_session() -> None:
     user = logged_in_user()
-    focus_service = RecordingFocusSessionService()
     subtask_id = uuid4()
     app.dependency_overrides[current_active_user] = lambda: user
-    app.dependency_overrides[FocusSessionService] = lambda: focus_service
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
     response = TestClient(app).post(
         "/focus",
         json={"subtask_id": str(subtask_id)},
     )
     assert response.status_code == 201
-    assert focus_service.create_req is not None
-    assert focus_service.create_req.subtask_id == subtask_id
-    assert focus_service.create_user_id == user.id
+    assert response.json()["user_id"] == str(user.id)
 
 
-def test_create_focus_session_accepts_client_id_and_operation_key() -> None:
+def test_create_focus_session_preserves_the_client_id() -> None:
     user = logged_in_user()
-    focus_service = RecordingFocusSessionService()
     session_id = uuid4()
-    operation_id = uuid4()
     app.dependency_overrides[current_active_user] = lambda: user
-    app.dependency_overrides[FocusSessionService] = lambda: focus_service
-
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
     response = TestClient(app).post(
         "/focus",
         json={"id": str(session_id), "subtask_id": str(uuid4())},
-        headers={"Idempotency-Key": str(operation_id)},
     )
-
     assert response.status_code == 201
-    assert focus_service.create_req is not None
-    assert focus_service.create_req.model_dump().get("id") == session_id
-    assert focus_service.create_op_id == operation_id
+    assert response.json()["id"] == str(session_id)
     assert response.headers.get("etag") == '"1"'
+
+
+def test_create_focus_session_accepts_recorded_session_details() -> None:
+    user = logged_in_user()
+    started_at = "2026-07-27T09:00:00"
+    app.dependency_overrides[current_active_user] = lambda: user
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
+    response = TestClient(app).post(
+        "/focus",
+        json={
+            "subtask_id": str(uuid4()),
+            "start_at": started_at,
+            "work_cycle_m": 25,
+            "rest_cycle_m": 5,
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["start_at"] == f"{started_at}Z"
+    assert response.json()["work_cycle_m"] == 25
+    assert response.json()["rest_cycle_m"] == 5
 
 
 def test_create_focus_session_returns_503_when_dependency_is_unavailable() -> None:
@@ -183,9 +207,8 @@ def test_create_focus_session_returns_503_when_dependency_is_unavailable() -> No
 
 def test_get_active_focus_session_returns_null() -> None:
     user = logged_in_user()
-    focus_service = RecordingFocusSessionService()
     app.dependency_overrides[current_active_user] = lambda: user
-    app.dependency_overrides[FocusSessionService] = lambda: focus_service
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
     response = TestClient(app).get("/focus/active")
     assert response.status_code == 200
     assert response.json() is None
@@ -193,54 +216,76 @@ def test_get_active_focus_session_returns_null() -> None:
 
 def test_get_focus_session_returns_session() -> None:
     user = logged_in_user()
-    focus_service = RecordingFocusSessionService()
     session_id = uuid4()
     app.dependency_overrides[current_active_user] = lambda: user
-    app.dependency_overrides[FocusSessionService] = lambda: focus_service
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
     response = TestClient(app).get(f"/focus/{session_id}")
     assert response.status_code == 200
-    assert focus_service.read_session_id == session_id
-    assert focus_service.read_user_id == user.id
+    assert response.json()["id"] == str(session_id)
 
 
-def test_update_focus_session_passes_data() -> None:
+def test_update_focus_session_returns_the_updated_values() -> None:
     user = logged_in_user()
-    focus_service = RecordingFocusSessionService()
     session_id = uuid4()
     app.dependency_overrides[current_active_user] = lambda: user
-    app.dependency_overrides[FocusSessionService] = lambda: focus_service
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
     response = TestClient(app).patch(
         f"/focus/{session_id}",
         json={"work_cycles": 3},
     )
     assert response.status_code == 200
-    assert focus_service.update_session_id == session_id
-    assert focus_service.update_user_id == user.id
-    assert focus_service.update_req is not None
-    assert focus_service.update_req.work_cycles == 3
+    assert response.json()["id"] == str(session_id)
+    assert response.json()["work_cycles"] == 3
 
 
-def test_update_focus_session_uses_version_and_operation_headers() -> None:
+def test_update_focus_session_returns_the_next_version() -> None:
     user = logged_in_user()
-    focus_service = RecordingFocusSessionService()
     session_id = uuid4()
-    operation_id = uuid4()
     app.dependency_overrides[current_active_user] = lambda: user
-    app.dependency_overrides[FocusSessionService] = lambda: focus_service
-
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
     response = TestClient(app).patch(
         f"/focus/{session_id}",
         json={"work_cycles": 3},
-        headers={
-            "If-Match": '"7"',
-            "Idempotency-Key": str(operation_id),
+        headers={"If-Match": '"7"'},
+    )
+    assert response.status_code == 200
+    assert response.json()["version"] == 8
+    assert response.headers.get("etag") == '"8"'
+
+
+def test_replace_focus_session_returns_the_selected_local_copy() -> None:
+    user = logged_in_user()
+    session_id = uuid4()
+    subtask_id = uuid4()
+    started_at = "2026-07-27T09:00:00"
+    ended_at = "2026-07-27T09:25:00Z"
+    app.dependency_overrides[current_active_user] = lambda: user
+    app.dependency_overrides[FocusSessionService] = lambda: FakeFocusSessionService()
+    response = TestClient(app).put(
+        f"/focus/{session_id}",
+        json={
+            "subtask_id": str(subtask_id),
+            "start_at": started_at,
+            "work_cycle_m": 25,
+            "rest_cycle_m": 5,
+            "focus_logs": [],
+            "rest_logs": [],
+            "completed_subtask_ids": [],
+            "work_cycles": 1,
+            "rest_cycles": 0,
+            "total_overtime_s": 0,
+            "end_at": ended_at,
         },
+        headers={"If-Match": '"7"', "Idempotency-Key": str(uuid4())},
     )
-
     assert response.status_code == 200
-    assert focus_service.update_expected_version == 7
-    assert focus_service.update_op_id == operation_id
-    assert response.headers.get("etag") == '"1"'
+    body = response.json()
+    assert body["id"] == str(session_id)
+    assert body["start_at"] == f"{started_at}Z"
+    assert body["end_at"] == ended_at
+    assert body["work_cycles"] == 1
+    assert body["version"] == 8
+    assert response.headers.get("etag") == '"8"'
 
 
 def test_other_users_focus_session_returns_403() -> None:

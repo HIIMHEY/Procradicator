@@ -1,19 +1,20 @@
 import { getTaskRecord, listTaskRecords, saveTaskAndEnqueue } from './database';
-import type { LocalTaskRecord, OutboxRecord } from './databaseTypes';
+import { TaskOutboxRecordSchema } from './schemas';
+import type { LocalTaskRecord, TaskOutboxRecord } from './schemas';
 import type { ModifyTaskData, Task } from '@/task/schema';
-import type { TaskWritePayload } from '@/task/taskApi';
+import type { TaskWritePayload } from '@/task/schema';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function stableIds(values: ModifyTaskData): {
+function stableIds(values: ModifyTaskData, keepIds: boolean): {
   id: string;
   subtasks: TaskWritePayload['subtasks'];
 } {
-  const id = values.id && UUID_PATTERN.test(values.id) ? values.id : crypto.randomUUID();
+  const id = keepIds && values.id && UUID_PATTERN.test(values.id) ? values.id : crypto.randomUUID();
   const replacements = new Map(
     values.subtasks.map((subtask) => [
       subtask.id,
-      UUID_PATTERN.test(subtask.id) ? subtask.id : crypto.randomUUID(),
+      keepIds && UUID_PATTERN.test(subtask.id) ? subtask.id : crypto.randomUUID(),
     ]),
   );
   return {
@@ -39,7 +40,7 @@ function toTask(
   task: Task;
   payload: TaskWritePayload;
 } {
-  const normalized = stableIds({ ...values, id: values.id ?? previous?.id });
+  const normalized = stableIds({ ...values, id: values.id ?? previous?.id }, previous !== null);
   const nextById = new Map(normalized.subtasks.map((subtask) => [subtask.id, [] as string[]]));
   for (const subtask of normalized.subtasks) {
     for (const dependencyId of subtask.depends_on) {
@@ -77,8 +78,8 @@ function operation(
   payload: TaskWritePayload | null,
   baseVersion: number | null,
   now: string,
-): OutboxRecord {
-  return {
+): TaskOutboxRecord {
+  return TaskOutboxRecordSchema.parse({
     id: crypto.randomUUID(),
     userId,
     entityType: 'task',
@@ -87,7 +88,7 @@ function operation(
     payload,
     baseVersion,
     createdAt: now,
-  };
+  });
 }
 
 export async function createLocalTask(

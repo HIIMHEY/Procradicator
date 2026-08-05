@@ -1,7 +1,7 @@
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { API_ROUTES } from '@/config/env';
 import { saveLocalFocusProgress } from '@/offline/focusStore';
-import { requestSync } from '@/offline/TaskSyncProvider';
+import { requestSync } from '@/offline/syncEvents';
 import { useMutation } from '@tanstack/react-query';
 
 import type { State, SyncPosition, UpdateFocusPayload } from '../schemas';

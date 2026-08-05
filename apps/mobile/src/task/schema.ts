@@ -21,6 +21,23 @@ export const TaskSchema = z.object({
   deleted_at: z.iso.datetime({ local: true }).nullable().optional(),
 });
 
+export const TaskWritePayloadSchema = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  description: z.string().nullable().optional(),
+  due_at: z.iso.datetime({ local: true }),
+  subtasks: z.array(
+    z.object({
+      id: z.uuid(),
+      title: z.string(),
+      description: z.string().nullable().optional(),
+      est_m: z.number().int(),
+      is_done: z.boolean(),
+      depends_on: z.array(z.uuid()),
+    }),
+  ),
+});
+
 export const ModifySubtaskSchema = z.object({
   id: z.string(), //no msg as handled by form
   title: z
@@ -54,5 +71,6 @@ export const TaskModifyModeEnum = z.enum(['Create', 'Edit']);
 export type TaskModifyMode = z.infer<typeof TaskModifyModeEnum>;
 export type Task = z.infer<typeof TaskSchema>;
 export type Subtask = z.infer<typeof SubtaskSchema>;
+export type TaskWritePayload = z.infer<typeof TaskWritePayloadSchema>;
 export type ModifySubtaskData = z.infer<typeof ModifySubtaskSchema>;
 export type ModifyTaskData = z.infer<typeof ModifyTaskSchema>;

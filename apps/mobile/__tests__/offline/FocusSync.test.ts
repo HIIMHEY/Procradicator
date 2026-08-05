@@ -2,8 +2,13 @@
 
 import 'fake-indexeddb/auto';
 
-import { deleteOfflineDatabase, getFocusSessionRecord, listOutbox } from '@/offline/database';
-import { createLocalFocusSession, saveLocalFocusProgress } from '@/offline/focusStore';
+import { deleteOfflineDatabase } from '@/offline/database';
+import {
+  createLocalFocusSession,
+  getLocalFocusSession,
+  saveLocalFocusProgress,
+} from '@/offline/focusStore';
+import { createLocalTask, getLocalTask } from '@/offline/taskStore';
 import {
   flushFocusOutbox,
   keepLocalFocus,
@@ -32,7 +37,7 @@ afterAll(async () => {
   await deleteOfflineDatabase();
 });
 
-test('creates an immediately usable local session and queues its stable id', async () => {
+test('creates an immediately usable local session', async () => {
   const record = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 2, NOW);
 
   expect(record.session.id).toMatch(
@@ -43,33 +48,37 @@ test('creates an immediately usable local session and queues its stable id', asy
     currentIdx: 2,
     phase: 'READY',
   });
-  await expect(getFocusSessionRecord(USER_ID, record.session.id)).resolves.toEqual(record);
-  await expect(listOutbox(USER_ID)).resolves.toEqual([
-    expect.objectContaining({
-      entityType: 'focusSession',
-      entityId: record.session.id,
-      operation: 'focus-create',
-      baseVersion: null,
-      payload: {
-        id: record.session.id,
-        subtask_id: SUBTASK_ID,
-      },
-    }),
-  ]);
+  await expect(getLocalFocusSession(USER_ID, record.session.id)).resolves.toEqual(record);
 });
 
-test('stores focus progress and its sync intent in the same transaction', async () => {
-  const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
+test('stores completed focus progress offline', async () => {
+  const task = await createLocalTask(USER_ID, {
+    title: 'Offline task',
+    description: '',
+    due_at: '2026-08-01T09:00:00.000Z',
+    subtasks: [
+      {
+        id: crypto.randomUUID(),
+        title: 'Review notes',
+        description: '',
+        est_m: 25,
+        is_done: false,
+        depends_on: [],
+      },
+    ],
+  });
+  const subtaskId = task.subtasks[0].id;
+  const created = await createLocalFocusSession(USER_ID, task.id, subtaskId, 0, NOW);
   const logId = crypto.randomUUID();
   const progressed = {
     ...created.state,
     phase: 'CONGRATS' as const,
-    completedIds: [SUBTASK_ID],
+    completedIds: [subtaskId],
     workCycles: 1,
     focusLogs: [
       {
         id: logId,
-        subtask_id: SUBTASK_ID,
+        subtask_id: subtaskId,
         start_at: NOW,
         stop_at: '2026-07-27T09:25:00.000Z',
       },
@@ -78,11 +87,12 @@ test('stores focus progress and its sync intent in the same transaction', async 
   const payload = {
     focus_logs: progressed.focusLogs,
     rest_logs: [],
-    completed_subtask_ids: [SUBTASK_ID],
+    completed_subtask_ids: [subtaskId],
     work_cycles: 1,
     rest_cycles: 0,
     total_overtime_s: 0,
   };
+  const endedAt = '2026-07-27T09:25:00.000Z';
 
   const stored = await saveLocalFocusProgress(
     USER_ID,
@@ -90,19 +100,19 @@ test('stores focus progress and its sync intent in the same transaction', async 
     progressed,
     payload,
     true,
-    '2026-07-27T09:25:00.000Z',
+    endedAt,
   );
 
   expect(stored.state).toEqual(progressed);
   expect(stored.terminal).toBe(true);
-  await expect(listOutbox(USER_ID)).resolves.toEqual([
-    expect.objectContaining({ operation: 'focus-create' }),
-    expect.objectContaining({
-      operation: 'focus-update',
-      entityId: created.session.id,
-      payload,
-    }),
-  ]);
+  await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
+    terminal: true,
+    session: { end_at: endedAt },
+    state: progressed,
+  });
+  await expect(getLocalTask(USER_ID, task.id)).resolves.toMatchObject({
+    subtasks: [expect.objectContaining({ id: subtaskId, is_done: true })],
+  });
 });
 
 test('flushes focus operations FIFO and chains the acknowledged version', async () => {
@@ -141,9 +151,10 @@ test('flushes focus operations FIFO and chains the acknowledged version', async 
     string
   >;
   expect(secondHeaders['If-Match']).toBe('"1"');
-  await expect(listOutbox(USER_ID)).resolves.toEqual([]);
-  await expect(getFocusSessionRecord(USER_ID, created.session.id)).resolves.toMatchObject({
-    syncStatus: 'synced',
+  expect(JSON.parse(String(jest.mocked(globalThis.fetch).mock.calls[1][1]?.body))).toMatchObject({
+    end_at: '2026-07-27T09:30:00.000Z',
+  });
+  await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
     session: { version: 2 },
     state: { phase: 'CONGRATS' },
   });
@@ -162,7 +173,42 @@ test('accepts timezone-less timestamps returned by the backend', async () => {
 
   await flushFocusOutbox(USER_ID);
 
-  await expect(listOutbox(USER_ID)).resolves.toEqual([]);
+  await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
+    session: {
+      start_at: '2026-07-27T09:00:00.000000',
+      updated_at: '2026-07-27T09:01:00.000000',
+      version: 1,
+    },
+  });
+});
+
+test('sends the locally recorded session details when sync begins', async () => {
+  const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
+  let body: Record<string, unknown> = {};
+  jest.mocked(globalThis.fetch).mockImplementation(async (_url, options) => {
+    body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+    return response({
+      ...created.session,
+      version: 1,
+      start_at: body.start_at,
+      work_cycle_m: body.work_cycle_m,
+      rest_cycle_m: body.rest_cycle_m,
+    });
+  });
+
+  await flushFocusOutbox(USER_ID);
+
+  expect(body).toMatchObject({
+    id: created.session.id,
+    subtask_id: SUBTASK_ID,
+    start_at: NOW,
+    work_cycle_m: 25,
+    rest_cycle_m: 5,
+  });
+  await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
+    session: { start_at: NOW, work_cycle_m: 25, rest_cycle_m: 5 },
+    state: { workCycleM: 25, restCycleM: 5 },
+  });
 });
 
 test('turns a conflicting focus create replay into a user choice', async () => {
@@ -206,21 +252,31 @@ test('turns a conflicting focus create replay into a user choice', async () => {
   ]);
 });
 
-test('retains failed operations and lets the user resolve a version conflict', async () => {
+test('retries a focus session after a transport failure', async () => {
   const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
-  const before = await listOutbox(USER_ID);
   jest.mocked(globalThis.fetch).mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
   await flushFocusOutbox(USER_ID);
 
-  await expect(listOutbox(USER_ID)).resolves.toEqual(before);
-
-  const server = { ...created.session, version: 4, updated_at: '2026-07-27T10:00:00.000Z' };
   jest
     .mocked(globalThis.fetch)
-    .mockResolvedValueOnce(response(server, 201))
     .mockResolvedValueOnce(
-      response({ detail: 'Focus session changed on the server', server }, 412),
+      response({ ...created.session, version: 1, updated_at: '2026-07-27T09:01:00.000Z' }),
+    );
+  await flushFocusOutbox(USER_ID);
+
+  expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
+    session: { version: 1 },
+  });
+});
+
+test('lets the user choose either local or server focus changes', async () => {
+  const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
+  jest
+    .mocked(globalThis.fetch)
+    .mockResolvedValueOnce(
+      response({ ...created.session, version: 1, updated_at: '2026-07-27T09:01:00.000Z' }),
     );
   await flushFocusOutbox(USER_ID);
   await saveLocalFocusProgress(
@@ -238,31 +294,70 @@ test('retains failed operations and lets the user resolve a version conflict', a
     true,
     '2026-07-27T10:05:00.000Z',
   );
-  await flushFocusOutbox(USER_ID);
 
-  const [localChoice] = await listFocusConflicts(USER_ID);
-  expect(localChoice.serverSession.version).toBe(4);
-  await keepLocalFocus(localChoice);
-  await expect(listOutbox(USER_ID)).resolves.toEqual([
-    expect.objectContaining({
-      operation: 'focus-update',
-      baseVersion: 4,
-    }),
-  ]);
-
+  const server = {
+    ...created.session,
+    end_at: '2026-07-27T10:00:00.000Z',
+    version: 4,
+    updated_at: '2026-07-27T10:00:00.000Z',
+  };
   jest
     .mocked(globalThis.fetch)
     .mockResolvedValueOnce(
       response({ detail: 'Focus session changed on the server', server }, 412),
     );
   await flushFocusOutbox(USER_ID);
+
+  const [localChoice] = await listFocusConflicts(USER_ID);
+  expect(localChoice.serverSession.version).toBe(4);
+  await keepLocalFocus(localChoice);
+
+  const local = {
+    ...server,
+    end_at: '2026-07-27T10:05:00.000Z',
+    version: 5,
+    updated_at: '2026-07-27T10:05:00.000Z',
+  };
+  jest.mocked(globalThis.fetch).mockResolvedValueOnce(response(local));
+  await flushFocusOutbox(USER_ID);
+  const lastRequest = jest.mocked(globalThis.fetch).mock.calls.at(-1)?.[1];
+  expect(lastRequest?.method).toBe('PUT');
+  expect((lastRequest?.headers as Record<string, string>)['If-Match']).toBe('"4"');
+  expect(JSON.parse(String(lastRequest?.body))).toMatchObject({
+    end_at: '2026-07-27T10:05:00.000Z',
+  });
+  await expect(listFocusConflicts(USER_ID)).resolves.toEqual([]);
+  await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
+    session: { end_at: '2026-07-27T10:05:00.000Z', version: 5 },
+  });
+
+  await saveLocalFocusProgress(
+    USER_ID,
+    created.session.id,
+    { ...created.state, phase: 'CONGRATS' },
+    {
+      focus_logs: [],
+      rest_logs: [],
+      completed_subtask_ids: [],
+      work_cycles: 0,
+      rest_cycles: 0,
+      total_overtime_s: 0,
+    },
+    true,
+    '2026-07-27T10:10:00.000Z',
+  );
+  const newerServer = { ...server, version: 6, updated_at: '2026-07-27T10:08:00.000Z' };
+  jest
+    .mocked(globalThis.fetch)
+    .mockResolvedValueOnce(
+      response({ detail: 'Focus session changed on the server', server: newerServer }, 412),
+    );
+  await flushFocusOutbox(USER_ID);
   const [serverChoice] = await listFocusConflicts(USER_ID);
   await keepServerFocus(serverChoice);
 
   await expect(listFocusConflicts(USER_ID)).resolves.toEqual([]);
-  await expect(listOutbox(USER_ID)).resolves.toEqual([]);
-  await expect(getFocusSessionRecord(USER_ID, created.session.id)).resolves.toMatchObject({
-    syncStatus: 'synced',
-    session: { version: 4 },
+  await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
+    session: { version: 6 },
   });
 });

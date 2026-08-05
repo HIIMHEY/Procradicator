@@ -1,10 +1,15 @@
 import type { FocusSessionResponse } from '@/focus_session/schemas';
-import { buildFocusPayload } from './focusStore';
 import { openDatabase, requestResult, STORES, transactionDone } from './databaseCore';
-import type { FocusConflictRecord, LocalFocusSessionRecord, OutboxRecord } from './databaseTypes';
+import {
+  ConflictRecordSchema,
+  FocusConflictRecordSchema,
+  LocalFocusSessionRecordSchema,
+  OutboxRecordSchema,
+} from './schemas';
+import type { FocusConflictRecord, FocusOutboxRecord } from './schemas';
 
 export async function ackFocusOp(
-  operation: OutboxRecord,
+  operation: FocusOutboxRecord,
   serverSession: FocusSessionResponse,
 ): Promise<void> {
   const database = await openDatabase();
@@ -12,61 +17,58 @@ export async function ackFocusOp(
   const done = transactionDone(transaction);
   const sessionStore = transaction.objectStore(STORES.focusSessions);
   const outboxStore = transaction.objectStore(STORES.outbox);
-  const [storedOperation, record, allOperations] = await Promise.all([
-    requestResult<OutboxRecord | undefined>(outboxStore.get(operation.id)),
-    requestResult<LocalFocusSessionRecord | undefined>(
-      sessionStore.get(`${operation.userId}:${operation.entityId}`),
-    ),
-    requestResult<OutboxRecord[]>(outboxStore.getAll()),
+  const [storedRaw, sessionRaw, operationsRaw] = await Promise.all([
+    requestResult<unknown>(outboxStore.get(operation.id)),
+    requestResult<unknown>(sessionStore.get(`${operation.userId}:${operation.entityId}`)),
+    requestResult<unknown[]>(outboxStore.getAll()),
   ]);
-  if (!storedOperation || !record) {
+  const record =
+    sessionRaw === undefined ? null : LocalFocusSessionRecordSchema.parse(sessionRaw);
+  if (storedRaw === undefined || !record) {
+    await done;
     return;
   }
-
   outboxStore.delete(operation.id);
-  const remaining = allOperations.filter(
-    (candidate) =>
-      candidate.id !== operation.id &&
-      candidate.userId === operation.userId &&
-      candidate.entityType === 'focusSession' &&
-      candidate.entityId === operation.entityId,
+  const remaining = OutboxRecordSchema.array()
+    .parse(operationsRaw)
+    .filter(
+      (candidate) =>
+        candidate.id !== operation.id &&
+        candidate.userId === operation.userId &&
+        candidate.entityType === 'focusSession' &&
+        candidate.entityId === operation.entityId,
+    );
+  sessionStore.put(
+    LocalFocusSessionRecordSchema.parse({
+      ...record,
+      session: serverSession,
+      terminal: record.terminal || serverSession.end_at !== null,
+      syncStatus: remaining.length === 0 ? 'synced' : 'pending',
+    }),
   );
-  const state =
-    operation.operation === 'focus-create'
-      ? {
-          ...record.state,
-          workCycleM: serverSession.work_cycle_m,
-          restCycleM: serverSession.rest_cycle_m,
-        }
-      : record.state;
-  sessionStore.put({
-    ...record,
-    session: serverSession,
-    state,
-    terminal: record.terminal || serverSession.end_at !== null,
-    syncStatus: remaining.length === 0 ? 'synced' : 'pending',
-  } satisfies LocalFocusSessionRecord);
   for (const pending of remaining) {
-    outboxStore.put({ ...pending, baseVersion: serverSession.version });
+    outboxStore.put(OutboxRecordSchema.parse({ ...pending, baseVersion: serverSession.version }));
   }
   await done;
 }
 
 export async function saveFocusConflict(
-  operation: OutboxRecord,
+  operation: FocusOutboxRecord,
   serverSession: FocusSessionResponse,
 ): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction([STORES.focusSessions, STORES.conflicts], 'readwrite');
   const done = transactionDone(transaction);
   const sessionStore = transaction.objectStore(STORES.focusSessions);
-  const record = await requestResult<LocalFocusSessionRecord | undefined>(
+  const rawSession = await requestResult<unknown>(
     sessionStore.get(`${operation.userId}:${operation.entityId}`),
   );
-  if (!record) {
+  if (rawSession === undefined) {
+    await done;
     return;
   }
-  const conflict: FocusConflictRecord = {
+  const record = LocalFocusSessionRecordSchema.parse(rawSession);
+  const conflict = FocusConflictRecordSchema.parse({
     id: operation.id,
     userId: operation.userId,
     entityId: operation.entityId,
@@ -74,8 +76,8 @@ export async function saveFocusConflict(
     serverSession,
     baseVersion: operation.baseVersion,
     createdAt: new Date().toISOString(),
-  };
-  sessionStore.put({ ...record, syncStatus: 'conflict' });
+  });
+  sessionStore.put(LocalFocusSessionRecordSchema.parse({ ...record, syncStatus: 'conflict' }));
   transaction.objectStore(STORES.conflicts).put(conflict);
   await done;
 }
@@ -83,101 +85,11 @@ export async function saveFocusConflict(
 export async function listFocusConflicts(userId: string): Promise<FocusConflictRecord[]> {
   const database = await openDatabase();
   const transaction = database.transaction(STORES.conflicts, 'readonly');
-  const conflicts = await requestResult<Array<FocusConflictRecord | { userId?: string }>>(
-    transaction.objectStore(STORES.conflicts).getAll(),
-  );
-  return conflicts
+  return ConflictRecordSchema.array()
+    .parse(await requestResult<unknown[]>(transaction.objectStore(STORES.conflicts).getAll()))
     .filter(
       (conflict): conflict is FocusConflictRecord =>
         conflict.userId === userId && 'localSession' in conflict,
     )
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-}
-
-export async function keepLocalFocus(conflict: FocusConflictRecord): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(
-    [STORES.focusSessions, STORES.outbox, STORES.conflicts],
-    'readwrite',
-  );
-  const done = transactionDone(transaction);
-  const outboxStore = transaction.objectStore(STORES.outbox);
-  const operations = await requestResult<OutboxRecord[]>(outboxStore.getAll());
-  for (const operation of operations) {
-    if (
-      operation.userId === conflict.userId &&
-      operation.entityType === 'focusSession' &&
-      operation.entityId === conflict.entityId
-    ) {
-      outboxStore.delete(operation.id);
-    }
-  }
-  const now = new Date().toISOString();
-  const localSession: LocalFocusSessionRecord = {
-    ...conflict.localSession,
-    session: {
-      ...conflict.localSession.session,
-      version: conflict.serverSession.version,
-      updated_at: now,
-    },
-    syncStatus: 'pending',
-  };
-  transaction.objectStore(STORES.focusSessions).put(localSession);
-  outboxStore.add({
-    id: crypto.randomUUID(),
-    userId: conflict.userId,
-    entityType: 'focusSession',
-    entityId: conflict.entityId,
-    operation: 'focus-update',
-    payload: buildFocusPayload(localSession),
-    baseVersion: conflict.serverSession.version,
-    createdAt: now,
-  } satisfies OutboxRecord);
-  transaction.objectStore(STORES.conflicts).delete(conflict.id);
-  await done;
-}
-
-export async function keepServerFocus(conflict: FocusConflictRecord): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(
-    [STORES.focusSessions, STORES.outbox, STORES.conflicts],
-    'readwrite',
-  );
-  const done = transactionDone(transaction);
-  const outboxStore = transaction.objectStore(STORES.outbox);
-  const operations = await requestResult<OutboxRecord[]>(outboxStore.getAll());
-  for (const operation of operations) {
-    if (
-      operation.userId === conflict.userId &&
-      operation.entityType === 'focusSession' &&
-      operation.entityId === conflict.entityId
-    ) {
-      outboxStore.delete(operation.id);
-    }
-  }
-  const server = conflict.serverSession;
-  transaction.objectStore(STORES.focusSessions).put({
-    ...conflict.localSession,
-    session: server,
-    state: {
-      ...conflict.localSession.state,
-      phase: server.end_at ? 'CONGRATS' : 'READY',
-      isOT: false,
-      phaseStartedAt: null,
-      workCycleM: server.work_cycle_m,
-      restCycleM: server.rest_cycle_m,
-      focusLogs: [],
-      restLogs: [],
-      completedIds: [],
-      workCycles: server.work_cycles,
-      restCycles: server.rest_cycles,
-      OTSecondsTotal: server.total_overtime_s,
-      abandonReason: server.abandon_reason,
-    },
-    queued: { logs: 0, rests: 0, completed: 0 },
-    terminal: server.end_at !== null,
-    syncStatus: 'synced',
-  } satisfies LocalFocusSessionRecord);
-  transaction.objectStore(STORES.conflicts).delete(conflict.id);
-  await done;
 }

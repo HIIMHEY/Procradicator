@@ -1,20 +1,12 @@
 import { API_ROUTES } from '@/config/env';
-import type { OutboxRecord } from '@/offline/databaseTypes';
-import { TaskSchema, type Task } from './schema';
+import { TaskSchema, TaskWritePayloadSchema, type Task } from './schema';
 
-export interface TaskWritePayload {
-  id: string;
-  title: string;
-  description?: string | null;
-  due_at: string;
-  subtasks: Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    est_m: number;
-    is_done: boolean;
-    depends_on: string[];
-  }>;
+export interface TaskRequest {
+  opId: string;
+  taskId: string;
+  operation: 'create' | 'update' | 'delete';
+  payload: unknown;
+  baseVersion: number | null;
 }
 
 export class TaskRequestError extends Error {
@@ -29,20 +21,17 @@ export class TaskConflictError extends TaskRequestError {
   }
 }
 
-function taskPayload(operation: OutboxRecord): TaskWritePayload {
-  if (!operation.payload || typeof operation.payload !== 'object') {
-    throw new Error('Task operation payload is missing');
-  }
-  return operation.payload as TaskWritePayload;
+function taskPayload(request: TaskRequest) {
+  return TaskWritePayloadSchema.parse(request.payload);
 }
 
-function versionHeaders(operation: OutboxRecord): Record<string, string> {
+function versionHeaders(request: TaskRequest): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Idempotency-Key': operation.id,
+    'Idempotency-Key': request.opId,
   };
-  if (operation.baseVersion !== null) {
-    headers['If-Match'] = `"${operation.baseVersion}"`;
+  if (request.baseVersion !== null) {
+    headers['If-Match'] = `"${request.baseVersion}"`;
   }
   return headers;
 }
@@ -51,39 +40,38 @@ async function parseTaskResponse(response: Response): Promise<Task> {
   return TaskSchema.parse(await response.json());
 }
 
-export async function sendTaskOp(operation: OutboxRecord): Promise<Task | null> {
-  if (operation.entityType !== 'task') throw new Error('Expected a task operation');
-  const headers = versionHeaders(operation);
+export async function sendTaskOp(request: TaskRequest): Promise<Task | null> {
+  const headers = versionHeaders(request);
   let response: Response;
-  if (operation.operation === 'create') {
+  if (request.operation === 'create') {
     response = await fetch(API_ROUTES.TASKS.BASE, {
       method: 'POST',
       headers,
-      body: JSON.stringify(taskPayload(operation)),
+      body: JSON.stringify(taskPayload(request)),
       credentials: 'include',
     });
-  } else if (operation.operation === 'update') {
-    const source = taskPayload(operation);
+  } else if (request.operation === 'update') {
+    const source = taskPayload(request);
     const payload = {
       title: source.title,
       description: source.description,
       due_at: source.due_at,
       subtasks: source.subtasks,
     };
-    response = await fetch(API_ROUTES.TASKS.DETAIL(operation.entityId), {
+    response = await fetch(API_ROUTES.TASKS.DETAIL(request.taskId), {
       method: 'PUT',
       headers,
       body: JSON.stringify(payload),
       credentials: 'include',
     });
-  } else if (operation.operation === 'delete') {
-    response = await fetch(API_ROUTES.TASKS.DETAIL(operation.entityId), {
+  } else if (request.operation === 'delete') {
+    response = await fetch(API_ROUTES.TASKS.DETAIL(request.taskId), {
       method: 'DELETE',
       headers,
       credentials: 'include',
     });
   } else {
-    throw new Error(`Unsupported task operation: ${operation.operation}`);
+    throw new Error(`Unsupported task operation: ${request.operation}`);
   }
 
   if (response.status === 412) {
@@ -91,7 +79,7 @@ export async function sendTaskOp(operation: OutboxRecord): Promise<Task | null> 
     throw new TaskConflictError(TaskSchema.parse(body.server));
   }
   if (!response.ok) throw new TaskRequestError(response.status);
-  if (operation.operation === 'delete') return null;
+  if (request.operation === 'delete') return null;
   return parseTaskResponse(response);
 }
 

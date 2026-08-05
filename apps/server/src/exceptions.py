@@ -34,6 +34,10 @@ class ConcurrencyError(DatabaseError):
     pass
 
 
+class StaleRecordError(DatabaseError):
+    pass
+
+
 # Service errors
 class ServiceError(BaseError):
     # parent for logic-specific issues

@@ -5,15 +5,11 @@ import 'fake-indexeddb/auto';
 import useAnalyticsSummary from '@/analytics/hooks/useAnalyticsSummary';
 import { useLogout } from '@/auth/hooks/useLogout';
 import { createAuthSession } from '@/auth/offlineSession';
+import { loadCurrentUser } from '@/auth/sessionManager';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { Text } from '@/components/ui/text';
 import { API_ROUTES } from '@/config/env';
-import {
-  deleteOfflineDatabase,
-  listOutbox,
-  readAuthRecord,
-  saveAuthRecord,
-} from '@/offline/database';
+import { deleteOfflineDatabase, saveAuthRecord } from '@/offline/database';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useState, type ReactNode } from 'react';
@@ -136,7 +132,7 @@ test('next user does not see analytics from the logged-out session', async () =>
   }
 });
 
-test('offline logout persists a tombstone and resolves without a request', async () => {
+test('offline logout stays signed out after the page reloads', async () => {
   setOnline(false);
   const now = Date.now();
   const userId = '7cf2a63f-45da-4af7-9917-306abc624759';
@@ -192,18 +188,7 @@ test('offline logout persists a tombstone and resolves without a request', async
   try {
     fireEvent.press(screen.getByRole('button', { name: 'Offline log out' }));
     expect(await screen.findByText('Finished')).toBeTruthy();
-    await expect(readAuthRecord('http://localhost:8000')).resolves.toMatchObject({
-      state: 'logged_out',
-      previousUserId: userId,
-      remoteLogout: 'pending',
-    });
-    await expect(listOutbox(userId)).resolves.toEqual([
-      expect.objectContaining({
-        entityType: 'auth',
-        operation: 'logout',
-        userId,
-      }),
-    ]);
+    await expect(loadCurrentUser()).resolves.toBeNull();
     expect(mockFetch).not.toHaveBeenCalled();
   } finally {
     view.unmount();

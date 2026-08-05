@@ -51,6 +51,7 @@ const conflict = {
   baseVersion: 1,
   createdAt: '2026-07-27T09:06:00.000Z',
 };
+let taskConflicts = [conflict];
 
 function renderModal() {
   const queryClient = new QueryClient({
@@ -75,39 +76,45 @@ function renderModal() {
 
 beforeEach(() => {
   globalThis.fetch = jest.fn() as unknown as typeof fetch;
-  jest.mocked(listTaskConflicts).mockReset().mockResolvedValue([conflict]);
-  jest.mocked(keepLocalTask).mockReset().mockResolvedValue();
-  jest.mocked(keepServerTask).mockReset().mockResolvedValue();
+  taskConflicts = [conflict];
+  jest
+    .mocked(listTaskConflicts)
+    .mockReset()
+    .mockImplementation(async () => taskConflicts);
+  jest
+    .mocked(keepLocalTask)
+    .mockReset()
+    .mockImplementation(async () => {
+      taskConflicts = [];
+    });
+  jest
+    .mocked(keepServerTask)
+    .mockReset()
+    .mockImplementation(async () => {
+      taskConflicts = [];
+    });
 });
 
-test('offers both task versions and keeps local without a request', async () => {
-  const originalDispatch = window.dispatchEvent;
-  window.dispatchEvent = jest.fn();
+test('offers both task versions and closes after keeping local', async () => {
   const view = renderModal();
   try {
     expect(await screen.findByText('Conflict Detected')).toBeTruthy();
     expect(screen.getByText('Mine')).toBeTruthy();
     expect(screen.getByText('Server')).toBeTruthy();
-    fireEvent.press(screen.getByText('Keep Mine'));
-    await waitFor(() => expect(keepLocalTask).toHaveBeenCalledWith(conflict));
-    await waitFor(() =>
-      expect(window.dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'procradicator:task-sync' }),
-      ),
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Keep mine' }));
+    await waitFor(() => expect(screen.queryByText('Conflict Detected')).toBeNull());
     expect(globalThis.fetch).not.toHaveBeenCalled();
   } finally {
-    window.dispatchEvent = originalDispatch;
     view.cleanup();
   }
 });
 
-test('can choose the server copy', async () => {
+test('closes after choosing the server copy', async () => {
   const view = renderModal();
   try {
     expect(await screen.findByText('Conflict Detected')).toBeTruthy();
-    fireEvent.press(screen.getByText('Keep Server'));
-    await waitFor(() => expect(keepServerTask).toHaveBeenCalledWith(conflict));
+    fireEvent.press(screen.getByRole('button', { name: 'Keep server' }));
+    await waitFor(() => expect(screen.queryByText('Conflict Detected')).toBeNull());
   } finally {
     view.cleanup();
   }

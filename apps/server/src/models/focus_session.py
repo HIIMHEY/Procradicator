@@ -44,15 +44,31 @@ class FocusSession(SQLModel, table=True):
         if self.rest_cycles > self.work_cycles:
             raise DomainError("rest_cycles cannot exceed work_cycles")
 
-    def abandon(self, reason: str) -> None:
+    def abandon(self, reason: str, end_at: datetime | None = None) -> None:
+        finished_at = end_at or datetime.now(UTC)
+        started_at = self.start_at
+        if finished_at.tzinfo is None:
+            finished_at = finished_at.replace(tzinfo=UTC)
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=UTC)
+        if finished_at < started_at:
+            raise DomainError("end_at cannot be before start_at")
         self.abandon_reason = reason
-        self.end_at = datetime.now(UTC)
+        self.end_at = finished_at
 
-    def complete(self, overtime: int) -> None:
+    def complete(self, overtime: int, end_at: datetime | None = None) -> None:
         if overtime < self.total_overtime_s:
             raise DomainError("total_overtime_s cannot decrease")
+        finished_at = end_at or datetime.now(UTC)
+        started_at = self.start_at
+        if finished_at.tzinfo is None:
+            finished_at = finished_at.replace(tzinfo=UTC)
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=UTC)
+        if finished_at < started_at:
+            raise DomainError("end_at cannot be before start_at")
         self.total_overtime_s = overtime
-        self.end_at = datetime.now(UTC)
+        self.end_at = finished_at
 
 
 class FocusLog(SQLModel, table=True):

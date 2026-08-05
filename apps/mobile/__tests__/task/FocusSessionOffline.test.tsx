@@ -5,13 +5,25 @@ import 'fake-indexeddb/auto';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { FocusSessionPage } from '@/focus_session/components/FocusSessionPage';
-import { deleteOfflineDatabase, listOutbox } from '@/offline/database';
+import { deleteOfflineDatabase } from '@/offline/database';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const USER_ID = '55555555-5555-4555-8555-555555555555';
 const SUBTASK_ID = '11111111-1111-4111-8111-111111111111';
 const TASK_ID = '33333333-3333-4333-8333-333333333333';
+const SESSION_ID = '22222222-2222-4222-8222-222222222222';
 const mockReplace = jest.fn();
+
+const setOnline = (online: boolean) => {
+  Object.defineProperty(navigator, 'onLine', { configurable: true, value: online });
+};
+
+const createJsonResponse = (data: unknown): Response =>
+  ({
+    ok: true,
+    status: 200,
+    json: async () => data,
+  }) as Response;
 
 jest.mock('@/auth/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({
@@ -59,7 +71,8 @@ jest.mock('expo-router/react-navigation', () => ({
 beforeEach(async () => {
   await deleteOfflineDatabase();
   mockReplace.mockReset();
-  globalThis.fetch = jest.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+  setOnline(false);
+  globalThis.fetch = jest.fn();
 });
 
 afterEach(() => {
@@ -79,10 +92,48 @@ test('completes and exits a focus session while fully offline', async () => {
   fireEvent.press(await screen.findByText('Finish Task'));
 
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`));
-  await expect(listOutbox(USER_ID)).resolves.toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({ entityType: 'focusSession', operation: 'focus-create' }),
-      expect.objectContaining({ entityType: 'focusSession', operation: 'focus-update' }),
-    ]),
-  );
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+test('restores an active focus session after refresh', async () => {
+  const firstRender = renderWithProviders(<FocusSessionPage />);
+
+  fireEvent.press(await screen.findByText('Start'));
+  expect(await screen.findByText('Complete Subtask')).toBeTruthy();
+  firstRender.unmount();
+
+  renderWithProviders(<FocusSessionPage />);
+
+  expect(await screen.findByText('Complete Subtask')).toBeTruthy();
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+test('uses the server recommendation when starting online', async () => {
+  setOnline(true);
+  const mockFetch = jest.fn(async (_url: string, options?: RequestInit) => {
+    const payload = JSON.parse(options?.body as string) as { id?: string };
+    return createJsonResponse({
+      id: payload.id ?? SESSION_ID,
+      user_id: USER_ID,
+      start_at: '2026-08-01T09:00:00.000Z',
+      updated_at: '2026-08-01T09:00:00.000Z',
+      end_at: null,
+      version: 1,
+      work_cycle_m: 45,
+      rest_cycle_m: 15,
+      work_cycles: 0,
+      rest_cycles: 0,
+      total_overtime_s: 0,
+      abandon_reason: null,
+    });
+  });
+  globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+  renderWithProviders(<FocusSessionPage />);
+
+  expect(await screen.findByText('45:00')).toBeTruthy();
+  expect(mockFetch).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(mockFetch.mock.calls[0][1]?.body as string)).toEqual({
+    subtask_id: SUBTASK_ID,
+  });
 });

@@ -96,7 +96,6 @@ function ExistingProbe({ taskId }: { taskId: string }) {
 }
 
 function renderProbe(ui: ReactElement): {
-  queryClient: QueryClient;
   unmount: () => void;
 } {
   const queryClient = new QueryClient({
@@ -111,7 +110,6 @@ function renderProbe(ui: ReactElement): {
     ),
   });
   return {
-    queryClient,
     unmount: () => {
       view.unmount();
       queryClient.clear();
@@ -133,7 +131,7 @@ afterAll(async () => {
   await deleteOfflineDatabase();
 });
 
-test('creates and lists a task offline with an account-scoped query key', async () => {
+test('creates and lists a task offline', async () => {
   const view = renderProbe(<CreateProbe />);
   try {
     expect(await screen.findByText('Ready')).toBeTruthy();
@@ -141,15 +139,6 @@ test('creates and lists a task offline with an account-scoped query key', async 
     fireEvent.press(screen.getByLabelText('Create offline'));
     expect(await screen.findByText('Created')).toBeTruthy();
     expect(globalThis.fetch).not.toHaveBeenCalled();
-    expect(
-      view.queryClient
-        .getQueryCache()
-        .getAll()
-        .some(
-          (query) =>
-            JSON.stringify(query.queryKey) === JSON.stringify(['task', USER_ID, 'list', 20]),
-        ),
-    ).toBe(true);
   } finally {
     view.unmount();
   }

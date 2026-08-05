@@ -63,36 +63,6 @@ jest.mock('@legendapp/motion', () => {
   };
 });
 
-jest.mock('@tanstack/react-query-persist-client', () => {
-  const { QueryClientProvider } = jest.requireActual('@tanstack/react-query');
-  return {
-    PersistQueryClientProvider: ({ client, children }: { client: unknown; children: React.ReactNode }) =>
-      QueryClientProvider({ client, children }),
-  };
-});
-
-jest.mock('@tanstack/query-async-storage-persister', () => ({
-  createAsyncStoragePersister: () => ({
-    persistClient: jest.fn(),
-    restoreClient: jest.fn(),
-    removeClient: jest.fn(),
-    isRestoringClient: jest.fn(() => false),
-  }),
-}));
-
-jest.mock('@/offline/useOnlineStatus', () => ({
-  useOnlineStatus: () => true,
-}));
-
-jest.mock('@/offline/storage', () => ({
-  readRecovery: jest.fn().mockResolvedValue(null),
-  writeRecovery: jest.fn().mockResolvedValue(undefined),
-  clearRecovery: jest.fn().mockResolvedValue(undefined),
-  readConflicts: jest.fn().mockResolvedValue([]),
-  writeConflict: jest.fn().mockResolvedValue(undefined),
-  deleteConflict: jest.fn().mockResolvedValue(undefined),
-}));
-
 jest.mock('@/offline/components/OfflineIndicator', () => {
   const { View } = jest.requireActual('react-native');
   return { __esModule: true, default: View };
@@ -103,8 +73,8 @@ jest.mock('@/offline/components/ConflictModal', () => {
   return { __esModule: true, default: View };
 });
 
-jest.mock('@/offline/TaskSyncProvider', () => {
+jest.mock('@/offline/components/OfflineSyncProvider', () => {
   const { View } = jest.requireActual('react-native');
-  const original = jest.requireActual('@/offline/TaskSyncProvider');
+  const original = jest.requireActual('@/offline/components/OfflineSyncProvider');
   return { __esModule: true, default: View, requestSync: original.requestSync };
 });

@@ -6,8 +6,9 @@ import { LandingScreen } from '@/auth/components/LandingScreen';
 import { LoginForm } from '@/auth/components/LoginForm';
 import { RegisterForm } from '@/auth/components/RegisterForm';
 import { createAuthSession, createLogoutSession } from '@/auth/offlineSession';
+import { loadCurrentUser } from '@/auth/sessionManager';
 import { API_ROUTES } from '@/config/env';
-import { deleteOfflineDatabase, readAuthRecord, saveAuthAndEnqueue } from '@/offline/database';
+import { deleteOfflineDatabase, saveAuthAndEnqueue } from '@/offline/database';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
@@ -103,10 +104,8 @@ test('login form sends username and password as form data', async () => {
     method: 'GET',
     credentials: 'include',
   });
-  await expect(readAuthRecord('http://localhost:8000')).resolves.toMatchObject({
-    state: 'authenticated',
-    user: { id: currentSession.id },
-  });
+  Object.defineProperty(globalThis.navigator, 'onLine', { configurable: true, value: false });
+  await expect(loadCurrentUser()).resolves.toMatchObject({ id: currentSession.id });
 });
 
 test('login flushes an offline logout before replacing its tombstone', async () => {
@@ -135,10 +134,8 @@ test('login flushes an offline logout before replacing its tombstone', async () 
     API_ROUTES.AUTH.LOGIN,
     API_ROUTES.AUTH.ME,
   ]);
-  await expect(readAuthRecord('http://localhost:8000')).resolves.toMatchObject({
-    state: 'authenticated',
-    user: { id: currentSession.id },
-  });
+  Object.defineProperty(globalThis.navigator, 'onLine', { configurable: true, value: false });
+  await expect(loadCurrentUser()).resolves.toMatchObject({ id: currentSession.id });
 });
 
 test('login form shows required validation messages', async () => {

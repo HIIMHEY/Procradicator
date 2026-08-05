@@ -2,10 +2,10 @@ import type { CurrentSessionRead, UserRead } from './schemas';
 import { userReadSchema } from './schemas';
 import type {
   ActiveSession,
+  AuthOutboxRecord,
   AuthSession,
   LogoutSession,
-  OutboxRecord,
-} from '@/offline/databaseTypes';
+} from '@/offline/schemas';
 
 function canonicalOrigin(apiOrigin: string): string {
   return new URL(apiOrigin).origin;
@@ -44,7 +44,7 @@ export function createLogoutSession(
   authenticated: ActiveSession,
   requestedAtClientMs: number,
   logoutId = crypto.randomUUID(),
-): { record: LogoutSession; operation: OutboxRecord } {
+): { record: LogoutSession; operation: AuthOutboxRecord } {
   const record: LogoutSession = {
     key: authenticated.key,
     apiOrigin: authenticated.apiOrigin,
