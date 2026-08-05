@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 
 import { listServerTasks, sendTaskOp, TaskConflictError } from '@/task/taskApi';
-import type { OutboxRecord } from '@/offline/database';
+import type { TaskRequest } from '@/task/taskApi';
 import { API_ROUTES } from '@/config/env';
 
 const TASK_ID = 'd06dd4a2-f96a-4f31-a5e1-abd85acfe28d';
@@ -43,16 +43,13 @@ const payload = {
   ],
 };
 
-function operation(kind: 'create' | 'update' | 'delete', baseVersion: number | null): OutboxRecord {
+function operation(kind: 'create' | 'update' | 'delete', baseVersion: number | null): TaskRequest {
   return {
-    id: OPERATION_ID,
-    userId: '9b97c715-d720-4ffc-88e6-f395be319dda',
-    entityType: 'task',
-    entityId: TASK_ID,
+    opId: OPERATION_ID,
+    taskId: TASK_ID,
     operation: kind,
     payload: kind === 'delete' ? null : payload,
     baseVersion,
-    createdAt: '2026-07-27T09:00:00.000Z',
   };
 }
 

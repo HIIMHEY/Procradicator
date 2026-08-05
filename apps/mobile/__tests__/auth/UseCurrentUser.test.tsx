@@ -2,17 +2,11 @@
 
 import 'fake-indexeddb/auto';
 
-import {
-  AUTH_STATUS_RETRY_DELAY_MS,
-  AUTH_STATUS_RETRY_WINDOW_MS,
-  currentUserRetryDelay,
-  fetchCurrentUser,
-  shouldRetryCurrentUser,
-  useCurrentUser,
-} from '@/auth/hooks/useCurrentUser';
+import { fetchCurrentUser, useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { createAuthSession } from '@/auth/offlineSession';
 import type { CurrentSessionRead } from '@/auth/schemas';
-import { deleteOfflineDatabase, readAuthRecord, saveAuthRecord } from '@/offline/database';
+import { loadCurrentUser } from '@/auth/sessionManager';
+import { deleteOfflineDatabase, saveAuthRecord } from '@/offline/database';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
@@ -52,17 +46,6 @@ afterAll(async () => {
   await deleteOfflineDatabase();
 });
 
-test('current user check retries for the backend startup window', () => {
-  expect(AUTH_STATUS_RETRY_WINDOW_MS).toBe(60_000);
-  expect(AUTH_STATUS_RETRY_DELAY_MS).toBe(1000);
-  expect(currentUserRetryDelay()).toBe(1000);
-  expect(shouldRetryCurrentUser(1)).toBe(true);
-  expect(shouldRetryCurrentUser(49)).toBe(true);
-  expect(shouldRetryCurrentUser(50)).toBe(true);
-  expect(shouldRetryCurrentUser(60)).toBe(true);
-  expect(shouldRetryCurrentUser(61)).toBe(false);
-});
-
 test('a valid stored session authenticates immediately while offline', async () => {
   setOnline(false);
   const fetchSpy = jest.spyOn(globalThis, 'fetch');
@@ -77,7 +60,7 @@ test('a valid stored session authenticates immediately while offline', async () 
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     ),
   });
-
+  
   try {
     await waitFor(() => expect(result.current.data?.id).toBe(currentSession.id));
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -87,16 +70,36 @@ test('a valid stored session authenticates immediately while offline', async () 
   }
 });
 
-test('a successful server check durably stores session expiry metadata', async () => {
+test('a stored session stops authenticating at its server-derived expiry', async () => {
+  setOnline(false);
   const validatedAt = 5_000;
-  jest.spyOn(Date, 'now').mockReturnValue(validatedAt);
+  await saveAuthRecord(createAuthSession('http://localhost:8000', currentSession, validatedAt));
+  jest.spyOn(Date, 'now').mockReturnValue(validatedAt + 3_600_000);
+  const fetchSpy = jest.spyOn(globalThis, 'fetch');
+  await expect(loadCurrentUser()).resolves.toBeNull();
+  expect(fetchSpy).not.toHaveBeenCalled();
+});
+
+test('a successful server check remains available during a later outage', async () => {
   jest.spyOn(globalThis, 'fetch').mockResolvedValue(response(currentSession));
-
   await expect(fetchCurrentUser()).resolves.toMatchObject({ id: currentSession.id });
+  setOnline(false);
+  jest.mocked(globalThis.fetch).mockClear();
+  await expect(loadCurrentUser()).resolves.toMatchObject({ id: currentSession.id });
+  expect(globalThis.fetch).not.toHaveBeenCalled();
+});
 
-  await expect(readAuthRecord('http://localhost:8000')).resolves.toMatchObject({
-    state: 'authenticated',
-    remainingMsAtValidation: 3_600_000,
-    validatedAtClientMs: validatedAt,
-  });
+test('uses a valid stored session when the network request fails', async () => {
+  await saveAuthRecord(createAuthSession('http://localhost:8000', currentSession, Date.now()));
+  jest.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
+  await expect(loadCurrentUser()).resolves.toMatchObject({ id: currentSession.id });
+  expect(globalThis.fetch).toHaveBeenCalled();
+});
+
+test('does not restore a session offline after the server rejects it', async () => {
+  await saveAuthRecord(createAuthSession('http://localhost:8000', currentSession, Date.now()));
+  jest.spyOn(globalThis, 'fetch').mockResolvedValue(response({}, 401));
+  await expect(loadCurrentUser()).resolves.toBeNull();
+  setOnline(false);
+  await expect(loadCurrentUser()).resolves.toBeNull();
 });

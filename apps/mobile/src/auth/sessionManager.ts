@@ -1,11 +1,12 @@
 import { API_ROUTES } from '@/config/env';
 import {
   acknowledgeLogout,
+  clearAuthRecord,
   readAuthRecord,
   saveAuthAndEnqueue,
   saveAuthRecord,
 } from '@/offline/database';
-import type { AuthSession } from '@/offline/databaseTypes';
+import type { AuthSession } from '@/offline/schemas';
 import { createAuthSession, createLogoutSession, getOfflineUser } from './offlineSession';
 import { currentSessionReadSchema, type UserRead } from './schemas';
 
@@ -27,11 +28,13 @@ export async function fetchCurrentUser(options?: {
     method: 'GET',
     credentials: 'include',
   });
-  if (response.status === 401) return null;
+  if (response.status === 401) {
+    if (typeof indexedDB !== 'undefined') await clearAuthRecord(AUTH_API_ORIGIN);
+    return null;
+  }
   if (!response.ok) {
     throw new Error('Could not check current user.');
   }
-
   const session = currentSessionReadSchema.parse(await response.json());
   const record = createAuthSession(AUTH_API_ORIGIN, session, validatedAtClientMs);
   const currentRecord = await readAuthSession();
@@ -47,17 +50,19 @@ export async function fetchCurrentUser(options?: {
 export async function loadCurrentUser(): Promise<UserRead | null> {
   const record = await readAuthSession();
   if (record?.state === 'logged_out') return null;
-
   const offlineUser = getOfflineUser(record, Date.now());
-  if (offlineUser) return offlineUser;
-  if (isDefinitelyOffline()) return null;
-  return fetchCurrentUser();
+  if (isDefinitelyOffline()) return offlineUser;
+  try {
+    return await fetchCurrentUser();
+  } catch (error) {
+    if (offlineUser) return offlineUser;
+    throw error;
+  }
 }
 
 export async function persistLocalLogout(): Promise<boolean> {
   const record = await readAuthSession();
   if (!record || record.state === 'logged_out') return record?.state === 'logged_out';
-
   const logout = createLogoutSession(record, Date.now());
   await saveAuthAndEnqueue(logout.record, logout.operation);
   return true;
@@ -74,7 +79,6 @@ export async function flushPendingLogout(): Promise<boolean> {
   const record = await readAuthSession();
   if (record?.state !== 'logged_out' || record.remoteLogout !== 'pending') return true;
   if (isDefinitelyOffline()) return false;
-
   try {
     const response = await requestRemoteLogout();
     if (!response.ok && response.status !== 401) return false;

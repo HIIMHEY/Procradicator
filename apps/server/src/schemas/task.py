@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CreateSubtask(BaseModel):
-    id: str = Field(..., description="Unique kebab-case string identifier")
+    id: str = Field(..., description="Client-stable subtask identifier")
     title: str
     description: str | None = None
     est_m: int = Field(
@@ -30,7 +30,7 @@ class CreateTask(BaseModel):
 
 
 class UpdateSubTask(BaseModel):
-    id: str = Field(..., description="A unique identifier for this subtask, e.g., 'buy-lumber'")
+    id: str = Field(..., description="Client-stable subtask identifier")
     title: str
     description: str | None = None
     est_m: int = Field(
@@ -46,7 +46,7 @@ class UpdateSubTask(BaseModel):
 
 
 class UpdateTask(BaseModel):
-    title: str = Field(..., description="The overall goal agin...")
+    title: str = Field(..., description="The overall goal")
     description: str | None
     due_at: datetime = Field(..., description="When the task is due")
     subtasks: list[UpdateSubTask] = Field(..., min_length=1)
@@ -74,5 +74,10 @@ class GetTask(BaseModel):
     due_at: datetime
     updated_at: datetime
     version: int
-    subtasks: list[GetSubtask] = Field(default_factory=list)
+    subtasks: list[GetSubtask] = Field(default_factory=list[GetSubtask])
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("due_at", "updated_at")
+    @classmethod
+    def restore_utc(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value

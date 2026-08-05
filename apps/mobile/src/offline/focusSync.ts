@@ -5,9 +5,11 @@ import {
   sendFocusOp,
 } from '@/focus_session/focusApi';
 import { getFocusSessionRecord, listOutbox } from './database';
+import { keepLocalFocus, keepServerFocus } from './focusConflictStore';
 import { ackFocusOp, saveFocusConflict } from './focusSyncDatabase';
 
-export { keepLocalFocus, keepServerFocus, listFocusConflicts } from './focusSyncDatabase';
+export { listFocusConflicts } from './focusSyncDatabase';
+export { keepLocalFocus, keepServerFocus };
 
 export async function flushFocusOutbox(userId: string): Promise<void> {
   const operations = (await listOutbox(userId)).filter(
@@ -17,7 +19,13 @@ export async function flushFocusOutbox(userId: string): Promise<void> {
     const local = await getFocusSessionRecord(userId, operation.entityId);
     if (!local || local.syncStatus === 'conflict') continue;
     try {
-      const serverSession = await sendFocusOp(operation);
+      const serverSession = await sendFocusOp({
+        opId: operation.id,
+        sessionId: operation.entityId,
+        operation: operation.operation,
+        payload: operation.payload,
+        baseVersion: operation.baseVersion,
+      });
       await ackFocusOp(operation, serverSession);
       for (const pending of operations) {
         if (pending.entityId === operation.entityId && pending.id !== operation.id) {

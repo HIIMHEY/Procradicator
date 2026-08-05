@@ -27,7 +27,6 @@ class TestTask:
         assert model.title == "task title"
         assert model.description == "task desc"
         assert len(model.subtasks) == 1
-
         first_subtask: CreateSubtask = model.subtasks[0]
         assert first_subtask.id == "id"
         assert first_subtask.title == "subtask title"
@@ -73,9 +72,7 @@ class TestTask:
             "version": 3,
             "subtasks": [subtask],
         }
-
         model: GetTask = GetTask(**data)
-
         assert model.id == task_id
         assert model.title == "title"
         assert model.description == "desc"
@@ -83,7 +80,6 @@ class TestTask:
         assert model.updated_at == updated_at
         assert model.version == 3
         assert len(model.subtasks) == 1
-
         first_subtask: GetSubtask = model.subtasks[0]
         assert first_subtask.id == subtask_id
         assert first_subtask.title == "subtask title"
@@ -102,3 +98,16 @@ class TestTask:
         with pytest.raises(ValidationError) as exc_info:
             GetTask(**data)
         assert "id" in str(exc_info.value)
+
+    def test_get_task_returns_utc_timestamp(self) -> None:
+        model = GetTask(
+            id=uuid.uuid4(),
+            title="Offline task",
+            description=None,
+            due_at=datetime(2026, 8, 5, 1),
+            updated_at=datetime(2026, 8, 4, 20, 56),
+            version=2,
+            subtasks=[],
+        )
+        assert model.updated_at.tzinfo == UTC
+        assert model.model_dump(mode="json")["updated_at"] == "2026-08-04T20:56:00Z"

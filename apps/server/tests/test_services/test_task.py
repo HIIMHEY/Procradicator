@@ -1,10 +1,8 @@
 from datetime import UTC, datetime
-from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
-import src.exceptions as app_exceptions
-from src.exceptions import ForbiddenError, ServiceError
+from src.exceptions import ForbiddenError, VersionConflictError
 from src.models.task import Subtask, Task
 from src.schemas.task import CreateSubtask, CreateTask, UpdateTask
 from src.services.task import TaskService
@@ -98,6 +96,7 @@ class FakeTaskRepo:
         self,
         task_id: UUID,
         roadmap: UpdateTask,
+        expected_version: int | None = None,
         op_id: UUID | None = None,
     ) -> Task:
         self.update_calls += 1
@@ -112,7 +111,12 @@ class FakeTaskRepo:
     async def update_done_subtasks(self, subtask_ids: list[UUID]) -> list[Subtask]:
         raise NotImplementedError
 
-    async def delete_soft(self, task_id: UUID, op_id: UUID | None = None) -> None:
+    async def delete_soft(
+        self,
+        task_id: UUID,
+        op_id: UUID | None = None,
+        expected_version: int | None = None,
+    ) -> None:
         self.delete_op_id = op_id
         task: Task = await self.read(task_id)
         task.record_change(op_id)
@@ -140,9 +144,7 @@ async def test_create_forwards_operation_id_to_repository() -> None:
     service = TaskService(repo)
     user_id = uuid4()
     op_id = uuid4()
-
     task = await service.create_map(create_task_payload(), user_id, op_id=op_id)
-
     assert task.last_op_id == op_id
     assert repo.create_op_id == op_id
 
@@ -152,9 +154,7 @@ async def test_create_replay_returns_existing_task_without_writing() -> None:
     repo = FakeTaskRepo(last_op_id=op_id)
     service = TaskService(repo)
     payload = create_task_payload().model_copy(update={"id": repo.task_id})
-
     task = await service.create_map(payload, repo.owner_id, op_id=op_id)
-
     assert task.id == repo.task_id
     assert repo.create_calls == 0
 
@@ -189,19 +189,13 @@ async def test_delete_soft_cascades_to_subtasks() -> None:
 async def test_delete_rejects_stale_task_version() -> None:
     repo = FakeTaskRepo(version=3)
     service = TaskService(repo)
-    error_type = cast(
-        type[ServiceError],
-        getattr(app_exceptions, "VersionConflictError", ServiceError),
-    )
-
-    with pytest.raises(error_type):
+    with pytest.raises(VersionConflictError):
         await service.delete_map(
             repo.task_id,
             repo.owner_id,
             expected_version=2,
             op_id=uuid4(),
         )
-
     assert repo.upserted_task is None
 
 
@@ -209,26 +203,19 @@ async def test_delete_forwards_operation_id() -> None:
     repo = FakeTaskRepo(version=3)
     service = TaskService(repo)
     op_id = uuid4()
-
     await service.delete_map(
         repo.task_id,
         repo.owner_id,
         expected_version=3,
         op_id=op_id,
     )
-
     assert repo.delete_op_id == op_id
 
 
 async def test_update_rejects_stale_task_version() -> None:
     repo = FakeTaskRepo(version=3)
     service = TaskService(repo)
-    error_type = cast(
-        type[ServiceError],
-        getattr(app_exceptions, "VersionConflictError", ServiceError),
-    )
-
-    with pytest.raises(error_type):
+    with pytest.raises(VersionConflictError):
         await service.update_map(
             repo.task_id,
             UpdateTask.model_validate(create_task_payload().model_dump()),
@@ -236,7 +223,6 @@ async def test_update_rejects_stale_task_version() -> None:
             expected_version=2,
             op_id=uuid4(),
         )
-
     assert repo.update_calls == 0
 
 
@@ -244,7 +230,6 @@ async def test_update_replay_does_not_write_twice() -> None:
     op_id = uuid4()
     repo = FakeTaskRepo(version=3, last_op_id=op_id)
     service = TaskService(repo)
-
     task = await service.update_map(
         repo.task_id,
         UpdateTask.model_validate(create_task_payload().model_dump()),
@@ -252,6 +237,5 @@ async def test_update_replay_does_not_write_twice() -> None:
         expected_version=2,
         op_id=op_id,
     )
-
     assert task.version == 3
     assert repo.update_calls == 0

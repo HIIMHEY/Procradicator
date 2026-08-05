@@ -3,6 +3,9 @@ import { z } from 'zod';
 export const CreateFocusSessionSchema = z.object({
   id: z.uuid().optional(),
   subtask_id: z.uuid(),
+  start_at: z.iso.datetime({ local: true }).optional(),
+  work_cycle_m: z.number().int().positive().optional(),
+  rest_cycle_m: z.number().int().positive().optional(),
 });
 
 export const FocusSessionResponseSchema = z.object({
@@ -41,10 +44,19 @@ export const UpdateFocusPayloadSchema = z.object({
     }),
   ),
   completed_subtask_ids: z.array(z.string()),
-  work_cycles: z.number(),
-  rest_cycles: z.number(),
+  work_cycles: z.number().int().nonnegative(),
+  rest_cycles: z.number().int().nonnegative(),
   total_overtime_s: z.number().optional(),
   abandon_reason: z.string().optional(),
+  end_at: z.iso.datetime({ local: true }).optional(),
+});
+
+export const ReplaceFocusPayloadSchema = UpdateFocusPayloadSchema.extend({
+  subtask_id: z.uuid(),
+  start_at: z.iso.datetime({ local: true }),
+  work_cycle_m: z.number().int().positive(),
+  rest_cycle_m: z.number().int().positive(),
+  total_overtime_s: z.number().nonnegative(),
 });
 
 export const PhaseEnum = z.enum(['READY', 'WORK', 'REST', 'CONGRATS', 'EXIT_REASON']);
@@ -95,6 +107,7 @@ export const FocusSessionRecoverySchema = z.object({
 export type State = z.infer<typeof StateSchema>;
 export type Phase = z.infer<typeof PhaseEnum>;
 export type UpdateFocusPayload = z.infer<typeof UpdateFocusPayloadSchema>;
+export type ReplaceFocusPayload = z.infer<typeof ReplaceFocusPayloadSchema>;
 export type CreateFocusSessionData = z.infer<typeof CreateFocusSessionSchema>;
 export type FocusSessionResponse = z.infer<typeof FocusSessionResponseSchema>;
 export type SyncPosition = z.infer<typeof SyncPositionSchema>;

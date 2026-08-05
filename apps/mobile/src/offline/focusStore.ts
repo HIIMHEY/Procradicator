@@ -10,8 +10,10 @@ import {
   getFocusSessionRecord,
   saveFocusAndEnqueue,
   saveFocusSession,
+  updateFocusState,
 } from './database';
-import type { LocalFocusSessionRecord, OutboxRecord } from './databaseTypes';
+import { FocusOutboxRecordSchema } from './schemas';
+import type { FocusOutboxRecord, LocalFocusSessionRecord } from './schemas';
 
 const EMPTY_POSITION: SyncPosition = { logs: 0, rests: 0, completed: 0 };
 
@@ -19,11 +21,11 @@ function focusOperation(
   userId: string,
   entityId: string,
   operation: 'focus-create' | 'focus-update',
-  payload: OutboxRecord['payload'],
+  payload: FocusOutboxRecord['payload'],
   baseVersion: number | null,
   now: string,
-): OutboxRecord {
-  return {
+): FocusOutboxRecord {
+  return FocusOutboxRecordSchema.parse({
     id: crypto.randomUUID(),
     userId,
     entityType: 'focusSession',
@@ -32,7 +34,7 @@ function focusOperation(
     payload,
     baseVersion,
     createdAt: now,
-  };
+  });
 }
 
 export async function createLocalFocusSession(
@@ -41,26 +43,31 @@ export async function createLocalFocusSession(
   subtaskId: string,
   currentIdx: number,
   now = new Date().toISOString(),
+  serverSession?: FocusSessionResponse,
 ): Promise<LocalFocusSessionRecord> {
-  const id = crypto.randomUUID();
-  const session: FocusSessionResponse = {
-    id,
-    user_id: userId,
-    start_at: now,
-    updated_at: now,
-    end_at: null,
-    version: 0,
-    work_cycle_m: initial.workCycleM,
-    rest_cycle_m: initial.restCycleM,
-    work_cycles: 0,
-    rest_cycles: 0,
-    total_overtime_s: 0,
-    abandon_reason: null,
-  };
+  const id = serverSession?.id ?? crypto.randomUUID();
+  const session: FocusSessionResponse =
+    serverSession ??
+    ({
+      id,
+      user_id: userId,
+      start_at: now,
+      updated_at: now,
+      end_at: null,
+      version: 0,
+      work_cycle_m: initial.workCycleM,
+      rest_cycle_m: initial.restCycleM,
+      work_cycles: 0,
+      rest_cycles: 0,
+      total_overtime_s: 0,
+      abandon_reason: null,
+    } satisfies FocusSessionResponse);
   const state: State = {
     ...initial,
     sessionId: id,
     currentIdx,
+    workCycleM: session.work_cycle_m,
+    restCycleM: session.rest_cycle_m,
     focusLogs: [],
     restLogs: [],
     completedIds: [],
@@ -73,12 +80,29 @@ export async function createLocalFocusSession(
     session,
     state,
     queued: { ...EMPTY_POSITION },
-    syncStatus: 'pending',
-    terminal: false,
+    syncStatus: serverSession ? 'synced' : 'pending',
+    terminal: session.end_at !== null,
   };
+  if (serverSession) {
+    await saveFocusSession(record);
+    return record;
+  }
   await saveFocusAndEnqueue(
     record,
-    focusOperation(userId, id, 'focus-create', { id, subtask_id: subtaskId }, null, now),
+    focusOperation(
+      userId,
+      id,
+      'focus-create',
+      {
+        id,
+        subtask_id: subtaskId,
+        start_at: session.start_at,
+        work_cycle_m: session.work_cycle_m,
+        rest_cycle_m: session.rest_cycle_m,
+      },
+      null,
+      now,
+    ),
   );
   return record;
 }
@@ -88,14 +112,7 @@ export async function saveLocalFocusState(
   sessionId: string,
   state: State,
 ): Promise<LocalFocusSessionRecord> {
-  const current = await getFocusSessionRecord(userId, sessionId);
-  if (!current) throw new Error('Focus session is not available offline');
-  const record: LocalFocusSessionRecord = {
-    ...current,
-    state,
-  };
-  await saveFocusSession(record);
-  return record;
+  return updateFocusState(userId, sessionId, state);
 }
 
 export async function saveLocalFocusProgress(
@@ -113,12 +130,13 @@ export async function saveLocalFocusProgress(
 ): Promise<LocalFocusSessionRecord> {
   const current = await getFocusSessionRecord(userId, sessionId);
   if (!current) throw new Error('Focus session is not available offline');
+  const endAt = terminal ? now : current.session.end_at;
   const record: LocalFocusSessionRecord = {
     ...current,
     session: {
       ...current.session,
       updated_at: now,
-      end_at: terminal ? now : current.session.end_at,
+      end_at: endAt,
       work_cycles: state.workCycles,
       rest_cycles: state.restCycles,
       total_overtime_s: state.OTSecondsTotal,
@@ -135,7 +153,7 @@ export async function saveLocalFocusProgress(
       userId,
       sessionId,
       'focus-update',
-      payload,
+      endAt ? { ...payload, end_at: endAt } : payload,
       current.session.version || null,
       now,
     ),
@@ -171,5 +189,6 @@ export function buildFocusPayload(record: LocalFocusSessionRecord): UpdateFocusP
     ...(record.terminal && !record.state.abandonReason
       ? { total_overtime_s: record.state.OTSecondsTotal }
       : {}),
+    ...(record.terminal && record.session.end_at ? { end_at: record.session.end_at } : {}),
   };
 }

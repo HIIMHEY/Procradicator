@@ -10,6 +10,7 @@ from src.exceptions import (
     ForbiddenError,
     ItemNotFoundError,
     ServiceError,
+    StaleRecordError,
     VersionConflictError,
 )
 from src.models.task import Subtask, Task
@@ -160,13 +161,19 @@ class TaskService:
             return await self.task_repo.update_map(
                 task_id,
                 roadmap=roadmap_data,
+                expected_version=expected_version,
                 op_id=op_id,
             )
+        except StaleRecordError as e:
+            current = e.details["current"] if e.details else None
+            if isinstance(current, Task):
+                raise VersionConflictError("Task version changed", {"current": current}) from e
+            raise ServiceError("Could not update roadmap") from e
         except DatabaseError as e:
             logger.error(f"Task roadmap update failed: {str(e)}")
             raise map_service_exception(e) from e
         except Exception as e:
-            logger.error(f"Roadmap update faailed: {str(e)}")
+            logger.error(f"Roadmap update failed: {str(e)}")
             raise ServiceError(f"Could not update roadmap: {str(e)}") from e
 
     async def delete_map(
@@ -183,12 +190,21 @@ class TaskService:
                 {"current": task},
             )
         try:
-            await self.task_repo.delete_soft(task_id, op_id=op_id)
+            await self.task_repo.delete_soft(
+                task_id,
+                op_id=op_id,
+                expected_version=expected_version,
+            )
+        except StaleRecordError as e:
+            current = e.details["current"] if e.details else None
+            if isinstance(current, Task):
+                raise VersionConflictError("Task version changed", {"current": current}) from e
+            raise ServiceError("Could not delete roadmap") from e
         except DatabaseError as e:
-            logger.error(f"Session create failed: {str(e)}")
+            logger.error(f"Roadmap delete failed: {str(e)}")
             raise map_service_exception(e) from e
         except Exception as e:
-            logger.error(f"Roadmap delete faailed: {str(e)}")
+            logger.error(f"Roadmap delete failed: {str(e)}")
             raise ServiceError(f"Could not delete roadmap: {str(e)}") from e
 
     async def update_done_subtask(self, subtask_id: UUID, user_id: UUID) -> None:

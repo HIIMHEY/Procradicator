@@ -22,21 +22,7 @@ const SUBTASK_ID = '11111111-1111-4111-8111-111111111111';
 const SECOND_SUBTASK_ID = '44444444-4444-4444-8444-444444444444';
 const SESSION_ID = '22222222-2222-4222-8222-222222222222';
 const TASK_ID = '33333333-3333-4333-8333-333333333333';
-const RECOVERY_KEY = `focus-session:${TASK_ID}:${SUBTASK_ID}`;
 let mockSearchParams = { id: SUBTASK_ID, taskId: TASK_ID };
-
-const mockWriteRecovery = jest.fn().mockResolvedValue(undefined);
-const mockReadRecovery = jest.fn().mockResolvedValue(null);
-const mockClearRecovery = jest.fn().mockResolvedValue(undefined);
-
-jest.mock('@/offline/storage', () => ({
-  readRecovery: (...args: unknown[]) => mockReadRecovery(...args),
-  writeRecovery: (...args: unknown[]) => mockWriteRecovery(...args),
-  clearRecovery: (...args: unknown[]) => mockClearRecovery(...args),
-  readConflicts: jest.fn().mockResolvedValue([]),
-  writeConflict: jest.fn().mockResolvedValue(undefined),
-  deleteConflict: jest.fn().mockResolvedValue(undefined),
-}));
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockSearchParams,
@@ -109,9 +95,6 @@ beforeEach(() => {
   mockPreventRemove = false;
   mockPreventRemoveCallback = undefined;
   mockSearchParams = { id: SUBTASK_ID, taskId: TASK_ID };
-  mockWriteRecovery.mockClear();
-  mockReadRecovery.mockReset().mockResolvedValue(null);
-  mockClearRecovery.mockClear();
   mockFetch = jest.fn();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
@@ -154,43 +137,6 @@ test('starts with the recommended work-rest cycle', async () => {
 
   expect(await screen.findByText('Rest Well')).toBeTruthy();
   expect(screen.getByText('15:00')).toBeTruthy();
-});
-
-test('refresh restores the active work session', async () => {
-  mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
-
-  const firstRender = renderWithProviders(<FocusSessionPage />);
-  fireEvent.press(await screen.findByText('Start'));
-  await waitFor(() => {
-    const writes = mockWriteRecovery.mock.calls.filter(([key]) => key === RECOVERY_KEY);
-    expect(writes.length).toBeGreaterThanOrEqual(2);
-  });
-  const writes = mockWriteRecovery.mock.calls.filter(([key]) => key === RECOVERY_KEY);
-  const recovery = writes[writes.length - 1][1];
-  const phaseStartedAt = recovery.state.phaseStartedAt as number;
-  firstRender.unmount();
-
-  mockReadRecovery.mockResolvedValue(recovery);
-  mockFetch.mockReset();
-  mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValueOnce(createJsonResponse({}));
-
-  renderWithProviders(<FocusSessionPage />);
-  const completeButton = await screen.findByText('Complete Subtask');
-  expect(
-    mockFetch.mock.calls.some(
-      ([url, options]) => String(url).endsWith(`/focus/${SESSION_ID}`) && options?.method === 'GET',
-    ),
-  ).toBe(true);
-  expect(mockFetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
-
-  fireEvent.press(completeButton);
-  await waitFor(() => expect(getPatchPayloads()).toHaveLength(1));
-  expect(getPatchPayloads()[0].focus_logs[0].start_at).toBe(new Date(phaseStartedAt).toISOString());
 });
 
 test('shows an error instead of READY when the task cannot be loaded', async () => {
@@ -413,7 +359,6 @@ test('press Finish PATCH with final data navigates to task', async () => {
   await waitFor(() => {
     expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
-  expect(mockClearRecovery).toHaveBeenCalledWith(RECOVERY_KEY);
   await act(async () => {});
 });
 
@@ -528,7 +473,6 @@ test('submits abandon reason PATCH with reason navigates back', async () => {
   await waitFor(() => {
     expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`);
   });
-  expect(mockClearRecovery).toHaveBeenCalledWith(RECOVERY_KEY);
   const [payload] = getPatchPayloads();
   expect(payload.abandon_reason).toBe('Urgent issue');
   expect(payload.focus_logs).toHaveLength(1);

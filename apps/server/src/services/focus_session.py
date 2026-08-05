@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -20,6 +21,7 @@ from src.repositories.protocols import FocusSessionRepoProtocol
 from src.schemas.focus_session import (
     CreateFocusSession,
     GetFocusSession,
+    ReplaceFocusSession,
     UpdateFocusSession,
 )
 from src.services.protocols import RecommendationServiceProtocol, TaskServiceProtocol
@@ -53,14 +55,31 @@ class FocusSessionService:
             raise ForbiddenError("focus session belongs to another user")
         return session
 
-    async def _link_subtasks(self, req: UpdateFocusSession, user_id: UUID) -> None:
+    async def _acquire_for_update(self, session_id: UUID, user_id: UUID) -> FocusSession:
+        try:
+            session: FocusSession = await self.focus_repo.read_for_update(session_id)
+        except DatabaseError as e:
+            raise map_service_exception(e) from e
+        if session.user_id != user_id:
+            raise ForbiddenError("focus session belongs to another user")
+        return session
+
+    async def _link_subtasks(
+        self,
+        req: UpdateFocusSession | ReplaceFocusSession,
+        user_id: UUID,
+    ) -> None:
         ids: list[UUID] = list(
             {log.subtask_id for log in req.focus_logs} | set(req.completed_subtask_ids)
         )
         for subtask_id in ids:
             await self.task_svc.read_subtask(subtask_id, user_id)
 
-    async def _record(self, session_id: UUID, req: UpdateFocusSession) -> None:
+    async def _record(
+        self,
+        session_id: UUID,
+        req: UpdateFocusSession | ReplaceFocusSession,
+    ) -> None:
         try:
             if req.focus_logs:
                 await self.focus_repo.create_focus_logs(session_id, req.focus_logs)
@@ -113,12 +132,19 @@ class FocusSessionService:
                     return self._format(existing)
                 raise DuplicateItemError("Focus session ID or operation key was already used")
         await self.task_svc.read_subtask(req.subtask_id, user_id)
-        cycle = await self.recommendation_svc.recommend(user_id)
+        if req.work_cycle_m is not None and req.rest_cycle_m is not None:
+            work_cycle_m = req.work_cycle_m
+            rest_cycle_m = req.rest_cycle_m
+        else:
+            cycle = await self.recommendation_svc.recommend(user_id)
+            work_cycle_m = cycle.work_cycle_m
+            rest_cycle_m = cycle.rest_cycle_m
         session = FocusSession(
             id=req.id or uuid4(),
             user_id=user_id,
-            work_cycle_m=cycle.work_cycle_m,
-            rest_cycle_m=cycle.rest_cycle_m,
+            start_at=req.start_at or datetime.now(UTC),
+            work_cycle_m=work_cycle_m,
+            rest_cycle_m=rest_cycle_m,
             last_op_id=op_id,
         )
         try:
@@ -149,7 +175,7 @@ class FocusSessionService:
         expected_version: int | None = None,
         op_id: UUID | None = None,
     ) -> GetFocusSession:
-        session: FocusSession = await self._acquire(session_id, user_id)
+        session: FocusSession = await self._acquire_for_update(session_id, user_id)
         if self._is_replay(session, expected_version, op_id):
             return self._format(session)
         try:
@@ -160,11 +186,42 @@ class FocusSessionService:
         try:
             session.set_cycles(req.work_cycles, req.rest_cycles)
             if req.abandon_reason is not None:
-                session.abandon(req.abandon_reason)
+                session.abandon(req.abandon_reason, req.end_at)
             elif req.total_overtime_s is not None:
-                session.complete(req.total_overtime_s)
+                session.complete(req.total_overtime_s, req.end_at)
         except DomainError as e:
             raise InvalidOperationError(str(e)) from e
+        await self._record(session.id, req)
+        await self._done_subtasks(req.completed_subtask_ids, user_id)
+        session.record_change(op_id)
+        await self._flush(session)
+        return self._format(session)
+
+    async def replace(
+        self,
+        session_id: UUID,
+        user_id: UUID,
+        req: ReplaceFocusSession,
+        expected_version: int | None = None,
+        op_id: UUID | None = None,
+    ) -> GetFocusSession:
+        session = await self._acquire_for_update(session_id, user_id)
+        if self._is_replay(session, expected_version, op_id):
+            return self._format(session)
+        await self.task_svc.read_subtask(req.subtask_id, user_id)
+        await self._link_subtasks(req, user_id)
+        session.start_at = req.start_at
+        session.work_cycle_m = req.work_cycle_m
+        session.rest_cycle_m = req.rest_cycle_m
+        session.work_cycles = req.work_cycles
+        session.rest_cycles = req.rest_cycles
+        session.total_overtime_s = req.total_overtime_s
+        session.abandon_reason = req.abandon_reason
+        session.end_at = req.end_at
+        try:
+            await self.focus_repo.clear_logs(session.id)
+        except DatabaseError as e:
+            raise map_service_exception(e) from e
         await self._record(session.id, req)
         await self._done_subtasks(req.completed_subtask_ids, user_id)
         session.record_change(op_id)

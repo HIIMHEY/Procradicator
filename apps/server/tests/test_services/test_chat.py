@@ -68,11 +68,17 @@ class FakeTaskRepo:
         self,
         task_id: UUID,
         roadmap: UpdateTask,
+        expected_version: int | None = None,
         op_id: UUID | None = None,
     ) -> Task:
         raise NotImplementedError
 
-    async def delete_soft(self, task_id: UUID, op_id: UUID | None = None) -> None:
+    async def delete_soft(
+        self,
+        task_id: UUID,
+        op_id: UUID | None = None,
+        expected_version: int | None = None,
+    ) -> None:
         raise NotImplementedError
 
     async def update_done_subtask(self, subtask_id: UUID) -> Subtask:
