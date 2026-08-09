@@ -37,7 +37,7 @@ export function AuthScreenLayout({
       className="flex-1 bg-background"
       contentContainerClassName="flex-grow"
     >
-      <Box className="w-full max-w-[390px] flex-1 self-center bg-background px-margin-mobile py-6">
+      <Box className="w-full max-w-[390px] flex-1 self-center bg-background px-margin-mobile py-6 md:max-w-none">
         {showBackButton ? (
           <HStack className="items-center gap-2">
             <Button
