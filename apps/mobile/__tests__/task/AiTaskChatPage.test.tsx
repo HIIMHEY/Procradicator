@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 
 import { API_ROUTES } from '@/config/env';
+import { SYNC_EVENT } from '@/offline/syncEvents';
 import { AiTaskChatPage } from '@/task/task_ai_chat/components/AiTaskChatPage';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
@@ -15,6 +16,7 @@ const mockMessageId = '33333333-3333-4333-8333-333333333333';
 const mockHistoryUrl = `${API_ROUTES.CHAT.HISTORY(mockSessionId)}?page=1&limit=20`;
 let mockRouteTaskId: string | undefined = mockTaskId;
 let mockHistoryMessages: unknown[] = [];
+let mockReplyRole: 'ASSISTANT' | 'TOOL' = 'ASSISTANT';
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({
@@ -35,6 +37,7 @@ const jsonResponse = (data: unknown): Response =>
 beforeEach(() => {
   mockRouteTaskId = mockTaskId;
   mockHistoryMessages = [];
+  mockReplyRole = 'ASSISTANT';
   mockNavigate.mockReset();
   mockReplace.mockReset();
   mockFetch.mockReset();
@@ -54,7 +57,7 @@ beforeEach(() => {
         jsonResponse({
           id: mockMessageId,
           session_id: mockSessionId,
-          role: 'ASSISTANT',
+          role: mockReplyRole,
           content: "Task: 'Example task' updated with 3 subtasks!",
           created_at: '2026-06-26T00:00:00Z',
           tool_call_id: null,
@@ -120,10 +123,8 @@ test('create mode returns to task creation', async () => {
   mockRouteTaskId = undefined;
   renderWithProviders(<AiTaskChatPage />);
   await screen.findByPlaceholderText('State your goals...');
-
   fireEvent.press(screen.getByLabelText('Manual task mode'));
   expect(mockNavigate).toHaveBeenCalledWith('/tasks/create');
-
   fireEvent.press(screen.getByLabelText('Close AI chat'));
   expect(mockReplace).toHaveBeenCalledWith('/tasks');
 });
@@ -147,9 +148,7 @@ test('labels user and assistant messages', async () => {
       tool_call_id: null,
     },
   ];
-
   renderWithProviders(<AiTaskChatPage />);
-
   expect(await screen.findByLabelText('AI message')).toBeTruthy();
   expect(screen.getByLabelText('Your message')).toBeTruthy();
 });
@@ -165,9 +164,7 @@ test('labels task confirmation as an AI message', async () => {
       tool_call_id: 'tool-call-1',
     },
   ];
-
   renderWithProviders(<AiTaskChatPage />);
-
   expect(await screen.findByLabelText('AI message')).toBeTruthy();
 });
 
@@ -197,4 +194,34 @@ test('sends a message to the chat session', async () => {
       }),
     }),
   );
+});
+
+test('requests task sync after task confirmation', async () => {
+  mockReplyRole = 'TOOL';
+  const browserEvents = new EventTarget();
+  Object.defineProperties(window, {
+    addEventListener: {
+      configurable: true,
+      value: browserEvents.addEventListener.bind(browserEvents),
+    },
+    removeEventListener: {
+      configurable: true,
+      value: browserEvents.removeEventListener.bind(browserEvents),
+    },
+    dispatchEvent: {
+      configurable: true,
+      value: browserEvents.dispatchEvent.bind(browserEvents),
+    },
+  });
+  const handleSync = jest.fn();
+  window.addEventListener(SYNC_EVENT, handleSync);
+  try {
+    renderWithProviders(<AiTaskChatPage />);
+    const input = await screen.findByPlaceholderText('State your goals...');
+    fireEvent.changeText(input, 'Create a task with three steps');
+    fireEvent.press(screen.getByLabelText('Send message'));
+    await waitFor(() => expect(handleSync).toHaveBeenCalledTimes(1));
+  } finally {
+    window.removeEventListener(SYNC_EVENT, handleSync);
+  }
 });

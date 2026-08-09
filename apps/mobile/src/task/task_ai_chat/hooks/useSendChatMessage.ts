@@ -1,4 +1,5 @@
 import { API_ROUTES } from '@/config/env';
+import { requestSync } from '@/offline/syncEvents';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ChatMessage } from '../schemas';
 
@@ -27,6 +28,9 @@ export default function useSendChatMessage(sessionId: string | null) {
       : async () => {
           throw new Error('Chat session is not ready');
         },
+    onSuccess: (message) => {
+      if (message.role === 'TOOL') requestSync();
+    },
     onSettled: () => {
       client.invalidateQueries({
         queryKey: ['chat', 'history', sessionId],
