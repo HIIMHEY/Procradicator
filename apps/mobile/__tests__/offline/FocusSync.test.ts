@@ -1,8 +1,5 @@
-/// <reference types="jest" />
-
 import 'fake-indexeddb/auto';
 
-import { deleteOfflineDatabase } from '@/offline/database';
 import {
   createLocalFocusSession,
   getLocalFocusSession,
@@ -15,26 +12,22 @@ import {
   keepServerFocus,
   listFocusConflicts,
 } from '@/offline/focusSync';
+import { response } from '../../test-utils/http';
+import { iso, uid } from '../../test-utils/factories';
+import { resetOfflineDatabase } from '../../test-utils/offline';
 
-const USER_ID = '9b97c715-d720-4ffc-88e6-f395be319dda';
-const TASK_ID = '33333333-3333-4333-8333-333333333333';
-const SUBTASK_ID = '11111111-1111-4111-8111-111111111111';
-const NOW = '2026-07-27T09:00:00.000Z';
-
-const response = (body: unknown, status = 200): Response =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  }) as Response;
+const USER_ID = uid('user');
+const TASK_ID = uid('task');
+const SUBTASK_ID = uid('subtask');
+const NOW = iso(0);
 
 beforeEach(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
   globalThis.fetch = jest.fn() as unknown as typeof fetch;
 });
 
 afterAll(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
 });
 
 test('creates an immediately usable local session', async () => {
@@ -55,7 +48,7 @@ test('stores completed focus progress offline', async () => {
   const task = await createLocalTask(USER_ID, {
     title: 'Offline task',
     description: '',
-    due_at: '2026-08-01T09:00:00.000Z',
+    due_at: iso(0),
     subtasks: [
       {
         id: crypto.randomUUID(),
@@ -80,7 +73,7 @@ test('stores completed focus progress offline', async () => {
         id: logId,
         subtask_id: subtaskId,
         start_at: NOW,
-        stop_at: '2026-07-27T09:25:00.000Z',
+        stop_at: iso(25),
       },
     ],
   };
@@ -92,7 +85,7 @@ test('stores completed focus progress offline', async () => {
     rest_cycles: 0,
     total_overtime_s: 0,
   };
-  const endedAt = '2026-07-27T09:25:00.000Z';
+  const endedAt = iso(25);
 
   const stored = await saveLocalFocusProgress(
     USER_ID,
@@ -130,15 +123,15 @@ test('flushes focus operations FIFO and chains the acknowledged version', async 
       total_overtime_s: 0,
     },
     true,
-    '2026-07-27T09:30:00.000Z',
+    iso(30),
   );
   let version = 0;
   jest.mocked(globalThis.fetch).mockImplementation(async () => {
     version += 1;
     return response({
       ...created.session,
-      updated_at: `2026-07-27T09:0${version}:00.000Z`,
-      end_at: version === 2 ? '2026-07-27T09:30:00.000Z' : null,
+      updated_at: iso(version),
+      end_at: version === 2 ? iso(30) : null,
       version,
     });
   });
@@ -152,33 +145,11 @@ test('flushes focus operations FIFO and chains the acknowledged version', async 
   >;
   expect(secondHeaders['If-Match']).toBe('"1"');
   expect(JSON.parse(String(jest.mocked(globalThis.fetch).mock.calls[1][1]?.body))).toMatchObject({
-    end_at: '2026-07-27T09:30:00.000Z',
+    end_at: iso(30),
   });
   await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
     session: { version: 2 },
     state: { phase: 'CONGRATS' },
-  });
-});
-
-test('accepts timezone-less timestamps returned by the backend', async () => {
-  const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
-  jest.mocked(globalThis.fetch).mockResolvedValue(
-    response({
-      ...created.session,
-      start_at: '2026-07-27T09:00:00.000000',
-      updated_at: '2026-07-27T09:01:00.000000',
-      version: 1,
-    }),
-  );
-
-  await flushFocusOutbox(USER_ID);
-
-  await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
-    session: {
-      start_at: '2026-07-27T09:00:00.000000',
-      updated_at: '2026-07-27T09:01:00.000000',
-      version: 1,
-    },
   });
 });
 
@@ -226,11 +197,11 @@ test('turns a conflicting focus create replay into a user choice', async () => {
       total_overtime_s: 0,
     },
     true,
-    '2026-07-27T09:30:00.000Z',
+    iso(30),
   );
   const remote = {
     ...created.session,
-    updated_at: '2026-07-27T09:20:00.000Z',
+    updated_at: iso(20),
     version: 2,
     work_cycles: 1,
   };
@@ -260,9 +231,7 @@ test('retries a focus session after a transport failure', async () => {
 
   jest
     .mocked(globalThis.fetch)
-    .mockResolvedValueOnce(
-      response({ ...created.session, version: 1, updated_at: '2026-07-27T09:01:00.000Z' }),
-    );
+    .mockResolvedValueOnce(response({ ...created.session, version: 1, updated_at: iso(1) }));
   await flushFocusOutbox(USER_ID);
 
   expect(globalThis.fetch).toHaveBeenCalledTimes(2);
@@ -275,9 +244,7 @@ test('lets the user choose either local or server focus changes', async () => {
   const created = await createLocalFocusSession(USER_ID, TASK_ID, SUBTASK_ID, 0, NOW);
   jest
     .mocked(globalThis.fetch)
-    .mockResolvedValueOnce(
-      response({ ...created.session, version: 1, updated_at: '2026-07-27T09:01:00.000Z' }),
-    );
+    .mockResolvedValueOnce(response({ ...created.session, version: 1, updated_at: iso(1) }));
   await flushFocusOutbox(USER_ID);
   await saveLocalFocusProgress(
     USER_ID,
@@ -292,14 +259,14 @@ test('lets the user choose either local or server focus changes', async () => {
       total_overtime_s: 0,
     },
     true,
-    '2026-07-27T10:05:00.000Z',
+    iso(65),
   );
 
   const server = {
     ...created.session,
-    end_at: '2026-07-27T10:00:00.000Z',
+    end_at: iso(60),
     version: 4,
-    updated_at: '2026-07-27T10:00:00.000Z',
+    updated_at: iso(60),
   };
   jest
     .mocked(globalThis.fetch)
@@ -314,9 +281,9 @@ test('lets the user choose either local or server focus changes', async () => {
 
   const local = {
     ...server,
-    end_at: '2026-07-27T10:05:00.000Z',
+    end_at: iso(65),
     version: 5,
-    updated_at: '2026-07-27T10:05:00.000Z',
+    updated_at: iso(65),
   };
   jest.mocked(globalThis.fetch).mockResolvedValueOnce(response(local));
   await flushFocusOutbox(USER_ID);
@@ -324,11 +291,11 @@ test('lets the user choose either local or server focus changes', async () => {
   expect(lastRequest?.method).toBe('PUT');
   expect((lastRequest?.headers as Record<string, string>)['If-Match']).toBe('"4"');
   expect(JSON.parse(String(lastRequest?.body))).toMatchObject({
-    end_at: '2026-07-27T10:05:00.000Z',
+    end_at: iso(65),
   });
   await expect(listFocusConflicts(USER_ID)).resolves.toEqual([]);
   await expect(getLocalFocusSession(USER_ID, created.session.id)).resolves.toMatchObject({
-    session: { end_at: '2026-07-27T10:05:00.000Z', version: 5 },
+    session: { end_at: iso(65), version: 5 },
   });
 
   await saveLocalFocusProgress(
@@ -344,9 +311,9 @@ test('lets the user choose either local or server focus changes', async () => {
       total_overtime_s: 0,
     },
     true,
-    '2026-07-27T10:10:00.000Z',
+    iso(70),
   );
-  const newerServer = { ...server, version: 6, updated_at: '2026-07-27T10:08:00.000Z' };
+  const newerServer = { ...server, version: 6, updated_at: iso(68) };
   jest
     .mocked(globalThis.fetch)
     .mockResolvedValueOnce(

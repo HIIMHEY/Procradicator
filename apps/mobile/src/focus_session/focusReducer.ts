@@ -6,8 +6,8 @@ export const initial: State = {
   sessionId: null,
   currentIdx: 0,
   phaseStartedAt: null,
-  workCycleM: 25, // Default Work
-  restCycleM: 5, // Default Rest
+  workCycleM: 25,
+  restCycleM: 5,
   previousPhase: null,
   focusLogs: [],
   restLogs: [],
@@ -133,10 +133,7 @@ export function focusReducer(state: State, action: Action): State {
         phase: action.hasMore ? 'READY' : 'CONGRATS',
         currentIdx: action.hasMore ? state.currentIdx + 1 : state.currentIdx,
         restCycles: state.restCycles + (action.incrCycles ? 1 : 0),
-        restLogs: [
-          ...state.restLogs,
-          { id: crypto.randomUUID(), start_at: startAt, stop_at: now },
-        ],
+        restLogs: [...state.restLogs, { id: crypto.randomUUID(), start_at: startAt, stop_at: now }],
         phaseStartedAt: action.hasMore ? Date.now() : state.phaseStartedAt,
       };
     }

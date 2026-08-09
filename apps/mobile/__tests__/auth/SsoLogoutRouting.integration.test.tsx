@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 jest.mock('../../src/global.css', () => ({}));
 
 jest.mock('react-native-gesture-handler', () => {
@@ -14,26 +12,12 @@ import { LoginForm } from '@/auth/components/LoginForm';
 import { RegisterForm } from '@/auth/components/RegisterForm';
 import { API_ROUTES } from '@/config/env';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { response } from '../../test-utils/http';
+import { session } from '../../test-utils/factories';
 
 const mockFetch = jest.fn();
 
-const user = {
-  id: '7cf2a63f-45da-4af7-9917-306abc624759',
-  email: 'user@example.com',
-  username: 'user',
-  is_active: true,
-  is_superuser: false,
-  is_verified: false,
-  server_time: '2026-07-27T09:00:00.000Z',
-  session_expires_at: '2026-07-27T10:00:00.000Z',
-};
-
-const response = (body: unknown, status = 200): Response =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  }) as Response;
+const user = session({ email: 'user@example.com', username: 'user' });
 
 function EmptyRoute() {
   return null;

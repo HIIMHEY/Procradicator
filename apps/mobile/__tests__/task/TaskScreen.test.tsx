@@ -1,4 +1,3 @@
-/// <reference types="jest" />
 import { fireEvent, screen } from '@testing-library/react-native';
 import TaskIndex from '../../src/app/tasks';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';

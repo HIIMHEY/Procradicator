@@ -1,18 +1,18 @@
-/// <reference types="jest" />
-
 import { API_ROUTES } from '@/config/env';
 import { SYNC_EVENT } from '@/offline/syncEvents';
 import { AiTaskChatPage } from '@/task/task_ai_chat/components/AiTaskChatPage';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { response } from '../../test-utils/http';
+import { iso, uid } from '../../test-utils/factories';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
+import { stubWindowEvents } from '../../test-utils/windowEvents';
 
-const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
 const mockFetch = jest.fn();
 
-const mockTaskId = '11111111-1111-4111-8111-111111111111';
-const mockSessionId = '22222222-2222-4222-8222-222222222222';
-const mockMessageId = '33333333-3333-4333-8333-333333333333';
+const mockTaskId = uid('task');
+const mockSessionId = uid('session');
+const mockMessageId = uid('message');
 const mockHistoryUrl = `${API_ROUTES.CHAT.HISTORY(mockSessionId)}?page=1&limit=20`;
 let mockRouteTaskId: string | undefined = mockTaskId;
 let mockHistoryMessages: unknown[] = [];
@@ -23,43 +23,35 @@ jest.mock('expo-router', () => ({
     id: mockRouteTaskId,
   }),
   useRouter: () => ({
-    navigate: mockNavigate,
     replace: mockReplace,
   }),
 }));
-
-const jsonResponse = (data: unknown): Response =>
-  ({
-    ok: true,
-    json: async () => data,
-  }) as Response;
 
 beforeEach(() => {
   mockRouteTaskId = mockTaskId;
   mockHistoryMessages = [];
   mockReplyRole = 'ASSISTANT';
-  mockNavigate.mockReset();
   mockReplace.mockReset();
   mockFetch.mockReset();
   mockFetch.mockImplementation((url: string, options?: RequestInit): Promise<Response> => {
     if (url === API_ROUTES.CHAT.CREATE_SESSION && options?.method === 'POST') {
       return Promise.resolve(
-        jsonResponse({
+        response({
           session_id: mockSessionId,
         }),
       );
     }
     if (url === mockHistoryUrl && options?.method === 'GET') {
-      return Promise.resolve(jsonResponse(mockHistoryMessages));
+      return Promise.resolve(response(mockHistoryMessages));
     }
     if (url === API_ROUTES.CHAT.MESSAGE(mockSessionId) && options?.method === 'POST') {
       return Promise.resolve(
-        jsonResponse({
+        response({
           id: mockMessageId,
           session_id: mockSessionId,
           role: mockReplyRole,
           content: "Task: 'Example task' updated with 3 subtasks!",
-          created_at: '2026-06-26T00:00:00Z',
+          created_at: iso(0),
           tool_call_id: null,
         }),
       );
@@ -71,7 +63,7 @@ beforeEach(() => {
 
 test('starts a chat session for the task', async () => {
   renderWithProviders(<AiTaskChatPage />);
-  expect(screen.getByLabelText('Close AI chat')).toBeTruthy();
+  expect(screen.getByLabelText('Close task editor')).toBeTruthy();
   expect(screen.getByLabelText('Manual task mode')).toBeTruthy();
   expect(screen.getByLabelText('AI chat mode')).toBeTruthy();
   await waitFor(() =>
@@ -109,13 +101,13 @@ test('manual mode opens task edit', async () => {
     ),
   );
   fireEvent.press(screen.getByLabelText('Manual task mode'));
-  expect(mockNavigate).toHaveBeenCalledWith(`/tasks/${mockTaskId}/edit`);
+  expect(mockReplace).toHaveBeenCalledWith(`/tasks/${mockTaskId}/edit`);
 });
 
 test('close opens task edit', async () => {
   renderWithProviders(<AiTaskChatPage />);
   await screen.findByPlaceholderText('State your goals...');
-  fireEvent.press(screen.getByLabelText('Close AI chat'));
+  fireEvent.press(screen.getByLabelText('Close task editor'));
   expect(mockReplace).toHaveBeenCalledWith(`/tasks/${mockTaskId}/edit`);
 });
 
@@ -124,27 +116,27 @@ test('create mode returns to task creation', async () => {
   renderWithProviders(<AiTaskChatPage />);
   await screen.findByPlaceholderText('State your goals...');
   fireEvent.press(screen.getByLabelText('Manual task mode'));
-  expect(mockNavigate).toHaveBeenCalledWith('/tasks/create');
-  fireEvent.press(screen.getByLabelText('Close AI chat'));
+  expect(mockReplace).toHaveBeenCalledWith('/tasks/create');
+  fireEvent.press(screen.getByLabelText('Close task editor'));
   expect(mockReplace).toHaveBeenCalledWith('/tasks');
 });
 
 test('labels user and assistant messages', async () => {
   mockHistoryMessages = [
     {
-      id: '44444444-4444-4444-8444-444444444444',
+      id: uid('ai-message'),
       session_id: mockSessionId,
       role: 'ASSISTANT',
       content: 'What would you like to change?',
-      created_at: '2026-06-26T00:00:00Z',
+      created_at: iso(0),
       tool_call_id: null,
     },
     {
-      id: '55555555-5555-4555-8555-555555555555',
+      id: uid('user-message'),
       session_id: mockSessionId,
       role: 'USER',
       content: 'Add one testing subtask.',
-      created_at: '2026-06-26T00:01:00Z',
+      created_at: iso(1),
       tool_call_id: null,
     },
   ];
@@ -156,11 +148,11 @@ test('labels user and assistant messages', async () => {
 test('labels task confirmation as an AI message', async () => {
   mockHistoryMessages = [
     {
-      id: '66666666-6666-4666-8666-666666666666',
+      id: uid('tool-message'),
       session_id: mockSessionId,
       role: 'TOOL',
       content: "Task: 'Example task' created with 3 subtasks!",
-      created_at: '2026-06-26T00:02:00Z',
+      created_at: iso(2),
       tool_call_id: 'tool-call-1',
     },
   ];
@@ -198,21 +190,7 @@ test('sends a message to the chat session', async () => {
 
 test('requests task sync after task confirmation', async () => {
   mockReplyRole = 'TOOL';
-  const browserEvents = new EventTarget();
-  Object.defineProperties(window, {
-    addEventListener: {
-      configurable: true,
-      value: browserEvents.addEventListener.bind(browserEvents),
-    },
-    removeEventListener: {
-      configurable: true,
-      value: browserEvents.removeEventListener.bind(browserEvents),
-    },
-    dispatchEvent: {
-      configurable: true,
-      value: browserEvents.dispatchEvent.bind(browserEvents),
-    },
-  });
+  stubWindowEvents();
   const handleSync = jest.fn();
   window.addEventListener(SYNC_EVENT, handleSync);
   try {

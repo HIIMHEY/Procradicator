@@ -37,7 +37,6 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
   // NOTE: all logic assumes a linear chain
   // TODO: update to generalised logic
 
-  //subtasks is a field that is an array
   const { fields, append, move, remove } = useFieldArray({
     control,
     name: 'subtasks',
@@ -45,7 +44,6 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
   });
   const currSubtasks = watch('subtasks') || [];
 
-  //populate form with extant task data
   useEffect(() => {
     if (data && mode === 'Edit') {
       const depMap = buildDepMap(data.subtasks);
@@ -77,7 +75,6 @@ export function useModifyTaskForm({ id, mode, onError, onSuccess }: UseModifyTas
   };
 
   const handleReorderSubtask = (fromIdx: number, toIdx: number) => {
-    //cause apparently it can be currVals.length, like bruh
     //See: https://github.com/fivecar/react-native-draglist#:~:text=toIndex%20reflects%20the,data.length%5D).
     toIdx = Math.min(toIdx, currSubtasks.length - 1);
     if (toIdx === fromIdx) return;

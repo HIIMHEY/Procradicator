@@ -17,23 +17,23 @@ export function ErrorFallback({ message, onRetry }: ErrorFallbackProps) {
 
   return (
     <Center className="w-full p-4 flex-1">
-      <Box className="max-w-lg bg-white dark:bg-black border rounded-xl p-6 w-full">
+      <Box className="max-w-lg bg-surface-container-lowest dark:bg-background border rounded-xl p-6 w-full">
         <VStack className="space-y-4 items-center text-center">
-          <Icon as={AlertTriangle} size="xl" className="text-red-500" />
+          <Icon as={AlertTriangle} size="xl" className="text-error" />
 
-          <Heading className="text-lg font-semibold text-black ">Loading Error</Heading>
+          <Heading className="text-lg font-semibold text-on-surface">Loading Error</Heading>
 
-          <Text className="text-sm text-gray-500 text-center">{errorMessage}</Text>
+          <Text className="text-sm text-on-surface-variant text-center">{errorMessage}</Text>
 
           {onRetry && (
             <Button
               size="sm"
               variant="outline"
               action="negative"
-              className="mt-2 border-red-500 active:bg-red-50"
+              className="mt-2 border-error active:bg-error-container"
               onPress={onRetry}
             >
-              <ButtonText className="text-red-500">Try Again</ButtonText>
+              <ButtonText className="text-error">Try Again</ButtonText>
             </Button>
           )}
         </VStack>

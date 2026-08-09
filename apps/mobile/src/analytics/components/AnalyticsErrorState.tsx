@@ -15,13 +15,13 @@ export function AnalyticsErrorState({ onRetry }: AnalyticsErrorStateProps) {
       accessibilityLabel="Analytics error state"
       className="flex-1 items-center justify-center px-8 pb-24"
     >
-      <Box className="h-20 w-20 items-center justify-center rounded-full bg-blue-50">
-        <Icon as={CircleAlert} size="xl" className="text-slate-500" />
+      <Box className="h-20 w-20 items-center justify-center rounded-full bg-primary-container">
+        <Icon as={CircleAlert} size="xl" className="text-on-surface-variant" />
       </Box>
-      <Text className="mt-6 text-center text-base font-medium text-slate-900">
+      <Text className="mt-6 text-center text-base font-medium text-on-surface">
         Something went wrong
       </Text>
-      <Text className="mt-3 max-w-[240px] text-center text-sm leading-5 text-slate-500">
+      <Text className="mt-3 max-w-[240px] text-center text-sm leading-5 text-on-surface-variant">
         We&apos;re having trouble loading your stats right now.
       </Text>
       <Button
@@ -29,9 +29,9 @@ export function AnalyticsErrorState({ onRetry }: AnalyticsErrorStateProps) {
         variant="outline"
         size="sm"
         onPress={onRetry}
-        className="mt-6 rounded-full border-slate-200 bg-white px-6"
+        className="mt-6 rounded-full border-outline-variant bg-surface-container-lowest px-6"
       >
-        <ButtonText className="text-blue-600">Retry</ButtonText>
+        <ButtonText className="text-primary">Retry</ButtonText>
       </Button>
     </View>
   );

@@ -1,28 +1,15 @@
-/// <reference types="jest" />
-
-import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { friendId, linkId, response, stubFriendsFetch } from '../../test-utils/friendTestUtils';
+import { iso, uid } from '../../test-utils/factories';
 import { API_ROUTES } from '@/config/env';
 import { FriendsPage } from '@/friends/components/FriendsPage';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { friendId, linkId, response, userId } from '../../test-utils/friendTestUtils';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockFetch = jest.fn();
-const mockReplace = jest.fn();
-
-jest.mock('@/auth/hooks/useCurrentUser');
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
-
-const mockUseCurrentUser = jest.mocked(useCurrentUser);
 
 beforeEach(() => {
   mockFetch.mockReset();
-  mockReplace.mockReset();
-  mockUseCurrentUser.mockReset();
-  mockUseCurrentUser.mockReturnValue({ data: { id: userId } } as never);
-  globalThis.fetch = mockFetch as unknown as typeof fetch;
+  stubFriendsFetch(mockFetch);
 });
 
 test("shows each friend's current-day statistics", async () => {
@@ -34,8 +21,8 @@ test("shows each friend's current-day statistics", async () => {
           {
             id: linkId,
             user: { id: friendId, username: 'test_person_1' },
-            requested_at: '2026-07-25T12:00:00Z',
-            accepted_at: '2026-07-25T12:05:00Z',
+            requested_at: iso(0),
+            accepted_at: iso(5),
             is_incoming: false,
           },
         ]),
@@ -69,8 +56,8 @@ test('nudges a friend from the leaderboard', async () => {
           {
             id: linkId,
             user: { id: friendId, username: 'test_person_1' },
-            requested_at: '2026-07-25T12:00:00Z',
-            accepted_at: '2026-07-25T12:05:00Z',
+            requested_at: iso(0),
+            accepted_at: iso(5),
             is_incoming: false,
           },
         ]),
@@ -88,7 +75,7 @@ test('nudges a friend from the leaderboard', async () => {
       );
     }
     if (url === API_ROUTES.FRIENDS.NUDGE(linkId) && init?.method === 'POST') {
-      return Promise.resolve(response({ nudge_id: '4fafc94a-38b0-4f27-9463-1df13a7337b0' }, 201));
+      return Promise.resolve(response({ nudge_id: uid('nudge') }, 201));
     }
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });
@@ -119,8 +106,8 @@ test('removes a friend from the leaderboard', async () => {
                 {
                   id: linkId,
                   user: { id: friendId, username: 'test_person_1' },
-                  requested_at: '2026-07-25T12:00:00Z',
-                  accepted_at: '2026-07-25T12:05:00Z',
+                  requested_at: iso(0),
+                  accepted_at: iso(5),
                   is_incoming: false,
                 },
               ],

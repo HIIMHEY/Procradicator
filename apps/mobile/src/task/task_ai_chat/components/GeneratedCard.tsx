@@ -20,9 +20,9 @@ export function GeneratedCard({ taskId, message }: ToolCallCardProps) {
     <Box className="mb-6 w-full flex-row justify-start">
       <Box
         aria-label="AI message"
-        className="w-[150px] rounded-[24px] border border-[#E5E5E5] bg-surface-container-highest px-4 pb-4 pt-6"
+        className="w-[150px] rounded-[24px] border border-outline-variant bg-surface-container-highest px-4 pb-4 pt-6"
       >
-        <Text className="mb-10 text-sm leading-5 text-zinc-700">{message}</Text>
+        <Text className="mb-10 text-sm leading-5 text-on-surface">{message}</Text>
 
         {taskId ? (
           <Button

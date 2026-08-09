@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 import 'fake-indexeddb/auto';
 
 jest.unmock('@/offline/components/OfflineSyncProvider');
@@ -9,14 +7,19 @@ import OfflineSyncProvider from '@/offline/components/OfflineSyncProvider';
 import ConflictModal from '@/offline/components/ConflictModal';
 import { AUTH_API_ORIGIN, persistLocalLogout } from '@/auth/sessionManager';
 import { createAuthSession } from '@/auth/offlineSession';
-import { deleteOfflineDatabase, saveAuthRecord } from '@/offline/database';
+import { saveAuthRecord } from '@/offline/database';
 import { createLocalFocusSession, saveLocalFocusProgress } from '@/offline/focusStore';
 import { flushTaskOutbox } from '@/offline/taskSync';
 import { createLocalTask, deleteLocalTask, updateLocalTask } from '@/offline/taskStore';
 import { API_ROUTES } from '@/config/env';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { response } from '../../test-utils/http';
+import { iso, uid } from '../../test-utils/factories';
+import { createTestQueryClient } from '../../test-utils/renderWithProviders';
+import { resetOfflineDatabase, setOnline } from '../../test-utils/offline';
+import { stubWindowEvents } from '../../test-utils/windowEvents';
 
 let mockCurrentUser: { id: string } | null = null;
 
@@ -25,72 +28,42 @@ jest.mock('@/auth/hooks/useCurrentUser', () => ({
 }));
 
 const user = {
-  id: '7cf2a63f-45da-4af7-9917-306abc624759',
+  id: uid('user'),
   email: 'user@example.com',
   username: 'user',
   is_active: true,
   is_superuser: false,
   is_verified: false,
-  server_time: '2026-08-03T09:00:00.000Z',
-  session_expires_at: '2026-08-03T10:00:00.000Z',
+  server_time: iso(0),
+  session_expires_at: iso(60),
 };
 
-const response = (body: unknown = {}, status = 200): Response =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  }) as Response;
-
-function setOnline(online: boolean): void {
-  Object.defineProperty(globalThis.navigator, 'onLine', {
-    configurable: true,
-    value: online,
-  });
-}
-
 function renderSyncProvider(showConflicts = false) {
-  const queryClient = new QueryClient({
-    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
-  });
+  const queryClient = createTestQueryClient();
   const view = render(
     <>
       <OfflineSyncProvider />
       {showConflicts && <ConflictModal />}
     </>,
     {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    ),
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
     },
   );
   return { ...view, queryClient };
 }
 
 beforeEach(async () => {
-  await deleteOfflineDatabase();
-  const browserEvents = new EventTarget();
-  Object.defineProperties(window, {
-    addEventListener: {
-      configurable: true,
-      value: browserEvents.addEventListener.bind(browserEvents),
-    },
-    removeEventListener: {
-      configurable: true,
-      value: browserEvents.removeEventListener.bind(browserEvents),
-    },
-    dispatchEvent: {
-      configurable: true,
-      value: browserEvents.dispatchEvent.bind(browserEvents),
-    },
-  });
+  await resetOfflineDatabase();
+  stubWindowEvents();
   globalThis.fetch = jest.fn() as unknown as typeof fetch;
   setOnline(false);
   mockCurrentUser = null;
 });
 
 afterAll(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
 });
 
 test('sends a queued logout when the browser reconnects', async () => {
@@ -192,10 +165,10 @@ test('syncs focus progress before deleting its task after reconnect', async () =
   const task = await createLocalTask(user.id, {
     title: 'Offline task',
     description: '',
-    due_at: '2026-08-04T09:00:00.000Z',
+    due_at: iso(0),
     subtasks: [
       {
-        id: '4f8b1875-30c5-4786-9e0c-a17661127e44',
+        id: uid('subtask'),
         title: 'Review notes',
         description: '',
         est_m: 25,
@@ -210,7 +183,7 @@ test('syncs focus progress before deleting its task after reconnect', async () =
   jest.mocked(globalThis.fetch).mockImplementation(async (url, options) => {
     const method = options?.method;
     if (url === API_ROUTES.TASKS.BASE && method === 'POST') {
-      return response({ ...task, updated_at: '2026-08-03T09:10:00.000Z', version: 1 }, 201);
+      return response({ ...task, updated_at: iso(10), version: 1 }, 201);
     }
     if (url === API_ROUTES.FOCUS.BASE && method === 'POST') {
       if (taskDeleted) return response({}, 404);
@@ -268,7 +241,7 @@ test('shows a task conflict immediately after reconnect', async () => {
   const task = await createLocalTask(user.id, {
     title: 'Original',
     description: '',
-    due_at: '2026-08-04T09:00:00.000Z',
+    due_at: iso(0),
     subtasks: [
       {
         id: crypto.randomUUID(),
@@ -280,9 +253,9 @@ test('shows a task conflict immediately after reconnect', async () => {
       },
     ],
   });
-  jest.mocked(globalThis.fetch).mockResolvedValueOnce(
-    response({ ...task, updated_at: '2026-08-03T09:10:00.000Z', version: 1 }, 201),
-  );
+  jest
+    .mocked(globalThis.fetch)
+    .mockResolvedValueOnce(response({ ...task, updated_at: iso(10), version: 1 }, 201));
   await flushTaskOutbox(user.id);
   await updateLocalTask(user.id, task.id, {
     id: task.id,
@@ -301,7 +274,7 @@ test('shows a task conflict immediately after reconnect', async () => {
   const serverTask = {
     ...task,
     title: 'Server',
-    updated_at: '2026-08-03T09:12:00.000Z',
+    updated_at: iso(12),
     version: 2,
   };
   jest.mocked(globalThis.fetch).mockImplementation(async (url, options) => {
@@ -336,10 +309,10 @@ test('shows a task conflict immediately after reconnect', async () => {
 test('shows a focus conflict immediately after reconnect', async () => {
   mockCurrentUser = { id: user.id };
   const session = {
-    id: '81e594b3-646b-440d-9593-765ee8beb848',
+    id: uid('focus-session'),
     user_id: user.id,
-    start_at: '2026-08-05T01:00:00.000Z',
-    updated_at: '2026-08-05T01:00:00.000Z',
+    start_at: iso(0),
+    updated_at: iso(0),
     end_at: null,
     version: 1,
     work_cycle_m: 25,
@@ -351,8 +324,8 @@ test('shows a focus conflict immediately after reconnect', async () => {
   };
   const local = await createLocalFocusSession(
     user.id,
-    'b5eae137-a223-471a-85f6-ec74058b2366',
-    'a38ec45d-1314-4c69-b338-e3283851db32',
+    uid('task'),
+    uid('subtask'),
     0,
     session.start_at,
     session,
@@ -370,11 +343,11 @@ test('shows a focus conflict immediately after reconnect', async () => {
       total_overtime_s: 0,
     },
     false,
-    '2026-08-05T01:25:00.000Z',
+    iso(25),
   );
   const server = {
     ...session,
-    updated_at: '2026-08-05T01:20:00.000Z',
+    updated_at: iso(20),
     version: 2,
     work_cycles: 1,
   };

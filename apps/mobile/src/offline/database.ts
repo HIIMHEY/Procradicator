@@ -42,7 +42,10 @@ export async function saveTaskAndEnqueue(
   await transactionDone(transaction);
 }
 
-export async function getTaskRecord(userId: string, taskId: string): Promise<LocalTaskRecord | null> {
+export async function getTaskRecord(
+  userId: string,
+  taskId: string,
+): Promise<LocalTaskRecord | null> {
   const database = await openDatabase();
   const transaction = database.transaction(STORES.tasks, 'readonly');
   const result = await requestResult<unknown>(

@@ -20,15 +20,15 @@ export function AnalyticsMetricCard({
   return (
     <View
       accessibilityLabel={accessibilityLabel}
-      className="min-h-[88px] flex-1 justify-center rounded-xl border border-slate-200 bg-white px-3 py-3"
+      className="min-h-[88px] flex-1 justify-center rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-3"
     >
       <Box className="flex-row items-center gap-2">
-        <Box className="h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-          <Icon as={icon} size="sm" className="text-blue-600" />
+        <Box className="h-7 w-7 items-center justify-center rounded-lg bg-primary-container">
+          <Icon as={icon} size="sm" className="text-primary" />
         </Box>
-        <Text className="flex-1 text-sm text-slate-600">{label}</Text>
+        <Text className="flex-1 text-sm text-on-surface-variant">{label}</Text>
       </Box>
-      <Text className="mt-1 text-xl font-medium text-blue-600">{value}</Text>
+      <Text className="mt-1 text-xl font-medium text-primary">{value}</Text>
     </View>
   );
 }

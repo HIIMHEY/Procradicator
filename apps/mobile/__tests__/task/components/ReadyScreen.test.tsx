@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ReadyScreen } from '@/focus_session/components/ReadyScreen';

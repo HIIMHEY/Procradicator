@@ -1,32 +1,19 @@
-/// <reference types="jest" />
-
-import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { friendId, linkId, response, stubFriendsFetch } from '../../test-utils/friendTestUtils';
+import { iso, uid } from '../../test-utils/factories';
 import { API_ROUTES } from '@/config/env';
 import { FriendsPage } from '@/friends/components/FriendsPage';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { friendId, linkId, response, userId } from '../../test-utils/friendTestUtils';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockFetch = jest.fn();
-const mockReplace = jest.fn();
-
-jest.mock('@/auth/hooks/useCurrentUser');
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
-
-const mockUseCurrentUser = jest.mocked(useCurrentUser);
 
 beforeEach(() => {
   mockFetch.mockReset();
-  mockReplace.mockReset();
-  mockUseCurrentUser.mockReset();
-  mockUseCurrentUser.mockReturnValue({ data: { id: userId } } as never);
-  globalThis.fetch = mockFetch as unknown as typeof fetch;
+  stubFriendsFetch(mockFetch);
 });
 
 test('separates incoming and sent requests and rejects an incoming request', async () => {
-  const sentLinkId = '6cf34c16-a0f8-4dae-97cd-c5a04304f44c';
+  const sentLinkId = uid('sent-link');
   let rejected = false;
   mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -45,7 +32,7 @@ test('separates incoming and sent requests and rejects an incoming request', asy
                 {
                   id: linkId,
                   user: { id: friendId, username: 'test_person_1' },
-                  requested_at: '2026-07-25T12:00:00Z',
+                  requested_at: iso(0),
                   accepted_at: null,
                   is_incoming: true,
                 },
@@ -54,10 +41,10 @@ test('separates incoming and sent requests and rejects an incoming request', asy
           {
             id: sentLinkId,
             user: {
-              id: '4c3482b1-b1fd-46f0-a435-e312867f7610',
+              id: uid('friend-2'),
               username: 'test_person_2',
             },
-            requested_at: '2026-07-25T12:10:00Z',
+            requested_at: iso(10),
             accepted_at: null,
             is_incoming: false,
           },
@@ -100,7 +87,7 @@ test('accepts an incoming friend request', async () => {
                 {
                   id: linkId,
                   user: { id: friendId, username: 'test_person_1' },
-                  requested_at: '2026-07-25T12:00:00Z',
+                  requested_at: iso(0),
                   accepted_at: null,
                   is_incoming: true,
                 },

@@ -124,10 +124,7 @@ export const OutboxRecordSchema = z.discriminatedUnion('entityType', [
   AuthOutboxRecordSchema,
 ]);
 
-export const ConflictRecordSchema = z.union([
-  TaskConflictRecordSchema,
-  FocusConflictRecordSchema,
-]);
+export const ConflictRecordSchema = z.union([TaskConflictRecordSchema, FocusConflictRecordSchema]);
 
 export type SyncStatus = z.infer<typeof SyncStatusSchema>;
 export type LocalTaskRecord = z.infer<typeof LocalTaskRecordSchema>;

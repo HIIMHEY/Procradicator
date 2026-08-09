@@ -28,7 +28,7 @@ export function TaskDashboard() {
   const tasks: Task[] = data?.pages.flatMap((page) => page || []) ?? [];
 
   return (
-    <Box className="h-full w-full flex-1 bg-[#F7F8FC]">
+    <Box className="h-full w-full flex-1 bg-surface-container-low">
       <NavBar active="tasks" title="Your Tasks" />
       <Box className="w-full flex-1 items-center px-6 pt-4">
         {isPending ? (

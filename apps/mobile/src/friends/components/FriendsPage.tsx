@@ -12,7 +12,7 @@ export function FriendsPage() {
   const [tab, setTab] = useState<FriendTab>('leaderboard');
   const userId = user?.id ?? '';
   return (
-    <View accessibilityLabel="Friends page" className="flex-1 bg-[#F8F9FF]">
+    <View accessibilityLabel="Friends page" className="flex-1 bg-background">
       <NavBar active="friends" title="Friends" />
       <FriendTabs active={tab} onChange={setTab} />
       {tab === 'leaderboard' && <FriendLeaderboard userId={userId} />}

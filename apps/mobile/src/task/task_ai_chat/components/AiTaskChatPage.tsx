@@ -1,18 +1,18 @@
 import { Box } from '@/components/ui/box';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Input, InputField } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { type Href, useRouter } from 'expo-router';
-import { Send, X } from 'lucide-react-native';
+import { type Href } from 'expo-router';
+import { Send } from 'lucide-react-native';
 import { Controller } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
+import { TaskHeader } from '@/task/components/TaskHeader';
 import { useAiTaskChat } from '../hooks/useAIChat';
-import { ManualButton } from './ManualButton';
 import { MessageRow } from './MessageRow';
 
 export function AiTaskChatPage() {
-  const router = useRouter();
   const {
     taskId,
     control,
@@ -31,20 +31,7 @@ export function AiTaskChatPage() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <Box className="w-full max-w-[390px] flex-1 self-center bg-background md:max-w-none">
-        <Box className="pt-1">
-          <Button
-            accessibilityLabel="Close AI chat"
-            onPress={() => router.replace(closeHref)}
-            variant="link"
-            className="h-12 w-12 items-center justify-center p-0"
-          >
-            <X size={32} strokeWidth={2.25} color="#0060AC" />
-          </Button>
-        </Box>
-
-        <Box className="items-center pt-5">
-          <ManualButton taskId={taskId} />
-        </Box>
+        <TaskHeader taskId={taskId || undefined} active="ai" backHref={closeHref} />
 
         <FlatList
           inverted
@@ -82,8 +69,7 @@ export function AiTaskChatPage() {
                     onChangeText={onChange}
                     onBlur={onBlur}
                     placeholder="State your goals..."
-                    placeholderTextColor="#717783"
-                    className="px-4 text-sm text-on-background"
+                    className="px-4 text-sm text-on-background placeholder:text-outline"
                     onSubmitEditing={handleSend}
                     returnKeyType="send"
                   />
@@ -97,7 +83,7 @@ export function AiTaskChatPage() {
               isDisabled={isSendDisabled}
               className="h-10 w-10 items-center justify-center rounded-full bg-primary p-0"
             >
-              <Send size={20} color="#FFFFFF" />
+              <Icon as={Send} className="text-on-primary" size="lg" />
             </Button>
           </Box>
         </Box>

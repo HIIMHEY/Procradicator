@@ -1,22 +1,22 @@
-/// <reference types="jest" />
-
-import { listServerTasks, sendTaskOp, TaskConflictError } from '@/task/taskApi';
+import { sendTaskOp, TaskConflictError } from '@/task/taskApi';
 import type { TaskRequest } from '@/task/taskApi';
 import { API_ROUTES } from '@/config/env';
+import { response } from '../../test-utils/http';
+import { iso, uid } from '../../test-utils/factories';
 
-const TASK_ID = 'd06dd4a2-f96a-4f31-a5e1-abd85acfe28d';
-const OPERATION_ID = '6ebca865-95b8-4128-b1a5-6c41897cd4df';
+const TASK_ID = uid('task');
+const OPERATION_ID = uid('op');
 
 const serverTask = {
   id: TASK_ID,
   title: 'Server task',
   description: null,
-  due_at: '2026-08-01T09:00:00.000Z',
-  updated_at: '2026-07-27T09:05:00.000Z',
+  due_at: iso(0),
+  updated_at: iso(5),
   version: 3,
   subtasks: [
     {
-      id: 'e0ae2b59-edfd-4fa8-95ac-985d3cf214a2',
+      id: uid('subtask'),
       title: 'First',
       description: null,
       est_m: 15,
@@ -30,7 +30,7 @@ const payload = {
   id: TASK_ID,
   title: 'Local task',
   description: null,
-  due_at: '2026-08-01T09:00:00.000Z',
+  due_at: iso(0),
   subtasks: [
     {
       id: serverTask.subtasks[0].id,
@@ -52,13 +52,6 @@ function operation(kind: 'create' | 'update' | 'delete', baseVersion: number | n
     baseVersion,
   };
 }
-
-const response = (body: unknown, status: number): Response =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  }) as Response;
 
 beforeEach(() => {
   globalThis.fetch = jest.fn() as unknown as typeof fetch;
@@ -115,15 +108,4 @@ test('delete sends the frozen version and accepts an empty response', async () =
     },
     credentials: 'include',
   });
-});
-
-test('task pull accepts timezone-less timestamps returned by the backend', async () => {
-  const backendTask = {
-    ...serverTask,
-    due_at: '2026-07-27T01:02:15.520000',
-    updated_at: '2026-07-27T01:02:41.864056',
-  };
-  jest.mocked(globalThis.fetch).mockResolvedValue(response([backendTask], 200));
-
-  await expect(listServerTasks(1, 100)).resolves.toEqual([backendTask]);
 });

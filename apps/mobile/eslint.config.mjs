@@ -7,9 +7,6 @@ import reactNative from 'eslint-plugin-react-native';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 
-/**@type {any} */
-const reactNativeAny = reactNative;
-
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   js.configs.recommended,
@@ -22,13 +19,14 @@ export default [
       '**/ios/**',
       '**/android/**',
       '**/.config.mjs',
+      '**/*.config.mjs',
       '**/components/ui/**',
       '**/example/**',
     ],
   },
 
   {
-    files: ['metro.config.js', '*.config.js'],
+    files: ['metro.config.js', '*.config.js', 'workbox-config.js'],
     languageOptions: {
       globals: globals.node,
     },
@@ -40,7 +38,7 @@ export default [
     files: ['**/*.{ts,tsx,js,jsx}'],
     plugins: {
       react: reactPlugin,
-      'react-native': reactNativeAny,
+      'react-native': reactNative,
     },
     languageOptions: {
       parserOptions: {
@@ -62,16 +60,4 @@ export default [
   },
 
   prettierConfig,
-  {
-    ignores: [
-      'node_modules/',
-      '.expo/',
-      'dist/',
-      'ios/',
-      'android/',
-      '*.config.mjs',
-      'components/ui/',
-      'example/',
-    ],
-  },
 ];

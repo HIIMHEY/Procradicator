@@ -9,14 +9,14 @@ export function TaskListSkeleton() {
       {[1, 2, 3].map((idx) => (
         <HStack
           key={idx}
-          className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden min-h-[72px] items-stretch"
+          className="bg-surface-container-lowest border-2 border-outline-variant rounded-2xl overflow-hidden min-h-[72px] items-stretch"
         >
           <Box className="flex-1 p-4 justify-center">
-            <SkeletonText _lines={2} className="h-3 w-4/5 bg-slate-200 rounded" />
+            <SkeletonText _lines={2} className="h-3 w-4/5 bg-surface-container-high rounded" />
           </Box>
 
-          <Box className="border-l-2 border-slate-200 px-6 justify-center items-center bg-slate-50/50">
-            <Skeleton variant="sharp" className="h-5 w-5 bg-slate-200 rounded" />
+          <Box className="border-l-2 border-outline-variant px-6 justify-center items-center bg-surface-container-low/50">
+            <Skeleton variant="sharp" className="h-5 w-5 bg-surface-container-high rounded" />
           </Box>
         </HStack>
       ))}

@@ -6,7 +6,7 @@ import { Icon, ArrowDownIcon } from '@/components/ui/icon';
 
 export function TaskLoadingSkeleton() {
   return (
-    <Box className="w-full h-full flex flex-col bg-white p-6 relative overflow-hidden">
+    <Box className="w-full h-full flex flex-col bg-surface-container-low p-6 relative overflow-hidden">
       <HStack className="justify-between items-center w-full mb-8 pt-4">
         <Skeleton className="h-8 w-8 rounded-full" variant="rounded" />
         <Skeleton className="h-8 w-24 rounded-full" variant="rounded" />
@@ -26,14 +26,14 @@ export function TaskLoadingSkeleton() {
 
             {index < 2 && (
               <Box className="my-1 flex justify-center items-center">
-                <Icon as={ArrowDownIcon} size="xl" className="text-slate-300" />
+                <Icon as={ArrowDownIcon} size="xl" className="text-outline" />
               </Box>
             )}
           </VStack>
         ))}
       </VStack>
 
-      <HStack className="w-full justify-between items-center pt-4 border-t border-slate-100 bg-white absolute bottom-0 left-0 right-0 p-6">
+      <HStack className="w-full justify-between items-center pt-4 border-t border-outline-variant bg-surface-container-lowest absolute bottom-0 left-0 right-0 p-6">
         <Skeleton className="h-12 w-32 rounded-full" />
         <Skeleton className="h-12 w-32 rounded-full" />
       </HStack>

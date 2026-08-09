@@ -93,21 +93,21 @@ export function FriendRequests({ userId }: FriendRequestsProps) {
       showsVerticalScrollIndicator={false}
     >
       <View accessibilityLabel="Incoming friend requests" className="gap-3">
-        <Text className="pb-1 text-2xl font-medium text-slate-900">Incoming</Text>
+        <Text className="pb-1 text-2xl font-medium text-on-surface">Incoming</Text>
         {incoming.map((request) => (
           <View
             key={request.id}
-            className="min-h-20 flex-row items-center rounded-xl bg-[#EAF0FF] px-4 py-3"
+            className="min-h-20 flex-row items-center rounded-xl bg-surface-container-low px-4 py-3"
           >
-            <Text className="flex-1 text-base text-slate-900">{request.user.username}</Text>
+            <Text className="flex-1 text-base text-on-surface">{request.user.username}</Text>
             <Button
               accessibilityLabel={`Accept ${request.user.username}`}
               size="sm"
               isDisabled={busy}
               onPress={() => void acceptRequest(request.id)}
-              className="h-11 w-11 rounded-xl bg-blue-400 p-0"
+              className="h-11 w-11 rounded-xl bg-primary p-0"
             >
-              <ButtonIcon as={Check} className="text-slate-700" />
+              <ButtonIcon as={Check} className="text-on-primary" />
             </Button>
             <Button
               accessibilityLabel={`Reject ${request.user.username}`}
@@ -115,24 +115,24 @@ export function FriendRequests({ userId }: FriendRequestsProps) {
               size="sm"
               isDisabled={busy}
               onPress={() => void rejectRequest(request.id)}
-              className="ml-2 h-11 w-11 rounded-xl bg-[#DFE8FA] p-0"
+              className="ml-2 h-11 w-11 rounded-xl bg-surface-container-high p-0"
             >
-              <ButtonIcon as={X} className="text-slate-600" />
+              <ButtonIcon as={X} className="text-on-surface-variant" />
             </Button>
           </View>
         ))}
       </View>
 
       <View accessibilityLabel="Sent friend requests" className="gap-3">
-        <Text className="pb-1 text-2xl font-medium text-slate-900">Sent</Text>
+        <Text className="pb-1 text-2xl font-medium text-on-surface">Sent</Text>
         {sent.map((request) => (
           <View
             key={request.id}
-            className="min-h-20 flex-row items-center rounded-xl bg-[#EAF0FF] px-4 py-3"
+            className="min-h-20 flex-row items-center rounded-xl bg-surface-container-low px-4 py-3"
           >
-            <Text className="flex-1 text-base text-slate-900">{request.user.username}</Text>
-            <View className="rounded-xl bg-white px-4 py-2">
-              <Text className="font-medium text-blue-600">Pending</Text>
+            <Text className="flex-1 text-base text-on-surface">{request.user.username}</Text>
+            <View className="rounded-xl bg-surface-container-lowest px-4 py-2">
+              <Text className="font-medium text-primary">Pending</Text>
             </View>
           </View>
         ))}

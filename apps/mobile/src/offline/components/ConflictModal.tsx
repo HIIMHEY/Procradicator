@@ -90,25 +90,27 @@ export default function ConflictModal() {
     : (conflict.serverTask?.updated_at ?? conflict.createdAt);
   return (
     <Box className="absolute inset-0 z-50 items-center justify-center bg-black/50">
-      <Box className="mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
+      <Box className="mx-4 w-full max-w-md rounded-xl bg-surface-container-lowest p-6 shadow-lg">
         <Heading size="sm" className="mb-2">
           Conflict Detected
         </Heading>
-        <Text className="mb-4 text-sm text-gray-600">
+        <Text className="mb-4 text-sm text-on-surface-variant">
           This {isFocusConflict ? 'focus session' : 'task'} changed on the server while you were
           offline. Choose which version to keep.
         </Text>
-        <Box className="mb-2 rounded-lg border border-gray-200 p-3">
-          <Text className="mb-1 text-xs font-semibold text-gray-500">YOUR LOCAL VERSION</Text>
+        <Box className="mb-2 rounded-lg border border-outline-variant p-3">
+          <Text className="mb-1 text-xs font-semibold text-on-surface-variant">
+            YOUR LOCAL VERSION
+          </Text>
           <Text>{localLabel}</Text>
-          <Text className="text-xs text-gray-400">
+          <Text className="text-xs text-outline">
             Modified: {dayjs(localUpdatedAt).format('MMM D, h:mm A')}
           </Text>
         </Box>
-        <Box className="mb-4 rounded-lg border border-gray-200 p-3">
-          <Text className="mb-1 text-xs font-semibold text-gray-500">SERVER VERSION</Text>
+        <Box className="mb-4 rounded-lg border border-outline-variant p-3">
+          <Text className="mb-1 text-xs font-semibold text-on-surface-variant">SERVER VERSION</Text>
           <Text>{serverLabel}</Text>
-          <Text className="text-xs text-gray-400">
+          <Text className="text-xs text-outline">
             Modified: {dayjs(serverUpdatedAt).format('MMM D, h:mm A')}
           </Text>
         </Box>

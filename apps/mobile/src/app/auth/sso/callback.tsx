@@ -120,8 +120,8 @@ export default function SsoCallback() {
     };
   }, [code, oauthError, state]);
   return (
-    <Box className="flex-1 items-center justify-center bg-white px-8">
-      <Text className="text-center text-base text-slate-700">{statusMessage}</Text>
+    <Box className="flex-1 items-center justify-center bg-background px-8">
+      <Text className="text-center text-base text-on-surface">{statusMessage}</Text>
     </Box>
   );
 }

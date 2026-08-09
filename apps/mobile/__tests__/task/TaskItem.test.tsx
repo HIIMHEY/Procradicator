@@ -1,8 +1,9 @@
-/// <reference types="jest" />
 import { fireEvent, screen } from '@testing-library/react-native';
+import dayjs from 'dayjs';
 import useDeleteTask from '@/task/hooks/useDeleteTask';
 import { TaskItem } from '@/task/task_dashboard/components/TaskItem';
 import type { Task } from '@/task/schema';
+import { iso, uid } from '../../test-utils/factories';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockNavigate = jest.fn();
@@ -16,13 +17,16 @@ jest.mock('@/task/hooks/useDeleteTask', () => ({
   default: jest.fn(() => ({ mutate: jest.fn() })),
 }));
 
+const dueAt = iso(0);
+const taskId = uid('task');
+
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
-    id: '7cf2a63f-45da-4af7-9917-306abc624759',
+    id: taskId,
     title: 'Refine Typography Hierarchy',
-    due_at: '2026-10-25T14:00:00',
+    due_at: dueAt,
     description: null,
-    updated_at: '2026-10-20T10:00:00',
+    updated_at: dueAt,
     version: 0,
     subtasks: [],
     ...overrides,
@@ -36,8 +40,8 @@ beforeEach(() => {
 test('renders the task title with its due date and time', () => {
   renderWithProviders(<TaskItem task={makeTask()} />);
   expect(screen.getByText('Refine Typography Hierarchy')).toBeTruthy();
-  expect(screen.getByText('Oct 25')).toBeTruthy();
-  expect(screen.getByText('02:00 PM')).toBeTruthy();
+  expect(screen.getByText(dayjs(dueAt).format('MMM D'))).toBeTruthy();
+  expect(screen.getByText(dayjs(dueAt).format('hh:mm A'))).toBeTruthy();
 });
 
 test('grip handle toggles the edit and delete actions', () => {
@@ -53,7 +57,7 @@ test('edit action navigates to the task edit route', () => {
   renderWithProviders(<TaskItem task={makeTask()} />);
   fireEvent.press(screen.getByLabelText('Toggle task actions'));
   fireEvent.press(screen.getByLabelText('Edit task'));
-  expect(mockNavigate).toHaveBeenCalledWith('/tasks/7cf2a63f-45da-4af7-9917-306abc624759/edit');
+  expect(mockNavigate).toHaveBeenCalledWith(`/tasks/${taskId}/edit`);
 });
 
 test('delete action invokes the delete mutation', () => {

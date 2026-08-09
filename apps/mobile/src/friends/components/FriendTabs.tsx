@@ -30,12 +30,14 @@ export function FriendTabs({ active, onChange }: FriendTabsProps) {
             onPress={() => onChange(tab.key)}
             className={
               selected
-                ? 'flex-1 rounded-full bg-blue-600 px-2'
-                : 'flex-1 rounded-full bg-[#EAF0FF] px-2'
+                ? 'flex-1 rounded-full bg-primary px-2'
+                : 'flex-1 rounded-full bg-surface-container-low px-2'
             }
           >
             <ButtonText
-              className={selected ? 'text-sm font-medium text-white' : 'text-sm text-slate-600'}
+              className={
+                selected ? 'text-sm font-medium text-white' : 'text-sm text-on-surface-variant'
+              }
             >
               {tab.label}
             </ButtonText>

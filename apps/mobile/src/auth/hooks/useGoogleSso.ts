@@ -106,11 +106,7 @@ const startGoogleSso = async (): Promise<UserRead> => {
     }
     return currentUser;
   } catch (error) {
-    try {
-      popup.close();
-    } catch {
-      // Popup may already be closed.
-    }
+    popup.close();
     throw error;
   }
 };

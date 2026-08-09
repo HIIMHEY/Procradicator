@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 import { act, cleanup, render, screen } from '@testing-library/react-native';
 
 jest.unmock('@/offline/components/OfflineIndicator');

@@ -1,21 +1,10 @@
-/// <reference types="jest" />
-
-import { AnalyticsPage } from '@/analytics/components/AnalyticsPage';
-import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { mockReplace, stubCurrentUser } from '../../test-utils/mockCurrentUser';
+import { response } from '../../test-utils/http';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
+import { AnalyticsPage } from '@/analytics/components/AnalyticsPage';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 const mockFetch = jest.fn();
-const mockReplace = jest.fn();
-
-jest.mock('@/auth/hooks/useCurrentUser');
-jest.mock('expo-router', () => ({
-  useRouter: () => ({
-    replace: mockReplace,
-  }),
-}));
-
-const mockUseCurrentUser = jest.mocked(useCurrentUser);
 
 const populatedSummary = {
   focus_min: 240,
@@ -39,18 +28,9 @@ const emptySummary = {
   avg_rest_min: 0,
 };
 
-const jsonResponse = (data: unknown, ok = true, status = 200): Response =>
-  ({
-    ok,
-    status,
-    json: async () => data,
-  }) as Response;
-
 beforeEach(() => {
   mockFetch.mockReset();
-  mockReplace.mockReset();
-  mockUseCurrentUser.mockReset();
-  mockUseCurrentUser.mockReturnValue({ data: { id: 'user-1' } } as never);
+  stubCurrentUser();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
@@ -61,7 +41,7 @@ test('shows loading while analytics are pending', () => {
 });
 
 test('shows analytics metrics', async () => {
-  mockFetch.mockResolvedValueOnce(jsonResponse(populatedSummary));
+  mockFetch.mockResolvedValueOnce(response(populatedSummary));
   renderWithProviders(<AnalyticsPage />);
   expect(await screen.findByLabelText('Analytics metrics')).toBeTruthy();
   expect(
@@ -76,7 +56,7 @@ test('shows analytics metrics', async () => {
 });
 
 test('shows an empty state when focus history is absent', async () => {
-  mockFetch.mockResolvedValueOnce(jsonResponse(emptySummary));
+  mockFetch.mockResolvedValueOnce(response(emptySummary));
   renderWithProviders(<AnalyticsPage />);
   expect(await screen.findByLabelText('Analytics empty state')).toBeTruthy();
   expect(screen.getByText('A quiet start')).toBeTruthy();
@@ -85,8 +65,8 @@ test('shows an empty state when focus history is absent', async () => {
 
 test('shows an error and retries the analytics request', async () => {
   mockFetch
-    .mockResolvedValueOnce(jsonResponse({}, false, 503))
-    .mockResolvedValueOnce(jsonResponse(populatedSummary));
+    .mockResolvedValueOnce(response({}, false, 503))
+    .mockResolvedValueOnce(response(populatedSummary));
   renderWithProviders(<AnalyticsPage />);
   expect(await screen.findByLabelText('Analytics error state')).toBeTruthy();
   fireEvent.press(screen.getByLabelText('Retry analytics'));

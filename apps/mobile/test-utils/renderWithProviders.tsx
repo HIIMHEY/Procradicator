@@ -1,6 +1,4 @@
-﻿/// <reference types="jest" />
-
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+﻿import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
@@ -14,7 +12,7 @@ afterEach(() => {
   testQueryClients.length = 0;
 });
 
-function createTestQueryClient() {
+export function createTestQueryClient() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { gcTime: Infinity, retry: false },

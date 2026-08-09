@@ -49,7 +49,7 @@ export const ModifySubtaskSchema = z.object({
     .string()
     .trim()
     .max(500, 'Description too long, try splitting up the suptask')
-    .optional(),
+    .nullish(),
   est_m: z.coerce
     .number('Must be a number!')
     .int('Must be a whole number! 1,2,3...')

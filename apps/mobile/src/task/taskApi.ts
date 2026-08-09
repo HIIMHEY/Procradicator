@@ -43,35 +43,38 @@ async function parseTaskResponse(response: Response): Promise<Task> {
 export async function sendTaskOp(request: TaskRequest): Promise<Task | null> {
   const headers = versionHeaders(request);
   let response: Response;
-  if (request.operation === 'create') {
-    response = await fetch(API_ROUTES.TASKS.BASE, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(taskPayload(request)),
-      credentials: 'include',
-    });
-  } else if (request.operation === 'update') {
-    const source = taskPayload(request);
-    const payload = {
-      title: source.title,
-      description: source.description,
-      due_at: source.due_at,
-      subtasks: source.subtasks,
-    };
-    response = await fetch(API_ROUTES.TASKS.DETAIL(request.taskId), {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(payload),
-      credentials: 'include',
-    });
-  } else if (request.operation === 'delete') {
-    response = await fetch(API_ROUTES.TASKS.DETAIL(request.taskId), {
-      method: 'DELETE',
-      headers,
-      credentials: 'include',
-    });
-  } else {
-    throw new Error(`Unsupported task operation: ${request.operation}`);
+  switch (request.operation) {
+    case 'create':
+      response = await fetch(API_ROUTES.TASKS.BASE, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(taskPayload(request)),
+        credentials: 'include',
+      });
+      break;
+    case 'update': {
+      const source = taskPayload(request);
+      const payload = {
+        title: source.title,
+        description: source.description,
+        due_at: source.due_at,
+        subtasks: source.subtasks,
+      };
+      response = await fetch(API_ROUTES.TASKS.DETAIL(request.taskId), {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      });
+      break;
+    }
+    case 'delete':
+      response = await fetch(API_ROUTES.TASKS.DETAIL(request.taskId), {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
+      break;
   }
 
   if (response.status === 412) {
