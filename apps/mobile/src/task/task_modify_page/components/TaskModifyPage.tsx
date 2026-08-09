@@ -68,7 +68,7 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
   if (isPending) return <TaskLoadingSkeleton />;
 
   return (
-    <Box className="w-full h-screen max-h-screen flex flex-col overflow-hidden relative">
+    <Box className="w-full h-full flex flex-col overflow-hidden relative">
       <NavigationBar backurl={'/tasks'} renderRightAction={() => <AIButton taskId={id} />} />
       <View className="flex-1 w-full overflow-y-scroll">
         <View className="z-50">

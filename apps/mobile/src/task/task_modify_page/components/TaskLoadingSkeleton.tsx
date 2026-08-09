@@ -6,7 +6,7 @@ import { Icon, ArrowDownIcon } from '@/components/ui/icon';
 
 export function TaskLoadingSkeleton() {
   return (
-    <Box className="w-full h-screen max-h-screen flex flex-col bg-white p-6 relative overflow-hidden">
+    <Box className="w-full h-full flex flex-col bg-white p-6 relative overflow-hidden">
       <HStack className="justify-between items-center w-full mb-8 pt-4">
         <Skeleton className="h-8 w-8 rounded-full" variant="rounded" />
         <Skeleton className="h-8 w-24 rounded-full" variant="rounded" />
