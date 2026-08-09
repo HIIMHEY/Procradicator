@@ -137,6 +137,7 @@ test('logout allows immediate login and registration', async () => {
   });
   const view = renderRouter(routes, { initialUrl: '/tasks' });
   expect(await screen.findByText('Your Tasks')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Open navigation'));
   fireEvent.press(screen.getByRole('button', { name: 'Log out' }));
   await waitFor(() => {
     expect(view.getPathname()).toBe('/');

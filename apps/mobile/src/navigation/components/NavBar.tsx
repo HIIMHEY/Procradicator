@@ -1,9 +1,11 @@
+import { useLogout } from '@/auth/hooks/useLogout';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { HStack } from '@/components/ui/hstack';
 import { MenuIcon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
-import { BarChart3, LayoutGrid, UserRound, X } from 'lucide-react-native';
+import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/toast';
+import { BarChart3, LayoutGrid, LogOut, UserRound, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Modal, View } from 'react-native';
@@ -24,10 +26,31 @@ const items = [
 export function NavBar({ active, title }: NavBarProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const toast = useToast();
+  const { mutateAsync: logout, isPending: isLoggingOut } = useLogout();
 
   const goTo = (page: NavPage, route: '/analytics' | '/friends' | '/tasks') => {
     setOpen(false);
     if (page !== active) router.replace(route);
+  };
+
+  const handleLogout = async () => {
+    setOpen(false);
+    try {
+      await logout();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not log out.';
+      toast.show({
+        placement: 'top',
+        duration: 3000,
+        render: () => (
+          <Toast action="error" variant="solid">
+            <ToastTitle>Logout Failed</ToastTitle>
+            <ToastDescription>{message}</ToastDescription>
+          </Toast>
+        ),
+      });
+    }
   };
 
   return (
@@ -41,14 +64,14 @@ export function NavBar({ active, title }: NavBarProps) {
         >
           <ButtonIcon as={MenuIcon} className="text-slate-700" />
         </Button>
-        <Text className="ml-1 text-base font-medium text-slate-800">{title}</Text>
+        <Text className="ml-1 text-2xl font-bold text-slate-900">{title}</Text>
       </HStack>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View className="flex-1 flex-row">
           <View
             accessibilityLabel="Navigation menu"
-            className="h-full w-72 max-w-[85%] bg-white px-4 pb-8 pt-4"
+            className="h-full w-72 max-w-[85%] flex-col bg-white px-4 pb-8 pt-4"
           >
             <HStack className="mb-8 items-center justify-between">
               <Text className="text-xl font-bold text-blue-600">Procradicator</Text>
@@ -89,6 +112,19 @@ export function NavBar({ active, title }: NavBarProps) {
                 );
               })}
             </View>
+
+            <Button
+              accessibilityLabel="Log out"
+              variant="link"
+              onPress={handleLogout}
+              isDisabled={isLoggingOut}
+              className="mt-auto h-12 justify-start rounded-lg px-4"
+            >
+              <ButtonIcon as={LogOut} className="mr-3 text-red-500" />
+              <ButtonText className="text-red-600">
+                {isLoggingOut ? 'Logging out...' : 'Log out'}
+              </ButtonText>
+            </Button>
           </View>
 
           <Pressable

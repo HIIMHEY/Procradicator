@@ -53,14 +53,14 @@ test('edit action navigates to the task edit route', () => {
   renderWithProviders(<TaskItem task={makeTask()} />);
   fireEvent.press(screen.getByLabelText('Toggle task actions'));
   fireEvent.press(screen.getByLabelText('Edit task'));
-  expect(mockNavigate).toHaveBeenCalledWith(
-    '/tasks/7cf2a63f-45da-4af7-9917-306abc624759/edit',
-  );
+  expect(mockNavigate).toHaveBeenCalledWith('/tasks/7cf2a63f-45da-4af7-9917-306abc624759/edit');
 });
 
 test('delete action invokes the delete mutation', () => {
   const mutate = jest.fn();
-  jest.mocked(useDeleteTask).mockReturnValue({ mutate });
+  jest
+    .mocked(useDeleteTask)
+    .mockReturnValue({ mutate } as unknown as ReturnType<typeof useDeleteTask>);
   renderWithProviders(<TaskItem task={makeTask()} />);
   fireEvent.press(screen.getByLabelText('Toggle task actions'));
   fireEvent.press(screen.getByLabelText('Delete task'));
