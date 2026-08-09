@@ -14,7 +14,7 @@ export function LandingScreen() {
       className="flex-1 bg-background"
       contentContainerClassName="flex-grow"
     >
-      <Box className="w-full max-w-[390px] flex-1 self-center px-margin-mobile py-6">
+      <Box className="w-full max-w-[390px] flex-1 self-center px-margin-mobile py-6 md:max-w-none">
         <HStack className="items-center justify-between">
           <Text className="text-xl font-bold text-primary">Procradicator</Text>
           <Button

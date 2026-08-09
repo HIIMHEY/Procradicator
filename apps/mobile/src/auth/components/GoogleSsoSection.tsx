@@ -1,4 +1,4 @@
-import { Image } from 'react-native';
+import { Image, type ImageStyle } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { Button, ButtonText } from '@/components/ui/button';
@@ -10,6 +10,11 @@ import { useGoogleSso } from '../hooks/useGoogleSso';
 
 type GoogleSsoSectionProps = {
   prompt: string;
+};
+
+const googleLogoStyle: ImageStyle = {
+  height: 18,
+  width: 18,
 };
 
 export function GoogleSsoSection({ prompt }: GoogleSsoSectionProps) {
@@ -37,7 +42,7 @@ export function GoogleSsoSection({ prompt }: GoogleSsoSectionProps) {
             accessible={false}
             source={googleLogo}
             resizeMode="contain"
-            className="h-[18px] w-[18px]"
+            style={googleLogoStyle}
           />
           <ButtonText className="text-sm font-semibold text-on-background">
             {isOpeningGoogle ? 'Opening Google...' : 'Continue with Google'}

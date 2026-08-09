@@ -30,7 +30,7 @@ export function AiTaskChatPage() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <Box className="w-full max-w-[390px] flex-1 self-center bg-background">
+      <Box className="w-full max-w-[390px] flex-1 self-center bg-background md:max-w-none">
         <Box className="pt-1">
           <Button
             accessibilityLabel="Close AI chat"
