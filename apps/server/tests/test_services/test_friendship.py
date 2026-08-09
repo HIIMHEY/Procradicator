@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from src.exceptions import DuplicateItemError, ForbiddenError
-from src.models.friendship import Friendship, Nudge
+from src.models.friendship import Friendship
 from src.models.user import User
 from src.schemas.analytics import DailyStats
 from src.services.friendship import FriendshipService
@@ -33,7 +33,6 @@ class FakeFriendRepo:
     def __init__(self) -> None:
         self.links: dict[UUID, Friendship] = {}
         self.users: dict[UUID, User] = {}
-        self.nudges: list[Nudge] = []
 
     async def find_pair(self, first_id: UUID, second_id: UUID) -> Friendship | None:
         return next(
@@ -68,13 +67,6 @@ class FakeFriendRepo:
         ]
 
     async def list_pending(self, user_id: UUID) -> list[tuple[Friendship, User]]:
-        return []
-
-    async def add_nudge(self, nudge: Nudge) -> Nudge:
-        self.nudges.append(nudge)
-        return nudge
-
-    async def list_nudges(self, user_id: UUID) -> list[tuple[Nudge, User]]:
         return []
 
 
@@ -167,19 +159,3 @@ async def test_friend_can_remove_accepted_friendship() -> None:
     service = make_service(repo, FakeUserService())
     await service.remove(link.id, current.id)
     assert link.id not in repo.links
-
-
-async def test_user_can_nudge_accepted_friend() -> None:
-    current = make_user("alice")
-    friend = make_user("bob")
-    repo = FakeFriendRepo()
-    link = Friendship(
-        requester_id=current.id,
-        recipient_id=friend.id,
-        accepted_at=datetime(2026, 7, 24, tzinfo=UTC),
-    )
-    repo.links[link.id] = link
-    service = make_service(repo, FakeUserService())
-    nudge_id = await service.send_nudge(link.id, current.id)
-    assert repo.nudges[0].id == nudge_id
-    assert repo.nudges[0].sender_id == current.id

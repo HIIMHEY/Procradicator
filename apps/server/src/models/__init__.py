@@ -1,6 +1,6 @@
 from src.models.chat import ChatMessage, ChatSession
 from src.models.focus_session import FocusLog, FocusSession, RestLog
-from src.models.friendship import Friendship, Nudge
+from src.models.friendship import Friendship
 from src.models.oauth_account import OAuthAccount
 from src.models.task import Subtask, SubtaskDependency, Task
 from src.models.user import User
@@ -17,5 +17,4 @@ __all__ = [
     "FocusLog",
     "RestLog",
     "Friendship",
-    "Nudge",
 ]

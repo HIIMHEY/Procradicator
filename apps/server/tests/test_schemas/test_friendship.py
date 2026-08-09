@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
-from src.schemas.friendship import FriendLink, FriendProgress, FriendUser, NudgeRead
+from src.schemas.friendship import FriendLink, FriendProgress, FriendUser
 
 
 def test_friendship_responses_restore_utc_timestamps() -> None:
@@ -15,15 +15,9 @@ def test_friendship_responses_restore_utc_timestamps() -> None:
         accepted_at=datetime(2026, 7, 25, 3),
         is_incoming=True,
     )
-    nudge = NudgeRead(
-        id=uuid4(),
-        sender=user,
-        sent_at=datetime(2026, 7, 25, 4),
-    )
     assert link.requested_at.tzinfo == UTC
     assert link.accepted_at is not None
     assert link.accepted_at.tzinfo == UTC
-    assert nudge.sent_at.tzinfo == UTC
 
 
 def test_friend_progress_rejects_negative_metrics() -> None:

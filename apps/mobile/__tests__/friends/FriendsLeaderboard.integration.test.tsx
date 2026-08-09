@@ -3,7 +3,7 @@
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
 import { API_ROUTES } from '@/config/env';
 import { FriendsPage } from '@/friends/components/FriendsPage';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { friendId, linkId, response, userId } from '../../test-utils/friendTestUtils';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
@@ -58,48 +58,7 @@ test("shows each friend's current-day statistics", async () => {
   const card = await screen.findByLabelText('Friend progress for test_person_1');
   expect(within(card).getByText('45 min')).toBeTruthy();
   expect(within(card).getByText('3 subtasks')).toBeTruthy();
-});
-
-test('nudges a friend from the leaderboard', async () => {
-  mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (url === API_ROUTES.FRIENDS.BASE) {
-      return Promise.resolve(
-        response([
-          {
-            id: linkId,
-            user: { id: friendId, username: 'test_person_1' },
-            requested_at: '2026-07-25T12:00:00Z',
-            accepted_at: '2026-07-25T12:05:00Z',
-            is_incoming: false,
-          },
-        ]),
-      );
-    }
-    if (url === API_ROUTES.FRIENDS.PROGRESS) {
-      return Promise.resolve(
-        response([
-          {
-            user: { id: friendId, username: 'test_person_1' },
-            focus_min: 45,
-            completed_subtasks: 3,
-          },
-        ]),
-      );
-    }
-    if (url === API_ROUTES.FRIENDS.NUDGE(linkId) && init?.method === 'POST') {
-      return Promise.resolve(response({ nudge_id: '4fafc94a-38b0-4f27-9463-1df13a7337b0' }, 201));
-    }
-    return Promise.reject(new Error(`Unexpected request: ${url}`));
-  });
-  renderWithProviders(<FriendsPage />);
-  fireEvent.press(await screen.findByRole('button', { name: 'Nudge test_person_1' }));
-  await waitFor(() => {
-    expect(mockFetch).toHaveBeenCalledWith(
-      API_ROUTES.FRIENDS.NUDGE(linkId),
-      expect.objectContaining({ method: 'POST' }),
-    );
-  });
+  expect(within(card).getByRole('button', { name: 'More actions for test_person_1' })).toBeTruthy();
 });
 
 test('removes a friend from the leaderboard', async () => {

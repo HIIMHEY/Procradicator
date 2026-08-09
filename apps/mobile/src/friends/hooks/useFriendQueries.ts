@@ -5,11 +5,9 @@ import {
   FriendLinkSchema,
   FriendProgressSchema,
   FriendUserSchema,
-  NudgeSchema,
   type FriendLink,
   type FriendProgress,
   type FriendUser,
-  type Nudge,
 } from '../schemas';
 
 const onlineOnly = {
@@ -44,9 +42,6 @@ const searchUsers = (username: string, signal?: AbortSignal): Promise<FriendUser
     signal,
   );
 
-const readNudges = (signal?: AbortSignal): Promise<Nudge[]> =>
-  get(API_ROUTES.FRIENDS.NUDGES, z.array(NudgeSchema), signal);
-
 export function useFriends(userId: string) {
   return useQuery({
     queryKey: ['friends', 'list', userId],
@@ -80,15 +75,6 @@ export function useFriendSearch(userId: string, username: string) {
     queryKey: ['friends', 'search', userId, query],
     queryFn: ({ signal }) => searchUsers(query, signal),
     enabled: Boolean(userId && query),
-    ...onlineOnly,
-  });
-}
-
-export function useNudges(userId: string) {
-  return useQuery({
-    queryKey: ['friends', 'nudges', userId],
-    queryFn: ({ signal }) => readNudges(signal),
-    enabled: Boolean(userId),
     ...onlineOnly,
   });
 }

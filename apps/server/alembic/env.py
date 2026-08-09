@@ -12,7 +12,6 @@ from src.models import (
     FocusLog,  # noqa: F401
     FocusSession,  # noqa: F401
     Friendship,  # noqa: F401
-    Nudge,  # noqa: F401
     OAuthAccount,  # noqa: F401
     RestLog,  # noqa: F401
     Subtask,  # noqa: F401
