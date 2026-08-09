@@ -102,8 +102,7 @@ export function focusReducer(state: State, action: Action): State {
         phase: nextPhase,
         isOT: false,
         currentIdx: action.nextExists && !state.isOT ? state.currentIdx + 1 : state.currentIdx,
-        phaseStartedAt:
-          nextPhase === 'WORK' || nextPhase === 'REST' ? Date.now() : state.phaseStartedAt,
+        phaseStartedAt: nextPhase === 'REST' ? Date.now() : state.phaseStartedAt,
         completedIds: [...state.completedIds, action.subtaskId],
         workCycles: state.workCycles + 1,
         OTSecondsTotal: state.OTSecondsTotal + action.OTSeconds,
@@ -133,10 +132,7 @@ export function focusReducer(state: State, action: Action): State {
         phase: action.hasMore ? 'READY' : 'CONGRATS',
         currentIdx: action.hasMore ? state.currentIdx + 1 : state.currentIdx,
         restCycles: state.restCycles + (action.incrCycles ? 1 : 0),
-        restLogs: [
-          ...state.restLogs,
-          { id: crypto.randomUUID(), start_at: startAt, stop_at: now },
-        ],
+        restLogs: [...state.restLogs, { id: crypto.randomUUID(), start_at: startAt, stop_at: now }],
         phaseStartedAt: action.hasMore ? Date.now() : state.phaseStartedAt,
       };
     }
