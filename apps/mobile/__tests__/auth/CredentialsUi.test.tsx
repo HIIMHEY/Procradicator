@@ -78,11 +78,13 @@ afterAll(async () => {
   await deleteOfflineDatabase();
 });
 
-test('landing screen shows credentials actions without oauth options', () => {
+test('landing screen shows sign in and get started', () => {
   renderWithProviders(<LandingScreen />);
   expect(screen.getByText('Procradicator')).toBeTruthy();
-  expect(screen.getByText('Register')).toBeTruthy();
-  expect(screen.getByText('Login')).toBeTruthy();
+  expect(screen.getByText('Focus on now.')).toBeTruthy();
+  expect(screen.getByLabelText('Get Started')).toBeTruthy();
+  expect(screen.getByLabelText('Sign In')).toBeTruthy();
+  expect(screen.queryByText('Break tasks into focused sessions.')).toBeNull();
   expect(screen.queryByText(/oauth/i)).toBeNull();
 });
 
@@ -122,12 +124,10 @@ test('login flushes an offline logout before replacing its tombstone', async () 
     if (url === API_ROUTES.AUTH.ME) return Promise.resolve(response(currentSession));
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });
-
   renderWithProviders(<LoginForm />);
   fireEvent.changeText(screen.getByPlaceholderText('Username'), 'testuser');
   fireEvent.changeText(screen.getByPlaceholderText('Password'), 'correct-password');
   fireEvent.press(screen.getByLabelText('Submit login'));
-
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/tasks'));
   expect(mockFetch.mock.calls.map(([url]) => url)).toEqual([
     API_ROUTES.AUTH.LOGOUT,
@@ -226,13 +226,19 @@ test('register form rejects credentials above backend length limits', async () =
   expect(mockFetch).not.toHaveBeenCalled();
 });
 
-test('login form shows Google SSO button', () => {
+test('login screen shows the app header and Google SSO', () => {
   renderWithProviders(<LoginForm />);
+  expect(screen.getByText('Procradicator')).toBeTruthy();
+  expect(screen.getByLabelText('Go back')).toBeTruthy();
+  expect(screen.getByText('or login with')).toBeTruthy();
   expect(screen.getByText('Continue with Google')).toBeTruthy();
 });
 
-test('register form shows Google SSO button', () => {
+test('register screen shows the app header and Google SSO', () => {
   renderWithProviders(<RegisterForm />);
+  expect(screen.getByText('Procradicator')).toBeTruthy();
+  expect(screen.getByLabelText('Go back')).toBeTruthy();
+  expect(screen.getByText('or register with')).toBeTruthy();
   expect(screen.getByText('Continue with Google')).toBeTruthy();
 });
 
