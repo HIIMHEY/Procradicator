@@ -1,5 +1,6 @@
 import { Box } from '@/components/ui/box';
 import { Button, ButtonIcon } from '@/components/ui/button';
+import { HStack } from '@/components/ui/hstack';
 import { ArrowLeftIcon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
@@ -33,28 +34,31 @@ export function AuthScreenLayout({
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
-      className="flex-1 bg-white"
+      className="flex-1 bg-background"
       contentContainerClassName="flex-grow"
     >
-      <Box className="flex-1 bg-white px-8 py-12">
+      <Box className="w-full max-w-[390px] flex-1 self-center bg-background px-margin-mobile py-6">
         {showBackButton ? (
-          <Button
-            accessibilityLabel="Go back"
-            action="default"
-            variant="link"
-            size="lg"
-            onPress={handleBack}
-            className="h-12 w-12 self-start p-0"
-          >
-            <ButtonIcon as={ArrowLeftIcon} className="h-8 w-8 text-black" />
-          </Button>
+          <HStack className="items-center gap-2">
+            <Button
+              accessibilityLabel="Go back"
+              action="default"
+              variant="link"
+              size="lg"
+              onPress={handleBack}
+              className="h-11 w-11 p-0"
+            >
+              <ButtonIcon as={ArrowLeftIcon} className="h-7 w-7 text-on-background" />
+            </Button>
+            <Text className="text-xl font-bold text-primary">Procradicator</Text>
+          </HStack>
         ) : null}
 
-        <VStack className="flex-1 justify-center gap-8">
+        <VStack className="flex-1 gap-7 pb-10 pt-20">
           <VStack className="items-center gap-3">
-            <Text className="text-center text-3xl font-bold text-slate-950">{title}</Text>
+            <Text className="text-center text-3xl font-bold text-on-background">{title}</Text>
             {subtitle ? (
-              <Text className="max-w-[280px] text-center text-base text-slate-600">{subtitle}</Text>
+              <Text className="max-w-[280px] text-center text-base text-outline">{subtitle}</Text>
             ) : null}
           </VStack>
 

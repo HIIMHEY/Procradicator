@@ -6,21 +6,23 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockNavigate = jest.fn();
-const mockBack = jest.fn();
+const mockReplace = jest.fn();
 const mockFetch = jest.fn();
 
 const mockTaskId = '11111111-1111-4111-8111-111111111111';
 const mockSessionId = '22222222-2222-4222-8222-222222222222';
 const mockMessageId = '33333333-3333-4333-8333-333333333333';
 const mockHistoryUrl = `${API_ROUTES.CHAT.HISTORY(mockSessionId)}?page=1&limit=20`;
+let mockRouteTaskId: string | undefined = mockTaskId;
+let mockHistoryMessages: unknown[] = [];
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({
-    id: mockTaskId,
+    id: mockRouteTaskId,
   }),
   useRouter: () => ({
     navigate: mockNavigate,
-    back: mockBack,
+    replace: mockReplace,
   }),
 }));
 
@@ -31,8 +33,10 @@ const jsonResponse = (data: unknown): Response =>
   }) as Response;
 
 beforeEach(() => {
+  mockRouteTaskId = mockTaskId;
+  mockHistoryMessages = [];
   mockNavigate.mockReset();
-  mockBack.mockReset();
+  mockReplace.mockReset();
   mockFetch.mockReset();
   mockFetch.mockImplementation((url: string, options?: RequestInit): Promise<Response> => {
     if (url === API_ROUTES.CHAT.CREATE_SESSION && options?.method === 'POST') {
@@ -43,7 +47,7 @@ beforeEach(() => {
       );
     }
     if (url === mockHistoryUrl && options?.method === 'GET') {
-      return Promise.resolve(jsonResponse([]));
+      return Promise.resolve(jsonResponse(mockHistoryMessages));
     }
     if (url === API_ROUTES.CHAT.MESSAGE(mockSessionId) && options?.method === 'POST') {
       return Promise.resolve(
@@ -62,9 +66,11 @@ beforeEach(() => {
   globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
-test('renders the chat controls and creates a session linked to the task', async () => {
+test('starts a chat session for the task', async () => {
   renderWithProviders(<AiTaskChatPage />);
-  expect(screen.getByText('Manual Mode')).toBeTruthy();
+  expect(screen.getByLabelText('Close AI chat')).toBeTruthy();
+  expect(screen.getByLabelText('Manual task mode')).toBeTruthy();
+  expect(screen.getByLabelText('AI chat mode')).toBeTruthy();
   await waitFor(() =>
     expect(mockFetch).toHaveBeenCalledWith(API_ROUTES.CHAT.CREATE_SESSION, {
       method: 'POST',
@@ -89,7 +95,7 @@ test('renders the chat controls and creates a session linked to the task', async
   );
 });
 
-test('Manual Mode navigates to the existing manual edit screen', async () => {
+test('manual mode opens task edit', async () => {
   renderWithProviders(<AiTaskChatPage />);
   await waitFor(() =>
     expect(mockFetch).toHaveBeenCalledWith(
@@ -99,11 +105,73 @@ test('Manual Mode navigates to the existing manual edit screen', async () => {
       }),
     ),
   );
-  fireEvent.press(screen.getByText('Manual Mode'));
+  fireEvent.press(screen.getByLabelText('Manual task mode'));
   expect(mockNavigate).toHaveBeenCalledWith(`/tasks/${mockTaskId}/edit`);
 });
 
-test('sends the user message to the linked chat session', async () => {
+test('close opens task edit', async () => {
+  renderWithProviders(<AiTaskChatPage />);
+  await screen.findByPlaceholderText('State your goals...');
+  fireEvent.press(screen.getByLabelText('Close AI chat'));
+  expect(mockReplace).toHaveBeenCalledWith(`/tasks/${mockTaskId}/edit`);
+});
+
+test('create mode returns to task creation', async () => {
+  mockRouteTaskId = undefined;
+  renderWithProviders(<AiTaskChatPage />);
+  await screen.findByPlaceholderText('State your goals...');
+
+  fireEvent.press(screen.getByLabelText('Manual task mode'));
+  expect(mockNavigate).toHaveBeenCalledWith('/tasks/create');
+
+  fireEvent.press(screen.getByLabelText('Close AI chat'));
+  expect(mockReplace).toHaveBeenCalledWith('/tasks');
+});
+
+test('labels user and assistant messages', async () => {
+  mockHistoryMessages = [
+    {
+      id: '44444444-4444-4444-8444-444444444444',
+      session_id: mockSessionId,
+      role: 'ASSISTANT',
+      content: 'What would you like to change?',
+      created_at: '2026-06-26T00:00:00Z',
+      tool_call_id: null,
+    },
+    {
+      id: '55555555-5555-4555-8555-555555555555',
+      session_id: mockSessionId,
+      role: 'USER',
+      content: 'Add one testing subtask.',
+      created_at: '2026-06-26T00:01:00Z',
+      tool_call_id: null,
+    },
+  ];
+
+  renderWithProviders(<AiTaskChatPage />);
+
+  expect(await screen.findByLabelText('AI message')).toBeTruthy();
+  expect(screen.getByLabelText('Your message')).toBeTruthy();
+});
+
+test('labels task confirmation as an AI message', async () => {
+  mockHistoryMessages = [
+    {
+      id: '66666666-6666-4666-8666-666666666666',
+      session_id: mockSessionId,
+      role: 'TOOL',
+      content: "Task: 'Example task' created with 3 subtasks!",
+      created_at: '2026-06-26T00:02:00Z',
+      tool_call_id: 'tool-call-1',
+    },
+  ];
+
+  renderWithProviders(<AiTaskChatPage />);
+
+  expect(await screen.findByLabelText('AI message')).toBeTruthy();
+});
+
+test('sends a message to the chat session', async () => {
   renderWithProviders(<AiTaskChatPage />);
   await waitFor(() =>
     expect(mockFetch).toHaveBeenCalledWith(mockHistoryUrl, {
@@ -116,7 +184,7 @@ test('sends the user message to the linked chat session', async () => {
   );
   const input = screen.getByPlaceholderText('State your goals...');
   fireEvent.changeText(input, 'Reduce this roadmap to three subtasks');
-  fireEvent(input, 'submitEditing');
+  fireEvent.press(screen.getByLabelText('Send message'));
   await waitFor(() =>
     expect(mockFetch).toHaveBeenCalledWith(API_ROUTES.CHAT.MESSAGE(mockSessionId), {
       method: 'POST',

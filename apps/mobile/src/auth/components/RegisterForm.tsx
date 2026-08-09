@@ -64,14 +64,20 @@ export function RegisterForm() {
     <AuthScreenLayout title="Register" showBackButton>
       <FormControl isInvalid={!!errors.email}>
         <FormControlLabel>
-          <FormControlLabelText>Email</FormControlLabelText>
+          <FormControlLabelText className="text-sm font-semibold text-on-background">
+            Email
+          </FormControlLabelText>
         </FormControlLabel>
         <Controller
           control={control}
           name="email"
           render={({ field: { onBlur, onChange, value } }) => (
-            <Input size="lg" className="rounded-md border border-slate-900 bg-white">
+            <Input
+              size="xl"
+              className="rounded border border-outline-variant bg-surface-container-lowest"
+            >
               <InputField
+                className="text-base"
                 placeholder="Email"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -90,14 +96,20 @@ export function RegisterForm() {
 
       <FormControl isInvalid={!!errors.username}>
         <FormControlLabel>
-          <FormControlLabelText>Username</FormControlLabelText>
+          <FormControlLabelText className="text-sm font-semibold text-on-background">
+            Username
+          </FormControlLabelText>
         </FormControlLabel>
         <Controller
           control={control}
           name="username"
           render={({ field: { onBlur, onChange, value } }) => (
-            <Input size="lg" className="rounded-md border border-slate-900 bg-white">
+            <Input
+              size="xl"
+              className="rounded border border-outline-variant bg-surface-container-lowest"
+            >
               <InputField
+                className="text-base"
                 placeholder="Username"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -115,14 +127,20 @@ export function RegisterForm() {
 
       <FormControl isInvalid={!!errors.password}>
         <FormControlLabel>
-          <FormControlLabelText>Password</FormControlLabelText>
+          <FormControlLabelText className="text-sm font-semibold text-on-background">
+            Password
+          </FormControlLabelText>
         </FormControlLabel>
         <Controller
           control={control}
           name="password"
           render={({ field: { onBlur, onChange, value } }) => (
-            <Input size="lg" className="rounded-md border border-slate-900 bg-white">
+            <Input
+              size="xl"
+              className="rounded border border-outline-variant bg-surface-container-lowest"
+            >
               <InputField
+                className="text-base"
                 placeholder="Password"
                 secureTextEntry
                 value={value}
@@ -139,12 +157,12 @@ export function RegisterForm() {
 
       <Button
         accessibilityLabel="Submit registration"
-        size="lg"
+        size="xl"
         onPress={onSubmit}
         isDisabled={isRegistering}
-        className="mt-2 w-full rounded-lg bg-black"
+        className="mt-2 w-full rounded bg-primary shadow-sm"
       >
-        <ButtonText className="text-base font-semibold text-white">
+        <ButtonText className="text-sm font-semibold text-on-primary">
           {isRegistering ? 'Creating account...' : 'Register'}
         </ButtonText>
       </Button>

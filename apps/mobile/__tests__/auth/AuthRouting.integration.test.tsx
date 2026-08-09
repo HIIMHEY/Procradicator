@@ -140,17 +140,17 @@ test('logout allows immediate login and registration', async () => {
   fireEvent.press(screen.getByRole('button', { name: 'Log out' }));
   await waitFor(() => {
     expect(view.getPathname()).toBe('/');
-    expect(screen.getByLabelText('Go to register')).toBeTruthy();
-    expect(screen.getByLabelText('Go to login')).toBeTruthy();
+    expect(screen.getByLabelText('Get Started')).toBeTruthy();
+    expect(screen.getByLabelText('Sign In')).toBeTruthy();
   });
-  fireEvent.press(screen.getByLabelText('Go to register'));
+  fireEvent.press(screen.getByLabelText('Get Started'));
   await waitFor(() => {
     expect(view.getPathname()).toBe('/register');
     expect(screen.getByPlaceholderText('Email')).toBeTruthy();
   });
   fireEvent.press(screen.getByLabelText('Go back'));
   await waitFor(() => expect(view.getPathname()).toBe('/'));
-  fireEvent.press(screen.getByLabelText('Go to login'));
+  fireEvent.press(screen.getByLabelText('Sign In'));
   await waitFor(() => {
     expect(view.getPathname()).toBe('/login');
     expect(screen.getByPlaceholderText('Username')).toBeTruthy();
