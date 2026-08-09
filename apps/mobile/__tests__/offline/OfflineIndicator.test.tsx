@@ -34,7 +34,9 @@ test('banner sits in normal flow so it never covers bottom-anchored actions', as
   const text = screen.getByText('You are offline. Changes will sync when reconnected.');
   let node = text.parent;
   const isAbsolute = (props: unknown) =>
-    typeof props === 'object' && props !== null && 'className' in props &&
+    typeof props === 'object' &&
+    props !== null &&
+    'className' in props &&
     String((props as { className?: unknown }).className ?? '').includes('absolute');
   let covered = false;
   while (node && !covered) {
