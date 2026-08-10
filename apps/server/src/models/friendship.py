@@ -45,14 +45,3 @@ class Friendship(SQLModel, table=True):
         if accepted < requested:
             raise DomainError("friend request cannot be accepted before it was sent")
         self.accepted_at = accepted
-
-
-class Nudge(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    friendship_id: uuid.UUID = Field(
-        foreign_key="friendship.id",
-        index=True,
-        ondelete="CASCADE",
-    )
-    sender_id: uuid.UUID = Field(foreign_key="user.id", index=True, ondelete="CASCADE")
-    sent_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

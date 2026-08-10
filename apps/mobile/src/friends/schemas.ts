@@ -27,24 +27,12 @@ export const FriendRequestSchema = z.object({
     .max(100, 'Username must be at most 100 characters.'),
 });
 
-export const NudgeSchema = z.object({
-  id: z.uuid(),
-  sender: FriendUserSchema,
-  sent_at: z.iso.datetime({ offset: true }),
-});
-
 export const FriendIdSchema = z.object({
   friendship_id: z.uuid(),
-});
-
-export const NudgeIdSchema = z.object({
-  nudge_id: z.uuid(),
 });
 
 export type FriendUser = z.infer<typeof FriendUserSchema>;
 export type FriendLink = z.infer<typeof FriendLinkSchema>;
 export type FriendProgress = z.infer<typeof FriendProgressSchema>;
 export type FriendRequest = z.infer<typeof FriendRequestSchema>;
-export type Nudge = z.infer<typeof NudgeSchema>;
 export type FriendId = z.infer<typeof FriendIdSchema>;
-export type NudgeId = z.infer<typeof NudgeIdSchema>;

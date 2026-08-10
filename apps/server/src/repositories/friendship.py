@@ -10,7 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.sqlmodelorm import get_async_session
 from src.exceptions import ResourceNotFoundError
-from src.models.friendship import Friendship, Nudge
+from src.models.friendship import Friendship
 from src.models.user import User
 from src.utils.db_exception_mapper import map_db_exception
 
@@ -105,40 +105,6 @@ class FriendshipRepo(BaseRepo[Friendship]):
                     col(User.is_active).is_(True),
                 )
                 .order_by(col(Friendship.requested_at).desc(), col(Friendship.id))
-            )
-            return list((await self.session.exec(statement)).all())
-        except SQLAlchemyError as e:
-            await self.session.rollback()
-            raise map_db_exception(e) from e
-
-    async def add_nudge(self, nudge: Nudge) -> Nudge:
-        try:
-            self.session.add(nudge)
-            await self.session.commit()
-            await self.session.refresh(nudge)
-            return nudge
-        except SQLAlchemyError as e:
-            await self.session.rollback()
-            raise map_db_exception(e) from e
-
-    async def list_nudges(self, user_id: UUID) -> list[tuple[Nudge, User]]:
-        try:
-            statement = (
-                select(Nudge, User)
-                .options(lazyload("*"))
-                .join(Friendship, col(Friendship.id) == col(Nudge.friendship_id))
-                .join(User, col(User.id) == col(Nudge.sender_id))
-                .where(
-                    or_(
-                        col(Friendship.requester_id) == user_id,
-                        col(Friendship.recipient_id) == user_id,
-                    ),
-                    col(Friendship.accepted_at).is_not(None),
-                    col(Nudge.sender_id) != user_id,
-                    col(User.is_active).is_(True),
-                )
-                .order_by(col(Nudge.sent_at).desc(), col(Nudge.id))
-                .limit(20)
             )
             return list((await self.session.exec(statement)).all())
         except SQLAlchemyError as e:

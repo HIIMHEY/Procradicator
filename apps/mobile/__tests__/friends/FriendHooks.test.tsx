@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui/text';
 import { API_ROUTES } from '@/config/env';
 import { useAcceptFriendRequest, useSendFriendRequest } from '@/friends/hooks/useFriendActions';
-import { useFriendProgress, useNudges } from '@/friends/hooks/useFriendQueries';
+import { useFriendProgress } from '@/friends/hooks/useFriendQueries';
 import { onlineManager } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Pressable } from 'react-native';
@@ -22,12 +22,6 @@ function ProgressProbe() {
   const { data, fetchStatus, isError } = useFriendProgress(userId);
   if (isError) return <Text>Error</Text>;
   return <Text>{data?.[0]?.focus_min ?? fetchStatus}</Text>;
-}
-
-function NudgeProbe() {
-  const { data, isError } = useNudges(userId);
-  if (isError) return <Text>Error</Text>;
-  return <Text>{data?.[0]?.sender.username ?? 'Loading'}</Text>;
 }
 
 function AcceptProbe() {
@@ -102,20 +96,6 @@ test('exposes malformed friend progress to the caller', async () => {
   );
   renderWithProviders(<ProgressProbe />);
   expect(await screen.findByText('Error')).toBeTruthy();
-});
-
-test('loads received nudges for the caller', async () => {
-  mockFetch.mockResolvedValueOnce(
-    response([
-      {
-        id: '4fafc94a-38b0-4f27-9463-1df13a7337b0',
-        sender: { id: userId, username: 'test_person_1' },
-        sent_at: '2026-07-25T03:00:00Z',
-      },
-    ]),
-  );
-  renderWithProviders(<NudgeProbe />);
-  expect(await screen.findByText('test_person_1')).toBeTruthy();
 });
 
 test('accepts a friend request through the API', async () => {
