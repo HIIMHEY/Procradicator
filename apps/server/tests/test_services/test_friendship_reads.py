@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from src.exceptions import DuplicateItemError, UniqueConstraintError
-from src.models.friendship import Friendship, Nudge
+from src.models.friendship import Friendship
 from src.models.user import User
 from src.schemas.analytics import DailyStats
 from src.services.friendship import FriendshipService
@@ -39,11 +39,9 @@ class FriendRepo:
         self,
         accepted: list[tuple[Friendship, User]] | None = None,
         pending: list[tuple[Friendship, User]] | None = None,
-        nudges: list[tuple[Nudge, User]] | None = None,
     ) -> None:
         self.accepted = accepted or []
         self.pending = pending or []
-        self.nudges = nudges or []
 
     async def find_pair(self, first_id: UUID, second_id: UUID) -> Friendship | None:
         return None
@@ -62,12 +60,6 @@ class FriendRepo:
 
     async def list_pending(self, user_id: UUID) -> list[tuple[Friendship, User]]:
         return self.pending
-
-    async def list_nudges(self, user_id: UUID) -> list[tuple[Nudge, User]]:
-        return self.nudges
-
-    async def add_nudge(self, nudge: Nudge) -> Nudge:
-        raise AssertionError("unexpected write")
 
 
 class RaceRepo(FriendRepo):
@@ -123,25 +115,6 @@ async def test_list_requests_marks_incoming_request() -> None:
     assert result[0].user.username == "bob"
     assert result[0].accepted_at is None
     assert result[0].is_incoming is True
-
-
-async def test_list_nudges_returns_sender() -> None:
-    current = make_user("alice")
-    sender = make_user("bob")
-    link = Friendship(
-        requester_id=current.id,
-        recipient_id=sender.id,
-        accepted_at=datetime(2026, 7, 24, tzinfo=UTC),
-    )
-    nudge = Nudge(
-        friendship_id=link.id,
-        sender_id=sender.id,
-        sent_at=datetime(2026, 7, 25, 3, tzinfo=UTC),
-    )
-    service = make_service(FriendRepo(nudges=[(nudge, sender)]))
-    result = await service.list_nudges(current.id)
-    assert result[0].sender.username == "bob"
-    assert result[0].sent_at == nudge.sent_at
 
 
 async def test_search_returns_an_exact_active_username() -> None:

@@ -8,7 +8,7 @@ from src.auth.fastapi_users.setup import current_active_user
 from src.exceptions import DuplicateItemError, ForbiddenError, ItemNotFoundError, ServiceError
 from src.main import app
 from src.models.user import User
-from src.schemas.friendship import FriendLink, FriendUser, NudgeRead
+from src.schemas.friendship import FriendLink, FriendUser
 from src.services.friendship import FriendshipService
 
 
@@ -52,18 +52,6 @@ class FriendService:
 
     async def remove(self, link_id: UUID, user_id: UUID) -> None:
         return None
-
-    async def send_nudge(self, link_id: UUID, user_id: UUID) -> UUID:
-        return uuid4()
-
-    async def list_nudges(self, user_id: UUID) -> list[NudgeRead]:
-        return [
-            NudgeRead(
-                id=uuid4(),
-                sender=self.other,
-                sent_at=datetime(2026, 7, 25, 3, tzinfo=UTC),
-            )
-        ]
 
 
 class FailingFriendService:
@@ -110,7 +98,6 @@ def test_list_requests_returns_incoming_state() -> None:
     [
         ("DELETE", "/friends/requests/{id}"),
         ("DELETE", "/friends/{id}"),
-        ("POST", "/friends/{id}/nudges"),
     ],
 )
 def test_friend_actions_return_success(method: str, path: str) -> None:
@@ -121,14 +108,7 @@ def test_friend_actions_return_success(method: str, path: str) -> None:
         path.format(id=link_id),
         headers={"X-CSRF-Token": "1"},
     )
-    assert response.status_code in {201, 204}
-
-
-def test_received_nudges_identify_sender() -> None:
-    service = setup_api()
-    response = TestClient(app).get("/friends/nudges")
-    assert response.status_code == 200
-    assert response.json()[0]["sender"]["username"] == service.other.username
+    assert response.status_code == 204
 
 
 @pytest.mark.parametrize(

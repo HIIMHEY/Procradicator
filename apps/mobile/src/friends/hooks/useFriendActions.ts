@@ -1,12 +1,6 @@
 import { API_ROUTES } from '@/config/env';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  FriendIdSchema,
-  FriendRequestSchema,
-  NudgeIdSchema,
-  type FriendId,
-  type NudgeId,
-} from '../schemas';
+import { FriendIdSchema, FriendRequestSchema, type FriendId } from '../schemas';
 
 const csrfHeaders = {
   'Content-Type': 'application/json',
@@ -53,16 +47,6 @@ async function removeFriend(id: string): Promise<void> {
   if (!res.ok) throw new Error(String(res.status));
 }
 
-async function sendNudge(id: string): Promise<NudgeId> {
-  const res = await fetch(API_ROUTES.FRIENDS.NUDGE(id), {
-    method: 'POST',
-    headers: csrfHeaders,
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error(String(res.status));
-  return NudgeIdSchema.parse(await res.json());
-}
-
 type FriendAction<T> = (value: string) => Promise<T>;
 
 function useFriendAction<T>(action: FriendAction<T>) {
@@ -79,4 +63,3 @@ export const useSendFriendRequest = () => useFriendAction(sendRequest);
 export const useAcceptFriendRequest = () => useFriendAction(acceptRequest);
 export const useRejectFriendRequest = () => useFriendAction(rejectRequest);
 export const useRemoveFriend = () => useFriendAction(removeFriend);
-export const useSendNudge = () => useFriendAction(sendNudge);

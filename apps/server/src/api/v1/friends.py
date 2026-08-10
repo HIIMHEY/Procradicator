@@ -18,7 +18,6 @@ from src.schemas.friendship import (
     FriendRequest,
     FriendRequestUpdate,
     FriendUser,
-    NudgeRead,
 )
 from src.services.friendship import FriendshipService
 
@@ -159,32 +158,5 @@ async def list_progress(
 ) -> list[FriendProgress]:
     try:
         return await friend_svc.list_progress(current_user.id)
-    except ServiceError as e:
-        raise_http_error(e)
-
-
-@router.get("/nudges", response_model=list[NudgeRead])
-async def list_nudges(
-    friend_svc: Annotated[FriendshipService, Depends()],
-    current_user: Annotated[User, Depends(current_active_user)],
-) -> list[NudgeRead]:
-    try:
-        return await friend_svc.list_nudges(current_user.id)
-    except ServiceError as e:
-        raise_http_error(e)
-
-
-@router.post(
-    "/{link_id}/nudges",
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_csrf)],
-)
-async def send_nudge(
-    link_id: UUID,
-    friend_svc: Annotated[FriendshipService, Depends()],
-    current_user: Annotated[User, Depends(current_active_user)],
-) -> dict[str, UUID]:
-    try:
-        return {"nudge_id": await friend_svc.send_nudge(link_id, current_user.id)}
     except ServiceError as e:
         raise_http_error(e)

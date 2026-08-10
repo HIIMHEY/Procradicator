@@ -102,8 +102,7 @@ export function focusReducer(state: State, action: Action): State {
         phase: nextPhase,
         isOT: false,
         currentIdx: action.nextExists && !state.isOT ? state.currentIdx + 1 : state.currentIdx,
-        phaseStartedAt:
-          nextPhase === 'WORK' || nextPhase === 'REST' ? Date.now() : state.phaseStartedAt,
+        phaseStartedAt: nextPhase === 'REST' ? Date.now() : state.phaseStartedAt,
         completedIds: [...state.completedIds, action.subtaskId],
         workCycles: state.workCycles + 1,
         OTSecondsTotal: state.OTSecondsTotal + action.OTSeconds,

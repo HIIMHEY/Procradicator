@@ -13,13 +13,13 @@ from src.exceptions import (
     InvalidOperationError,
     ItemNotFoundError,
 )
-from src.models.friendship import Friendship, Nudge
+from src.models.friendship import Friendship
 from src.models.user import User
 from src.repositories.analytics import AnalyticsRepo
 from src.repositories.friendship import FriendshipRepo
 from src.repositories.protocols import DailyStatsRepoProtocol, FriendshipRepoProtocol
 from src.schemas.analytics import DailyStats
-from src.schemas.friendship import FriendLink, FriendProgress, FriendUser, NudgeRead
+from src.schemas.friendship import FriendLink, FriendProgress, FriendUser
 from src.services.protocols import UserServiceProtocol
 from src.services.user import UserService
 from src.utils.service_exception_mapper import map_service_exception
@@ -151,29 +151,3 @@ class FriendshipService:
             focus_min=stats.focus_min if stats else 0,
             completed_subtasks=stats.completed_subtasks if stats else 0,
         )
-
-    async def send_nudge(self, link_id: UUID, user_id: UUID) -> UUID:
-        link = await self._read_locked(link_id)
-        if user_id not in {link.requester_id, link.recipient_id}:
-            raise ForbiddenError("friendship belongs to other users")
-        if link.accepted_at is None:
-            raise InvalidOperationError("friend request is not accepted")
-        try:
-            nudge = Nudge(friendship_id=link.id, sender_id=user_id)
-            return (await self.friend_repo.add_nudge(nudge)).id
-        except DatabaseError as e:
-            raise map_service_exception(e) from e
-
-    async def list_nudges(self, user_id: UUID) -> list[NudgeRead]:
-        try:
-            rows = await self.friend_repo.list_nudges(user_id)
-        except DatabaseError as e:
-            raise map_service_exception(e) from e
-        return [
-            NudgeRead(
-                id=nudge.id,
-                sender=FriendUser(id=sender.id, username=sender.username),
-                sent_at=nudge.sent_at,
-            )
-            for nudge, sender in rows
-        ]

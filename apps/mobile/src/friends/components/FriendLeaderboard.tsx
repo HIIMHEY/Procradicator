@@ -2,9 +2,9 @@ import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { Toast, ToastTitle, useToast } from '@/components/ui/toast';
-import { useRemoveFriend, useSendNudge } from '@/friends/hooks/useFriendActions';
+import { useRemoveFriend } from '@/friends/hooks/useFriendActions';
 import { useFriendProgress, useFriends } from '@/friends/hooks/useFriendQueries';
-import { Clock3, Hand, ListChecks, MoreHorizontal } from 'lucide-react-native';
+import { Clock3, ListChecks, MoreHorizontal } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { FriendEmpty, FriendError, FriendLoading } from './FriendState';
@@ -19,31 +19,8 @@ export function FriendLeaderboard({ userId }: FriendLeaderboardProps) {
   const friendsQuery = useFriends(userId);
   const progressQuery = useFriendProgress(userId);
   const remove = useRemoveFriend();
-  const nudge = useSendNudge();
   const friends = friendsQuery.data ?? [];
   const progress = progressQuery.data ?? [];
-  const nudgeFriend = async (id: string) => {
-    try {
-      await nudge.mutateAsync(id);
-      toast.show({
-        placement: 'top',
-        render: () => (
-          <Toast action="success" variant="solid">
-            <ToastTitle>Nudge sent</ToastTitle>
-          </Toast>
-        ),
-      });
-    } catch {
-      toast.show({
-        placement: 'top',
-        render: () => (
-          <Toast action="error" variant="solid">
-            <ToastTitle>Nudge failed</ToastTitle>
-          </Toast>
-        ),
-      });
-    }
-  };
   const removeFriend = async (id: string) => {
     setMenuId(undefined);
     try {
@@ -107,19 +84,7 @@ export function FriendLeaderboard({ userId }: FriendLeaderboardProps) {
             accessibilityLabel={`Friend progress for ${friend.user.username}`}
             className="min-h-24 flex-row items-center rounded-xl bg-surface-container-low px-5 py-4"
           >
-            <Text className="flex-1 text-base text-on-surface">{friend.user.username}</Text>
-            {link && (
-              <Button
-                accessibilityLabel={`Nudge ${friend.user.username}`}
-                variant="link"
-                size="sm"
-                isDisabled={nudge.isPending}
-                onPress={() => void nudgeFriend(link.id)}
-                className="h-10 w-10 rounded-full p-0"
-              >
-                <ButtonIcon as={Hand} className="text-on-surface-variant" />
-              </Button>
-            )}
+            <Text className="flex-1 text-base text-slate-900">{friend.user.username}</Text>
             <View className="items-end gap-1">
               <View className="flex-row items-center gap-2">
                 <Icon as={Clock3} size="sm" className="text-on-surface-variant" />

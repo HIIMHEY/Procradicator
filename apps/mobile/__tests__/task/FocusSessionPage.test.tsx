@@ -185,6 +185,44 @@ test('press Start transitions to WORK phase with timer', async () => {
   expect(screen.getByText('25:00')).toBeTruthy();
 });
 
+test('continues the work timer when moving to the next subtask', async () => {
+  jest.useFakeTimers();
+  const taskWithTwoSubtasks = {
+    ...taskResponse,
+    subtasks: [
+      { ...taskResponse.subtasks[0], next_subtask: [SECOND_SUBTASK_ID] },
+      {
+        id: SECOND_SUBTASK_ID,
+        title: 'Review report',
+        description: 'Review section 3',
+        next_subtask: [],
+        is_done: false,
+        est_m: 10,
+      },
+    ],
+  };
+  mockFetch
+    .mockResolvedValueOnce(createJsonResponse(taskWithTwoSubtasks))
+    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
+    .mockResolvedValue(createJsonResponse({}));
+
+  renderWithProviders(<FocusSessionPage />);
+
+  fireEvent.press(await screen.findByText('Start'));
+  await act(async () => {
+    jest.advanceTimersByTime(60 * 1000);
+  });
+  expect(screen.getByText('24:00')).toBeTruthy();
+
+  fireEvent.press(screen.getByText('Complete Subtask'));
+
+  expect(await screen.findByText('Review report')).toBeTruthy();
+  expect(screen.getByText('24:00')).toBeTruthy();
+  cleanup();
+  jest.clearAllTimers();
+  jest.useRealTimers();
+});
+
 test('starts from the subtask selected on the roadmap', async () => {
   mockSearchParams = { id: SECOND_SUBTASK_ID, taskId: TASK_ID };
   const taskWithCompletedFirstSubtask = {
