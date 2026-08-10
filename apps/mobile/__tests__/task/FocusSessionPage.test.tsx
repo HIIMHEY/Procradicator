@@ -202,9 +202,9 @@ test('continues the work timer when moving to the next subtask', async () => {
     ],
   };
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskWithTwoSubtasks))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValue(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskWithTwoSubtasks))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValue(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
