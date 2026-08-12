@@ -1,15 +1,20 @@
 import { Subtask, ModifySubtaskData } from '@/task/schema';
 
-//maps curr subtask id -> prev subtask id
+export function formatEstimate(estMins: number): string {
+  const h = Math.floor(estMins / 60);
+  const m = estMins % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
 export function buildDepMap(subtasks: Subtask[]): Map<string, string[]> {
   const depMap: Map<string, string[]> = new Map<string, string[]>();
   subtasks.forEach((subtask) => {
-    if (Array.isArray(subtask.next_subtask)) {
-      subtask.next_subtask.forEach((nextId) => {
-        if (!depMap.has(nextId)) depMap.set(nextId, []);
-        depMap.get(nextId)!.push(subtask.id);
-      });
-    }
+    subtask.next_subtask.forEach((nextId) => {
+      if (!depMap.has(nextId)) depMap.set(nextId, []);
+      depMap.get(nextId)!.push(subtask.id);
+    });
   });
   return depMap;
 }
@@ -18,7 +23,7 @@ export function toposort(subtasks: Subtask[], depMap: Map<string, string[]>): Su
   const sorted: Subtask[] = [];
   const depMapCopy: Map<string, string[]> = new Map<string, string[]>();
   subtasks.forEach((subtask) => {
-    depMapCopy.set(subtask.id, [...(depMap.get(subtask.id) || [])]);
+    depMapCopy.set(subtask.id, [...(depMap.get(subtask.id) ?? [])]);
   });
 
   const q: Subtask[] = subtasks.filter((subtask) => {
@@ -50,15 +55,14 @@ export function toposort(subtasks: Subtask[], depMap: Map<string, string[]>): Su
 }
 
 //convert from Subtask schema to ModifySubtaskSchema
-//sigh, we should lowkey just stick to either next_subtask or depends_on
-//TODO: decide
+//TODO: consolidate next_subtask and depends_on into one representation
 export function formatSubtasks(
   subtasks: Subtask[],
   depMap: Map<string, string[]>,
 ): ModifySubtaskData[] {
-  return (toposort(subtasks, depMap) || []).map((subtask) => ({
+  return toposort(subtasks, depMap).map((subtask) => ({
     ...subtask,
     id: subtask.id || crypto.randomUUID(),
-    depends_on: depMap.get(subtask.id) || [],
+    depends_on: depMap.get(subtask.id) ?? [],
   })) as ModifySubtaskData[];
 }

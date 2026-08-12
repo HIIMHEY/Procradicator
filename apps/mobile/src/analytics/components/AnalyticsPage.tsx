@@ -14,7 +14,7 @@ export function AnalyticsPage() {
     data && (data.focus_min > 0 || data.completed_sessions > 0 || data.abandoned_sessions > 0);
 
   return (
-    <View accessibilityLabel="Analytics page" className="flex-1 bg-[#F8F9FF]">
+    <View accessibilityLabel="Analytics page" className="flex-1 bg-background">
       <NavBar active="analytics" title="Analytics" />
 
       {isPending ? (

@@ -1,28 +1,15 @@
-/// <reference types="jest" />
-
-import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
+import { friendId, linkId, response, stubFriendsFetch } from '../../test-utils/friendTestUtils';
+import { iso } from '../../test-utils/factories';
 import { API_ROUTES } from '@/config/env';
 import { FriendsPage } from '@/friends/components/FriendsPage';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
-import { friendId, linkId, response, userId } from '../../test-utils/friendTestUtils';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockFetch = jest.fn();
-const mockReplace = jest.fn();
-
-jest.mock('@/auth/hooks/useCurrentUser');
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
-
-const mockUseCurrentUser = jest.mocked(useCurrentUser);
 
 beforeEach(() => {
   mockFetch.mockReset();
-  mockReplace.mockReset();
-  mockUseCurrentUser.mockReset();
-  mockUseCurrentUser.mockReturnValue({ data: { id: userId } } as never);
-  globalThis.fetch = mockFetch as unknown as typeof fetch;
+  stubFriendsFetch(mockFetch);
 });
 
 test("shows each friend's current-day statistics", async () => {
@@ -34,8 +21,8 @@ test("shows each friend's current-day statistics", async () => {
           {
             id: linkId,
             user: { id: friendId, username: 'test_person_1' },
-            requested_at: '2026-07-25T12:00:00Z',
-            accepted_at: '2026-07-25T12:05:00Z',
+            requested_at: iso(0),
+            accepted_at: iso(5),
             is_incoming: false,
           },
         ]),
@@ -78,8 +65,8 @@ test('removes a friend from the leaderboard', async () => {
                 {
                   id: linkId,
                   user: { id: friendId, username: 'test_person_1' },
-                  requested_at: '2026-07-25T12:00:00Z',
-                  accepted_at: '2026-07-25T12:05:00Z',
+                  requested_at: iso(0),
+                  accepted_at: iso(5),
                   is_incoming: false,
                 },
               ],

@@ -26,7 +26,7 @@ export function ReadyScreen({ currentSubtask, workCycleM, onStart, onExit }: Rea
           {currentSubtask.description}
         </Text>
       </Box>
-      <TimerRing progress={1} color="#0060ac">
+      <TimerRing progress={1} ringClassName="stroke-primary">
         <Text className="font-headline-lg text-[72px] leading-none text-primary font-extrabold tracking-tighter">
           {formatTimer(workCycleM * 60)}
         </Text>
@@ -42,7 +42,7 @@ export function ReadyScreen({ currentSubtask, workCycleM, onStart, onExit }: Rea
           </ButtonText>
         </Button>
         <Button variant="link" className="flex-row items-center gap-2 px-6 py-2" onPress={onExit}>
-          <LogOut size={20} color="#717783" />
+          <Icon as={LogOut} className="text-outline" size="lg" />
           <ButtonText className="font-label-md font-medium text-outline">Exit Focus</ButtonText>
         </Button>
       </Box>

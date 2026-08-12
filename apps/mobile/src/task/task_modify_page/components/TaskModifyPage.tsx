@@ -2,17 +2,16 @@ import DragList from 'react-native-draglist';
 import { Box } from '@/components/ui/box';
 import { SubtaskNode } from './SubtaskNode';
 import { DragListHeader } from './DragListHeader';
-import { DragListFooter } from './DragListFooter';
+import { ModifyTaskFooter } from './ModifyTaskFooter';
+import { AddSubtaskButton } from './AddSubtaskButton';
 import { View } from 'react-native';
-import { EmptyTaskPlaceholder } from './EmptyPlaceholder';
 import { useToast, Toast, ToastTitle, ToastDescription } from '@/components/ui/toast';
 import { useLocalSearchParams } from 'expo-router';
 import { ErrorFallback } from '@/task/components/ErrorFallback';
 import { TaskLoadingSkeleton } from './TaskLoadingSkeleton';
 import { useModifyTaskForm } from '../useModifyTaskForm';
 import { TaskModifyMode } from '@/task/schema';
-import { AIButton } from './AIButton';
-import { NavigationBar } from '@/task/components/NavigationBar';
+import { TaskHeader } from '@/task/components/TaskHeader';
 
 interface ModifyTaskPageProps {
   mode: TaskModifyMode;
@@ -68,17 +67,13 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
   if (isPending) return <TaskLoadingSkeleton />;
 
   return (
-    <Box className="w-full h-screen max-h-screen flex flex-col overflow-hidden relative">
-      <NavigationBar backurl={'/tasks'} renderRightAction={() => <AIButton taskId={id} />} />
-      <View className="flex-1 w-full overflow-y-scroll">
-        <View className="z-50">
-          <DragListHeader control={control} errors={errors} />
-        </View>
+    <Box className="w-full h-full flex flex-col overflow-hidden relative bg-surface-container-low">
+      <TaskHeader taskId={id || undefined} active="manual" backHref="/tasks" />
+      <DragListHeader control={control} errors={errors} />
 
+      <View className="flex-1 w-full overflow-y-scroll">
         {isError ? (
           <ErrorFallback message={error?.message} onRetry={refetch} />
-        ) : currSubtasks.length === 0 ? (
-          <EmptyTaskPlaceholder />
         ) : (
           <DragList
             data={fields}
@@ -98,15 +93,16 @@ export function ModifyTaskPage({ mode }: ModifyTaskPageProps) {
                 />
               );
             }}
+            ListFooterComponent={<AddSubtaskButton onPress={handleAddSubtask} />}
           />
         )}
       </View>
 
-      <DragListFooter
+      <ModifyTaskFooter
+        mode={mode}
         isDisabled={currSubtasks.length === 0}
         isPending={isMutating}
         handleSubmit={onSubmit}
-        handleAddSubtask={handleAddSubtask}
       />
     </Box>
   );

@@ -6,8 +6,8 @@ export const initial: State = {
   sessionId: null,
   currentIdx: 0,
   phaseStartedAt: null,
-  workCycleM: 25, // Default Work
-  restCycleM: 5, // Default Rest
+  workCycleM: 25,
+  restCycleM: 5,
   previousPhase: null,
   focusLogs: [],
   restLogs: [],

@@ -6,11 +6,7 @@ import {
   LocalTaskRecordSchema,
   OutboxRecordSchema,
 } from './schemas';
-import type {
-  LocalTaskRecord,
-  TaskConflictRecord,
-  TaskOutboxRecord,
-} from './schemas';
+import type { LocalTaskRecord, TaskConflictRecord, TaskOutboxRecord } from './schemas';
 
 export async function ackTaskOp(
   operation: TaskOutboxRecord,

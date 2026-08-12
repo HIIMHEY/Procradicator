@@ -1,10 +1,6 @@
-/// <reference types="jest" />
-
 import 'fake-indexeddb/auto';
 
 import { useCurrentUser } from '@/auth/hooks/useCurrentUser';
-import { createAuthSession } from '@/auth/offlineSession';
-import { deleteOfflineDatabase, saveAuthRecord } from '@/offline/database';
 import { createLocalTask } from '@/offline/taskStore';
 import useCreateTask from '@/task/hooks/useCreateTask';
 import useDeleteTask from '@/task/hooks/useDeleteTask';
@@ -12,18 +8,21 @@ import useReadTask from '@/task/hooks/useReadTask';
 import useReadTasks from '@/task/hooks/useReadTasks';
 import useUpdateTask from '@/task/hooks/useUpdateTask';
 import type { ModifyTaskData } from '@/task/schema';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { Pressable, Text } from 'react-native';
+import { createTestQueryClient } from '../../test-utils/renderWithProviders';
+import { iso, uid } from '../../test-utils/factories';
+import { resetOfflineDatabase, seedOfflineSession, setOnline } from '../../test-utils/offline';
 
-const USER_ID = '9b97c715-d720-4ffc-88e6-f395be319dda';
+const USER_ID = uid('user');
 
 function values(title: string): ModifyTaskData {
   return {
     title,
     description: 'Offline',
-    due_at: '2026-08-01T09:00:00.000Z',
+    due_at: iso(0),
     subtasks: [
       {
         id: crypto.randomUUID(),
@@ -38,22 +37,7 @@ function values(title: string): ModifyTaskData {
 }
 
 async function seedSession(): Promise<void> {
-  await saveAuthRecord(
-    createAuthSession(
-      'http://localhost:8000',
-      {
-        id: USER_ID,
-        email: 'offline@example.com',
-        username: 'offline',
-        is_active: true,
-        is_superuser: false,
-        is_verified: false,
-        server_time: '2026-07-27T09:00:00.000Z',
-        session_expires_at: '2027-07-27T09:00:00.000Z',
-      },
-      Date.now(),
-    ),
-  );
+  await seedOfflineSession(USER_ID);
 }
 
 function CreateProbe() {
@@ -98,12 +82,7 @@ function ExistingProbe({ taskId }: { taskId: string }) {
 function renderProbe(ui: ReactElement): {
   unmount: () => void;
 } {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      mutations: { gcTime: Infinity, retry: false },
-      queries: { gcTime: Infinity, retry: false },
-    },
-  });
+  const queryClient = createTestQueryClient();
   const view = render(ui, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -118,17 +97,14 @@ function renderProbe(ui: ReactElement): {
 }
 
 beforeEach(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
   await seedSession();
-  Object.defineProperty(globalThis.navigator, 'onLine', {
-    configurable: true,
-    value: false,
-  });
+  setOnline(false);
   globalThis.fetch = jest.fn() as unknown as typeof fetch;
 });
 
 afterAll(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
 });
 
 test('creates and lists a task offline', async () => {
@@ -145,7 +121,7 @@ test('creates and lists a task offline', async () => {
 });
 
 test('reads, updates, and deletes an existing task offline after reload', async () => {
-  const task = await createLocalTask(USER_ID, values('Stored'), '2026-07-27T09:00:00.000Z');
+  const task = await createLocalTask(USER_ID, values('Stored'), iso(0));
   const view = renderProbe(<ExistingProbe taskId={task.id} />);
   try {
     expect(await screen.findByText('Stored')).toBeTruthy();

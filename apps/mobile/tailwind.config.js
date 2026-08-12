@@ -41,8 +41,11 @@ module.exports = {
         'outline-variant': 'rgb(var(--color-outline-variant) / <alpha-value>)',
         background: 'rgb(var(--color-background) / <alpha-value>)',
         'on-background': 'rgb(var(--color-on-background) / <alpha-value>)',
+        'on-surface': 'rgb(var(--color-on-surface) / <alpha-value>)',
+        'on-surface-variant': 'rgb(var(--color-on-surface-variant) / <alpha-value>)',
         error: 'rgb(var(--color-error) / <alpha-value>)',
         'error-container': 'rgb(var(--color-error-container) / <alpha-value>)',
+        'on-error-container': 'rgb(var(--color-on-error-container) / <alpha-value>)',
       },
       borderRadius: {
         sm: 'var(--radius-sm)',

@@ -60,7 +60,7 @@ export function FocusSessionPage() {
 
   if (!subtaskId) {
     return (
-      <Text className="text-center text-base text-red-600 mt-20">
+      <Text className="text-center text-base text-error mt-20">
         Focus session subtask is missing.
       </Text>
     );

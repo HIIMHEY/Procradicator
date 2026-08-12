@@ -5,12 +5,12 @@ import { View } from 'react-native';
 
 function MetricSkeleton() {
   return (
-    <Box className="min-h-[88px] flex-1 justify-center rounded-xl border border-slate-200 bg-white px-3 py-3">
+    <Box className="min-h-[88px] flex-1 justify-center rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-3">
       <HStack className="items-center gap-2">
-        <Skeleton variant="rounded" className="h-7 w-7 rounded-lg bg-blue-100" />
-        <SkeletonText _lines={1} className="h-3 w-20 rounded bg-slate-200" />
+        <Skeleton variant="rounded" className="h-7 w-7 rounded-lg bg-surface-container-high" />
+        <SkeletonText _lines={1} className="h-3 w-20 rounded bg-surface-container-high" />
       </HStack>
-      <SkeletonText _lines={1} className="mt-2 h-5 w-16 rounded bg-slate-200" />
+      <SkeletonText _lines={1} className="mt-2 h-5 w-16 rounded bg-surface-container-high" />
     </Box>
   );
 }

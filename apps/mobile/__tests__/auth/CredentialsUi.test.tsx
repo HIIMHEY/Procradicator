@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 import 'fake-indexeddb/auto';
 
 import { LandingScreen } from '@/auth/components/LandingScreen';
@@ -8,8 +6,11 @@ import { RegisterForm } from '@/auth/components/RegisterForm';
 import { createAuthSession, createLogoutSession } from '@/auth/offlineSession';
 import { loadCurrentUser } from '@/auth/sessionManager';
 import { API_ROUTES } from '@/config/env';
-import { deleteOfflineDatabase, saveAuthAndEnqueue } from '@/offline/database';
+import { saveAuthAndEnqueue } from '@/offline/database';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { response } from '../../test-utils/http';
+import { session } from '../../test-utils/factories';
+import { resetOfflineDatabase, setOnline, TEST_API_ORIGIN } from '../../test-utils/offline';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockNavigate = jest.fn();
@@ -19,23 +20,10 @@ const mockCanGoBack = jest.fn();
 const mockFetch = jest.fn();
 const mockStartGoogleSso = jest.fn();
 
-const currentSession = {
-  id: '7cf2a63f-45da-4af7-9917-306abc624759',
+const currentSession = session({
   email: 'tom@example.com',
   username: 'tom',
-  is_active: true,
-  is_superuser: false,
-  is_verified: false,
-  server_time: '2026-07-27T09:00:00.000Z',
-  session_expires_at: '2026-07-27T10:00:00.000Z',
-};
-
-const response = (body: unknown = {}, status = 200): Response =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  }) as Response;
+});
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
@@ -67,15 +55,12 @@ beforeEach(async () => {
   mockStartGoogleSso.mockReset();
   mockCanGoBack.mockReturnValue(true);
   globalThis.fetch = mockFetch as unknown as typeof fetch;
-  Object.defineProperty(globalThis.navigator, 'onLine', {
-    configurable: true,
-    value: true,
-  });
-  await deleteOfflineDatabase();
+  setOnline(true);
+  await resetOfflineDatabase();
 });
 
 afterAll(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
 });
 
 test('landing screen shows sign in and get started', () => {
@@ -106,17 +91,13 @@ test('login form sends username and password as form data', async () => {
     method: 'GET',
     credentials: 'include',
   });
-  Object.defineProperty(globalThis.navigator, 'onLine', { configurable: true, value: false });
+  setOnline(false);
   await expect(loadCurrentUser()).resolves.toMatchObject({ id: currentSession.id });
 });
 
 test('login flushes an offline logout before replacing its tombstone', async () => {
-  const authenticated = createAuthSession('http://localhost:8000', currentSession, Date.now());
-  const logout = createLogoutSession(
-    authenticated,
-    Date.now(),
-    '8d125649-03c4-4adf-b609-847a431713dd',
-  );
+  const authenticated = createAuthSession(TEST_API_ORIGIN, currentSession, Date.now());
+  const logout = createLogoutSession(authenticated, Date.now());
   await saveAuthAndEnqueue(logout.record, logout.operation);
   mockFetch.mockImplementation((url: string) => {
     if (url === API_ROUTES.AUTH.LOGOUT) return Promise.resolve(response({}, 204));
@@ -134,7 +115,7 @@ test('login flushes an offline logout before replacing its tombstone', async () 
     API_ROUTES.AUTH.LOGIN,
     API_ROUTES.AUTH.ME,
   ]);
-  Object.defineProperty(globalThis.navigator, 'onLine', { configurable: true, value: false });
+  setOnline(false);
   await expect(loadCurrentUser()).resolves.toMatchObject({ id: currentSession.id });
 });
 

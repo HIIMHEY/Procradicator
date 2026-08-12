@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 import { act, renderHook } from '@testing-library/react-native';
 
 import { formatTimer, useTimer } from '@/focus_session/useTimer';

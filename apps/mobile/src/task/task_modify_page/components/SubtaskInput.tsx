@@ -34,24 +34,24 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
   };
 
   return (
-    <Box className="w-full max-w-[320px] p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
-      <Text className="text-lg font-semibold text-slate-800 mb-4 text-center">{mode} Subtask</Text>
+    <Box className="w-full max-w-[320px] p-4 bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-sm">
+      <Text className="text-lg font-semibold text-on-surface mb-4 text-center">{mode} Subtask</Text>
 
       <FormControl isInvalid={!!errors?.title} className="mb-3">
         <FormControlLabel>
           <FormControlLabelText>Title</FormControlLabelText>
         </FormControlLabel>
-        <Input className="bg-slate-50 border border-slate-200 rounded-lg h-11">
+        <Input className="bg-surface-container-low border border-outline-variant rounded-lg h-11">
           <InputField
             placeholder="Enter something you have to do..."
             value={value?.title || ''}
             onChangeText={(text) => updateField('title', text)}
-            className="text-sm text-slate-700"
+            className="text-sm text-on-surface"
           />
         </Input>
         <FormControlError>
           <FormControlErrorIcon as={AlertCircleIcon} />
-          <FormControlErrorText className="text-xs text-red-500 ml-1">
+          <FormControlErrorText className="text-xs text-error ml-1">
             {errors?.title?.message}
           </FormControlErrorText>
         </FormControlError>
@@ -61,19 +61,19 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
         <FormControlLabel>
           <FormControlLabelText>Description</FormControlLabelText>
         </FormControlLabel>
-        <Textarea className="bg-slate-50 border border-slate-200 rounded-lg h-20 items-start">
+        <Textarea className="bg-surface-container-low border border-outline-variant rounded-lg h-20 items-start">
           <TextareaInput
             placeholder="Describe what you have to do..."
             multiline
             numberOfLines={4}
             value={value?.description || ''}
             onChangeText={(text) => updateField('description', text)}
-            className="text-sm text-slate-700 py-2 w-full h-full"
+            className="text-sm text-on-surface py-2 w-full h-full"
           />
         </Textarea>
         <FormControlError>
           <FormControlErrorIcon as={AlertCircleIcon} />
-          <FormControlErrorText className="text-xs text-red-500 ml-1">
+          <FormControlErrorText className="text-xs text-error ml-1">
             {errors?.description?.message}
           </FormControlErrorText>
         </FormControlError>
@@ -83,17 +83,17 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
         <FormControlLabel>
           <FormControlLabelText>Time Estimate (minutes)</FormControlLabelText>
         </FormControlLabel>
-        <Input className="bg-slate-50 border border-slate-200 rounded-lg h-11">
+        <Input className="bg-surface-container-low border border-outline-variant rounded-lg h-11">
           <InputField
             placeholder="How long would it take to complete this?"
             value={String(value?.est_m) || ''}
             onChangeText={(text) => updateField('est_m', text)}
-            className="text-sm text-slate-700"
+            className="text-sm text-on-surface"
           />
         </Input>
         <FormControlError>
           <FormControlErrorIcon as={AlertCircleIcon} />
-          <FormControlErrorText className="text-xs text-red-500 ml-1">
+          <FormControlErrorText className="text-xs text-error ml-1">
             {errors?.est_m?.message}
           </FormControlErrorText>
         </FormControlError>
@@ -106,7 +106,9 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
           onChange={(bool: boolean) => updateField('is_done', bool)}
           size="md"
         >
-          <CheckboxLabel className="ml-2 text-sm text-slate-600">Mark as completed</CheckboxLabel>
+          <CheckboxLabel className="ml-2 text-sm text-on-surface-variant">
+            Mark as completed
+          </CheckboxLabel>
           <CheckboxIndicator>
             <CheckboxIcon as={CheckIcon} />
           </CheckboxIndicator>
@@ -116,10 +118,10 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
       <Box className="items-end mt-3">
         <Button
           onPress={onDone}
-          className="bg-emerald-700 rounded-lg py-2 px-4 h-10 flex-row items-center justify-center"
+          className="bg-[#3B59B6] rounded-lg py-2 px-4 h-10 flex-row items-center justify-center"
         >
           <ButtonText className="text-white font-semibold text-sm">Done</ButtonText>
-          <Icon as={CheckIcon} color="white" />
+          <Icon as={CheckIcon} className="text-white" />
         </Button>
       </Box>
     </Box>

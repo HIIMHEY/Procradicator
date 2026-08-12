@@ -23,7 +23,7 @@ export function RestScreen({ timer, onSkip }: RestScreenProps) {
   return (
     <Box className="flex-1 items-center justify-center px-6">
       <Text className="font-headline-md text-primary font-bold mb-2 text-center">Rest Well</Text>
-      <TimerRing progress={timer.progress} color="#0060ac">
+      <TimerRing progress={timer.progress} ringClassName="stroke-primary">
         <Text className="font-headline-lg text-[72px] leading-none text-primary font-extrabold tracking-tighter">
           {timer.display}
         </Text>

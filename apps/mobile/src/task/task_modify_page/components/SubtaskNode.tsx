@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Box } from '@/components/ui/box';
+import { Pressable } from '@/components/ui/pressable';
+import { CheckIcon, CircleIcon, Icon } from '@/components/ui/icon';
 import { ModifySubtaskData, ModifyTaskData, TaskModifyMode } from '../../schema';
 import { SubtaskInput } from './SubtaskInput';
 import { Control, Controller, FieldErrors } from 'react-hook-form';
-import { SubtaskActions } from './SubtaskActions';
-import { ArrowDownIcon, Icon } from '@/components/ui/icon';
+import { SubtaskCard } from './SubtaskCard';
 
 interface SubtaskNodeProps {
   index: number;
@@ -18,8 +19,8 @@ interface SubtaskNodeProps {
 }
 
 export function SubtaskNode({
-  index, //yes I spelt it in full this time for clarity
-  mode, // just shows text edit or create
+  index,
+  mode,
   onDelete,
   onDragTrigger,
   errors,
@@ -35,7 +36,7 @@ export function SubtaskNode({
   }, [errors]);
 
   return (
-    <Box className={`px-4 my-1 ${isActive ? 'opacity-80 scale-95' : ''} items-center`}>
+    <Box className={`px-4 my-1 ${isActive ? 'opacity-80 scale-95' : ''}`}>
       <Controller
         control={control}
         name={`subtasks.${index}`}
@@ -51,18 +52,37 @@ export function SubtaskNode({
               />
             </Box>
           ) : (
-            <SubtaskActions
-              value={value}
-              index={index}
-              onDragTrigger={onDragTrigger}
-              onDelete={onDelete}
-              onEdit={() => setIsEditing(true)}
-              isLast={isLast}
-            />
+            <Box className="flex-row">
+              <Box className="w-8 items-center">
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: !!value.is_done }}
+                  accessibilityLabel={`Toggle subtask ${index + 1} done`}
+                  onPress={() => onChange({ ...value, is_done: !value.is_done })}
+                >
+                  {value.is_done ? (
+                    <Box className="h-6 w-6 items-center justify-center rounded-full bg-[#3B59B6]">
+                      <Icon as={CheckIcon} size="sm" className="text-white" />
+                    </Box>
+                  ) : (
+                    <Icon as={CircleIcon} size="xl" className="text-[#3B59B6]" />
+                  )}
+                </Pressable>
+                {!isLast && <Box className="my-1 w-[2px] flex-1 bg-outline-variant" />}
+              </Box>
+              <Box className="flex-1 pb-2">
+                <SubtaskCard
+                  value={value}
+                  index={index}
+                  onDragTrigger={onDragTrigger}
+                  onDelete={onDelete}
+                  onEdit={() => setIsEditing(true)}
+                />
+              </Box>
+            </Box>
           )
         }
       />
-      {!isLast && <Icon as={ArrowDownIcon} />}
     </Box>
   );
 }

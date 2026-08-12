@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Pressable } from 'react-native';
 import { Box } from '@/components/ui/box';
-import { Input, InputField } from '@/components/ui/input';
+import { CalendarDaysIcon, Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import dayjs from 'dayjs';
 import DateTimePicker from 'react-native-ui-datepicker';
 
@@ -16,18 +17,20 @@ export function TaskDateTimePicker({ value, onChange }: TaskDateTimePickerProps)
   const displayString = value ? dayjs(value).format('DD/MM/YYYY HH:mm') : 'Select date & time...';
 
   return (
-    <Box className="w-full pb-4 px-1 relative">
+    <Box className="w-full relative">
       <Pressable onPress={() => setShowPicker(!showPicker)}>
-        <Input isReadOnly={true} className="border border-slate-200 h-12 bg-white rounded-md">
-          <InputField
-            value={displayString}
-            className={`${value ? 'text-slate-800' : 'text-slate-400'} pointer-events-none`}
-          />
-        </Input>
+        <Box className="h-12 flex-row items-center gap-2 border-b border-outline">
+          <Icon as={CalendarDaysIcon} size="sm" className="text-outline" />
+          <Text
+            className={`flex-1 text-sm font-medium ${value ? 'text-on-surface' : 'text-outline'}`}
+          >
+            {displayString}
+          </Text>
+        </Box>
       </Pressable>
 
       {showPicker && (
-        <Box className="absolute z-0 top-0 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white border border-slate-200 rounded-lg p-3 shadow-xl  pt-1 ">
+        <Box className="absolute z-50 top-12 left-0 w-full max-w-sm bg-surface-container-lowest border border-outline-variant rounded-lg p-3 shadow-xl">
           <DateTimePicker
             mode="single"
             date={value ? dayjs(value) : dayjs()}

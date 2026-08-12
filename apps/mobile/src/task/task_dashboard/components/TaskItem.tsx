@@ -1,13 +1,21 @@
 import { useState } from 'react';
-import { TouchableOpacity, Text, LayoutAnimation } from 'react-native';
+import { LayoutAnimation, TouchableOpacity } from 'react-native';
 import { Task } from '../../schema';
 import { HStack } from '@/components/ui/hstack';
-import { Icon, EditIcon, ChevronLeftIcon, TrashIcon, ChevronRightIcon } from '@/components/ui/icon';
+import {
+  Icon,
+  EditIcon,
+  TrashIcon,
+  GripVerticalIcon,
+  CalendarDaysIcon,
+  ClockIcon,
+} from '@/components/ui/icon';
 import { Box } from '@/components/ui/box';
+import { Text } from '@/components/ui/text';
 import useDeleteTask from '@/task/hooks/useDeleteTask';
 import { useRouter } from 'expo-router';
 import { Toast, ToastTitle, useToast } from '@/components/ui/toast';
-import { Button, ButtonText } from '@/components/ui/button';
+import dayjs from 'dayjs';
 
 interface TaskItemProps {
   task: Task;
@@ -25,46 +33,48 @@ export function TaskItem({ task }: TaskItemProps) {
   };
 
   return (
-    <HStack className="w-full border border-black rounded-2xl mb-4 overflow-hidden bg-white min-h-[70px] items-stretch">
-      <Box className="flex-1 justify-center px-4 py-3 border-r border-black">
-        <Button
-          variant="outline"
-          size="md"
-          action="primary"
+    <HStack className="w-full rounded-2xl bg-surface-container-lowest shadow-sm items-center border border-outline-variant">
+      <Box className="flex-1 justify-center px-4 py-3">
+        <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => router.navigate(`/tasks/${task.id}/`)}
         >
-          <ButtonText
-            className={`text-black text-base font-medium ${showOptions ? 'line-clamp-2' : 'truncate'}`}
+          <Text
+            className={`text-on-surface text-base font-medium ${showOptions ? '' : 'truncate'}`}
           >
             {task.title}
-          </ButtonText>
-        </Button>
+          </Text>
+        </TouchableOpacity>
+
+        <HStack className="mt-1 gap-4">
+          <HStack className="items-center gap-1">
+            <Icon as={CalendarDaysIcon} size="sm" className="text-on-surface-variant" />
+            <Text className="text-xs text-on-surface-variant">
+              {dayjs(task.due_at).format('MMM D')}
+            </Text>
+          </HStack>
+          <HStack className="items-center gap-1">
+            <Icon as={ClockIcon} size="sm" className="text-on-surface-variant" />
+            <Text className="text-xs text-on-surface-variant">
+              {dayjs(task.due_at).format('hh:mm A')}
+            </Text>
+          </HStack>
+        </HStack>
       </Box>
 
-      <TouchableOpacity
-        onPress={toggleOptions}
-        className="justify-center items-center px-5 bg-white h-full border-r border-black"
-      >
-        <Icon
-          as={showOptions ? ChevronRightIcon : ChevronLeftIcon}
-          className="text-black w-6 h-6"
-        />
-      </TouchableOpacity>
-
       {showOptions && (
-        <HStack className="bg-white items-stretch">
-          {/* ok not sure if should change these to use buttons instead? */}
+        <HStack className="items-center pr-1">
           {!isCompleted && (
             <TouchableOpacity
+              accessibilityLabel="Edit task"
               onPress={() => router.navigate(`/tasks/${task.id}/edit`)}
-              className="px-4 justify-center items-center flex-row bg-white border-r border-black h-full"
+              className="px-4 py-2.5 items-center justify-center bg-primary-container rounded-xl mx-1"
             >
-              <Icon as={EditIcon} className="text-black w-4 h-4 mr-1" />
-              <Text className="text-black font-semibold text-sm">Edit</Text>
+              <Icon as={EditIcon} className="text-[#1E3A8A] w-5 h-5" />
             </TouchableOpacity>
           )}
-
           <TouchableOpacity
+            accessibilityLabel="Delete task"
             onPress={() =>
               DeleteMutate(undefined, {
                 onSuccess: () => {
@@ -80,13 +90,20 @@ export function TaskItem({ task }: TaskItemProps) {
                 },
               })
             }
-            className="px-4 justify-center items-center flex-row bg-white h-full"
+            className="px-4 py-2.5 items-center justify-center bg-error-container rounded-xl mx-1"
           >
-            <Icon as={TrashIcon} className="text-red-600 w-4 h-4 mr-1" />
-            <Text className="text-red-600 font-semibold text-sm">Delete</Text>
+            <Icon as={TrashIcon} className="text-on-error-container w-5 h-5" />
           </TouchableOpacity>
         </HStack>
       )}
+
+      <TouchableOpacity
+        accessibilityLabel="Toggle task actions"
+        onPress={toggleOptions}
+        className="justify-center items-center px-4"
+      >
+        <Icon as={GripVerticalIcon} className="w-5 h-5 text-outline" />
+      </TouchableOpacity>
     </HStack>
   );
 }

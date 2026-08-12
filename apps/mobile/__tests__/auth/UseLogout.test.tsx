@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 import 'fake-indexeddb/auto';
 
 import useAnalyticsSummary from '@/analytics/hooks/useAnalyticsSummary';
@@ -9,11 +7,15 @@ import { loadCurrentUser } from '@/auth/sessionManager';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { Text } from '@/components/ui/text';
 import { API_ROUTES } from '@/config/env';
-import { deleteOfflineDatabase, saveAuthRecord } from '@/offline/database';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { saveAuthRecord } from '@/offline/database';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useState, type ReactNode } from 'react';
 import { Pressable } from 'react-native';
+import { response } from '../../test-utils/http';
+import { session } from '../../test-utils/factories';
+import { createTestQueryClient } from '../../test-utils/renderWithProviders';
+import { resetOfflineDatabase, setOnline, TEST_API_ORIGIN } from '../../test-utils/offline';
 
 const mockFetch = jest.fn();
 
@@ -26,20 +28,6 @@ const summary = {
   completion_rate: 67,
   avg_work_min: 25,
   avg_rest_min: 5,
-};
-
-const response = (body: unknown = {}): Response =>
-  ({
-    ok: true,
-    status: 200,
-    json: async () => body,
-  }) as Response;
-
-const setOnline = (online: boolean): void => {
-  Object.defineProperty(globalThis.navigator, 'onLine', {
-    configurable: true,
-    value: online,
-  });
 };
 
 function SessionAnalytics({ userId, onLogout }: { userId: string; onLogout: () => void }) {
@@ -79,11 +67,11 @@ beforeEach(async () => {
   mockFetch.mockReset();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
   setOnline(true);
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
 });
 
 afterAll(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
 });
 
 test('next user does not see analytics from the logged-out session', async () => {
@@ -100,12 +88,7 @@ test('next user does not see analytics from the logged-out session', async () =>
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });
 
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      mutations: { gcTime: Infinity, retry: false },
-      queries: { gcTime: Infinity, retry: false },
-    },
-  });
+  const queryClient = createTestQueryClient();
   const view = render(<SessionFlow />, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <GluestackUIProvider>
@@ -135,29 +118,9 @@ test('next user does not see analytics from the logged-out session', async () =>
 test('offline logout stays signed out after the page reloads', async () => {
   setOnline(false);
   const now = Date.now();
-  const userId = '7cf2a63f-45da-4af7-9917-306abc624759';
-  await saveAuthRecord(
-    createAuthSession(
-      'http://localhost:8000',
-      {
-        id: userId,
-        email: 'tom@example.com',
-        username: 'tom',
-        is_active: true,
-        is_superuser: false,
-        is_verified: false,
-        server_time: '2026-07-27T09:00:00.000Z',
-        session_expires_at: '2026-07-27T10:00:00.000Z',
-      },
-      now,
-    ),
-  );
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      mutations: { gcTime: Infinity, retry: false },
-      queries: { gcTime: Infinity, retry: false },
-    },
-  });
+  const offlineSession = session();
+  await saveAuthRecord(createAuthSession(TEST_API_ORIGIN, offlineSession, now));
+  const queryClient = createTestQueryClient();
 
   function LogoutProbe() {
     const { mutateAsync: logout } = useLogout();

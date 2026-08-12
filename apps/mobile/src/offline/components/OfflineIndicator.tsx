@@ -19,7 +19,7 @@ export default function OfflineIndicator() {
   }, [isOnline]);
   if (isOnline && !showReconnected) return null;
   return (
-    <Box className="absolute bottom-0 left-0 right-0 z-50 items-center bg-amber-500 px-4 py-2">
+    <Box accessibilityRole="alert" className="w-full items-center bg-amber-500 px-4 py-2">
       <Text className="text-sm font-medium text-white">
         {isOnline
           ? 'Back online. Syncing...'

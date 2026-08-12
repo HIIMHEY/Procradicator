@@ -1,12 +1,7 @@
-import { useLogout } from '@/auth/hooks/useLogout';
 import { Box } from '@/components/ui/box';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
-import { Heading } from '@/components/ui/heading';
-import { HStack } from '@/components/ui/hstack';
 import { AddIcon, Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { Toast, ToastDescription, ToastTitle, useToast } from '@/components/ui/toast';
-import { VStack } from '@/components/ui/vstack';
 import { NavBar } from '@/navigation/components/NavBar';
 import { useRouter } from 'expo-router';
 import { Smile } from 'lucide-react-native';
@@ -19,8 +14,6 @@ import { TaskListSkeleton } from './TaskListSkeleton';
 
 export function TaskDashboard() {
   const router = useRouter();
-  const toast = useToast();
-  const { mutateAsync: logout, isPending: isLoggingOut } = useLogout();
   const {
     data,
     isPending,
@@ -34,54 +27,10 @@ export function TaskDashboard() {
   } = useReadTask();
   const tasks: Task[] = data?.pages.flatMap((page) => page || []) ?? [];
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not log out.';
-      toast.show({
-        placement: 'top',
-        duration: 3000,
-        render: () => (
-          <Toast action="error" variant="solid">
-            <ToastTitle>Logout Failed</ToastTitle>
-            <ToastDescription>{message}</ToastDescription>
-          </Toast>
-        ),
-      });
-    }
-  };
   return (
-    <Box className="h-full w-full flex-1 bg-slate-50">
-      <NavBar active="tasks" title="Dashboard" />
+    <Box className="h-full w-full flex-1 bg-surface-container-low">
+      <NavBar active="tasks" title="Your Tasks" />
       <Box className="w-full flex-1 items-center px-6 pt-4">
-        <HStack className="mb-8 w-full justify-end">
-          <Button
-            size="sm"
-            variant="solid"
-            onPress={handleLogout}
-            isDisabled={isLoggingOut}
-            className="rounded-full bg-orange-400 px-6"
-          >
-            <ButtonText className="text-xs font-medium text-white">
-              {isLoggingOut ? 'Logging out...' : 'Log out'}
-            </ButtonText>
-          </Button>
-        </HStack>
-
-        <VStack className="mb-6 items-center">
-          <Heading className="text-3xl font-bold tracking-tight text-slate-900">Your Tasks</Heading>
-        </VStack>
-
-        <Button
-          size="lg"
-          onPress={() => router.replace('/tasks/create')}
-          className="mb-8 rounded-xl bg-indigo-600 py-3.5 shadow-sm active:bg-indigo-700"
-        >
-          <ButtonIcon as={AddIcon} className="mr-2 text-white" />
-          <ButtonText className="font-semibold text-white">Create Task</ButtonText>
-        </Button>
-
         {isPending ? (
           <TaskListSkeleton />
         ) : isError ? (
@@ -97,7 +46,7 @@ export function TaskDashboard() {
               </Box>
             )}
             showsVerticalScrollIndicator={false}
-            className="w-full flex-1 pb-10"
+            className="w-full flex-1 pb-24"
             onEndReached={() => {
               if (hasNextPage && !isFetchingNextPage) {
                 fetchNextPage();
@@ -108,7 +57,6 @@ export function TaskDashboard() {
             onEndReachedThreshold={0.5}
             ListEmptyComponent={
               <View className="flex-1 items-center justify-center">
-                {/*The somehow when I try to put text here it gives me an error so a smile it shall be*/}
                 <Icon as={Smile} size="xl" />
               </View>
             }
@@ -126,6 +74,15 @@ export function TaskDashboard() {
           />
         )}
       </Box>
+
+      <Button
+        size="lg"
+        onPress={() => router.replace('/tasks/create')}
+        className="absolute bottom-8 right-6 z-50 rounded-full bg-[#3B59B6] px-7 py-4 shadow-lg active:bg-[#2f4891]"
+      >
+        <ButtonIcon as={AddIcon} className="mr-2 text-white" />
+        <ButtonText className="font-semibold text-white">Create</ButtonText>
+      </Button>
     </Box>
   );
 }

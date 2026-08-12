@@ -1,11 +1,22 @@
 import type { ReactNode } from 'react';
-import Svg, { Circle } from 'react-native-svg';
+import { cssInterop } from 'nativewind';
+import Svg, { Circle as RNCircle } from 'react-native-svg';
 
 import { Box } from '@/components/ui/box';
 
+type TimerCircleProps = React.ComponentProps<typeof RNCircle> & {
+  className?: string;
+  style?: object;
+};
+const Circle = RNCircle as unknown as React.ComponentType<TimerCircleProps>;
+
+cssInterop(Circle, {
+  className: { target: 'style', nativeStyleToProp: { stroke: true } },
+});
+
 type TimerRingProps = {
   progress: number;
-  color?: string;
+  ringClassName?: string;
   children?: ReactNode;
 };
 
@@ -15,7 +26,11 @@ const SIZE = 300;
 const R = (SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
-export function TimerRing({ progress, color = '#FF6B35', children }: TimerRingProps) {
+export function TimerRing({
+  progress,
+  ringClassName = 'stroke-[#FF6B35]',
+  children,
+}: TimerRingProps) {
   const offset = CIRCUMFERENCE * (1 - Math.max(0, Math.min(1, progress)));
 
   return (
@@ -25,7 +40,7 @@ export function TimerRing({ progress, color = '#FF6B35', children }: TimerRingPr
           cx={SIZE / 2}
           cy={SIZE / 2}
           r={R}
-          stroke="#E5E7EB"
+          className="stroke-outline-variant"
           strokeWidth={STROKE_WIDTH}
           fill="none"
         />
@@ -33,7 +48,7 @@ export function TimerRing({ progress, color = '#FF6B35', children }: TimerRingPr
           cx={SIZE / 2}
           cy={SIZE / 2}
           r={R}
-          stroke={color}
+          className={ringClassName}
           strokeWidth={STROKE_WIDTH}
           fill="none"
           strokeDasharray={CIRCUMFERENCE}

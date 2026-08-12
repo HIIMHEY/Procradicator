@@ -1,8 +1,5 @@
-/// <reference types="jest" />
-
 import 'fake-indexeddb/auto';
 
-import { deleteOfflineDatabase } from '@/offline/database';
 import {
   flushTaskOutbox,
   keepLocalTask,
@@ -21,14 +18,17 @@ import {
 import type { ModifyTaskData, Task } from '@/task/schema';
 import type { TaskWritePayload } from '@/task/schema';
 import { API_ROUTES } from '@/config/env';
+import { response } from '../../test-utils/http';
+import { iso, uid } from '../../test-utils/factories';
+import { resetOfflineDatabase } from '../../test-utils/offline';
 
-const USER_ID = '9b97c715-d720-4ffc-88e6-f395be319dda';
+const USER_ID = uid('user');
 
 function values(title: string): ModifyTaskData {
   return {
     title,
     description: 'Local',
-    due_at: '2026-08-01T09:00:00.000Z',
+    due_at: iso(0),
     subtasks: [
       {
         id: crypto.randomUUID(),
@@ -48,7 +48,7 @@ function serverTask(body: TaskWritePayload, version: number): Task {
     title: body.title,
     due_at: body.due_at,
     description: body.description ?? null,
-    updated_at: `2026-07-27T09:0${version}:00.000Z`,
+    updated_at: iso(version),
     version,
     subtasks: body.subtasks.map((subtask) => ({
       id: subtask.id,
@@ -60,13 +60,6 @@ function serverTask(body: TaskWritePayload, version: number): Task {
     })),
   };
 }
-
-const response = (body: unknown, status = 200): Response =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  }) as Response;
 
 async function syncCreatedTask(): Promise<TaskWritePayload> {
   let sent: TaskWritePayload | undefined;
@@ -80,18 +73,18 @@ async function syncCreatedTask(): Promise<TaskWritePayload> {
 }
 
 beforeEach(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
   globalThis.fetch = jest.fn() as unknown as typeof fetch;
 });
 
 afterAll(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
 });
 
 test('sends fresh IDs when the same create form is submitted again', async () => {
   const form = values('Repeated form');
-  await createLocalTask(USER_ID, form, '2026-07-27T09:00:00.000Z');
-  await createLocalTask(USER_ID, form, '2026-07-27T09:01:00.000Z');
+  await createLocalTask(USER_ID, form, iso(0));
+  await createLocalTask(USER_ID, form, iso(1));
   const sent: TaskWritePayload[] = [];
   jest.mocked(globalThis.fetch).mockImplementation(async (_url, options) => {
     const body = JSON.parse(String(options?.body)) as TaskWritePayload;
@@ -107,8 +100,8 @@ test('sends fresh IDs when the same create form is submitted again', async () =>
 });
 
 test('continues syncing other tasks when one create cannot be resolved', async () => {
-  await createLocalTask(USER_ID, values('Rejected'), '2026-07-27T09:00:00.000Z');
-  const later = await createLocalTask(USER_ID, values('Later'), '2026-07-27T09:01:00.000Z');
+  await createLocalTask(USER_ID, values('Rejected'), iso(0));
+  const later = await createLocalTask(USER_ID, values('Later'), iso(1));
   jest
     .mocked(globalThis.fetch)
     .mockResolvedValueOnce(response({ detail: 'Task already exists' }, 409))
@@ -128,13 +121,8 @@ test('continues syncing other tasks when one create cannot be resolved', async (
 });
 
 test('flushes FIFO and chains the acknowledged server version', async () => {
-  const created = await createLocalTask(USER_ID, values('Before'), '2026-07-27T09:00:00.000Z');
-  await updateLocalTask(
-    USER_ID,
-    created.id,
-    { ...values('After'), id: created.id },
-    '2026-07-27T09:05:00.000Z',
-  );
+  const created = await createLocalTask(USER_ID, values('Before'), iso(0));
+  await updateLocalTask(USER_ID, created.id, { ...values('After'), id: created.id }, iso(5));
   let version = 0;
   jest.mocked(globalThis.fetch).mockImplementation(async (_url, options) => {
     version += 1;
@@ -155,7 +143,7 @@ test('flushes FIFO and chains the acknowledged server version', async () => {
 });
 
 test('retries a task after a transport failure', async () => {
-  const created = await createLocalTask(USER_ID, values('Retry me'), '2026-07-27T09:00:00.000Z');
+  const created = await createLocalTask(USER_ID, values('Retry me'), iso(0));
   jest.mocked(globalThis.fetch).mockRejectedValue(new TypeError('Failed to fetch'));
 
   await flushTaskOutbox(USER_ID);
@@ -170,14 +158,9 @@ test('retries a task after a transport failure', async () => {
 });
 
 test('stores a 412 conflict and blocks later retries', async () => {
-  const created = await createLocalTask(USER_ID, values('Local'), '2026-07-27T09:00:00.000Z');
+  const created = await createLocalTask(USER_ID, values('Local'), iso(0));
   const createBody = await syncCreatedTask();
-  await updateLocalTask(
-    USER_ID,
-    created.id,
-    { ...values('My edit'), id: created.id },
-    '2026-07-27T09:05:00.000Z',
-  );
+  await updateLocalTask(USER_ID, created.id, { ...values('My edit'), id: created.id }, iso(5));
   const remote = serverTask({ ...createBody, title: 'Their edit' }, 2);
   jest
     .mocked(globalThis.fetch)
@@ -197,12 +180,12 @@ test('stores a 412 conflict and blocks later retries', async () => {
 });
 
 test('turns a conflicting create replay into a user-resolvable conflict', async () => {
-  const created = await createLocalTask(USER_ID, values('Original'), '2026-07-27T09:00:00.000Z');
+  const created = await createLocalTask(USER_ID, values('Original'), iso(0));
   await updateLocalTask(
     USER_ID,
     created.id,
     { ...values('My offline edit'), id: created.id },
-    '2026-07-27T09:05:00.000Z',
+    iso(5),
   );
   let sent: TaskWritePayload | undefined;
   jest
@@ -227,14 +210,9 @@ test('turns a conflicting create replay into a user-resolvable conflict', async 
 });
 
 test('shows a conflict when an offline task update targets a deleted server task', async () => {
-  const created = await createLocalTask(USER_ID, values('Before'), '2026-07-27T09:00:00.000Z');
+  const created = await createLocalTask(USER_ID, values('Before'), iso(0));
   await syncCreatedTask();
-  await updateLocalTask(
-    USER_ID,
-    created.id,
-    { ...values('Offline edit'), id: created.id },
-    '2026-07-27T09:05:00.000Z',
-  );
+  await updateLocalTask(USER_ID, created.id, { ...values('Offline edit'), id: created.id }, iso(5));
   jest.mocked(globalThis.fetch).mockResolvedValueOnce(response({}, 404));
 
   await flushTaskOutbox(USER_ID);
@@ -249,26 +227,21 @@ test('shows a conflict when an offline task update targets a deleted server task
 });
 
 test('choosing a server deletion removes dependent offline focus sessions', async () => {
-  const created = await createLocalTask(USER_ID, values('Before'), '2026-07-27T09:00:00.000Z');
+  const created = await createLocalTask(USER_ID, values('Before'), iso(0));
   await syncCreatedTask();
   const focus = await createLocalFocusSession(
     USER_ID,
     created.id,
     created.subtasks[0].id,
     0,
-    '2026-07-27T09:01:00.000Z',
+    iso(1),
   );
   jest
     .mocked(globalThis.fetch)
     .mockResolvedValueOnce(response({ detail: 'Focus session already exists' }, 409))
     .mockResolvedValueOnce(response({ ...focus.session, version: 1 }));
   await flushFocusOutbox(USER_ID);
-  await updateLocalTask(
-    USER_ID,
-    created.id,
-    { ...values('Offline edit'), id: created.id },
-    '2026-07-27T09:05:00.000Z',
-  );
+  await updateLocalTask(USER_ID, created.id, { ...values('Offline edit'), id: created.id }, iso(5));
   jest.mocked(globalThis.fetch).mockResolvedValueOnce(response({}, 404));
   await flushTaskOutbox(USER_ID);
   const [conflict] = await listTaskConflicts(USER_ID);
@@ -281,21 +254,16 @@ test('choosing a server deletion removes dependent offline focus sessions', asyn
 });
 
 test('choosing a server task keeps its pending focus session', async () => {
-  const created = await createLocalTask(USER_ID, values('Before'), '2026-07-27T09:00:00.000Z');
+  const created = await createLocalTask(USER_ID, values('Before'), iso(0));
   const createBody = await syncCreatedTask();
   const focus = await createLocalFocusSession(
     USER_ID,
     created.id,
     created.subtasks[0].id,
     0,
-    '2026-07-27T09:01:00.000Z',
+    iso(1),
   );
-  await updateLocalTask(
-    USER_ID,
-    created.id,
-    { ...values('Offline edit'), id: created.id },
-    '2026-07-27T09:05:00.000Z',
-  );
+  await updateLocalTask(USER_ID, created.id, { ...values('Offline edit'), id: created.id }, iso(5));
   jest.mocked(globalThis.fetch).mockResolvedValueOnce(
     response(
       {
@@ -321,14 +289,9 @@ test('choosing a server task keeps its pending focus session', async () => {
 });
 
 test('keeping a local task after server deletion recreates it on sync', async () => {
-  const created = await createLocalTask(USER_ID, values('Before'), '2026-07-27T09:00:00.000Z');
+  const created = await createLocalTask(USER_ID, values('Before'), iso(0));
   await syncCreatedTask();
-  await updateLocalTask(
-    USER_ID,
-    created.id,
-    { ...values('Offline edit'), id: created.id },
-    '2026-07-27T09:05:00.000Z',
-  );
+  await updateLocalTask(USER_ID, created.id, { ...values('Offline edit'), id: created.id }, iso(5));
   jest.mocked(globalThis.fetch).mockResolvedValueOnce(response({}, 404));
   await flushTaskOutbox(USER_ID);
   const [conflict] = await listTaskConflicts(USER_ID);
@@ -355,14 +318,9 @@ test('keeping a local task after server deletion recreates it on sync', async ()
 });
 
 test('keeping local replaces blocked operations with one write against the server version', async () => {
-  const created = await createLocalTask(USER_ID, values('Local'), '2026-07-27T09:00:00.000Z');
+  const created = await createLocalTask(USER_ID, values('Local'), iso(0));
   const createBody = await syncCreatedTask();
-  await updateLocalTask(
-    USER_ID,
-    created.id,
-    { ...values('My edit'), id: created.id },
-    '2026-07-27T09:05:00.000Z',
-  );
+  await updateLocalTask(USER_ID, created.id, { ...values('My edit'), id: created.id }, iso(5));
   jest.mocked(globalThis.fetch).mockResolvedValue(
     response(
       {
@@ -397,12 +355,12 @@ test('keeping local replaces blocked operations with one write against the serve
 });
 
 test('pull adds server tasks without overwriting a dirty local task', async () => {
-  const local = await createLocalTask(USER_ID, values('Keep local'), '2026-07-27T09:00:00.000Z');
+  const local = await createLocalTask(USER_ID, values('Keep local'), iso(0));
   const other: Task = {
     ...local,
-    id: 'df4e150e-7d0b-45c7-ada2-b1ce21fb06a5',
+    id: uid('other'),
     title: 'From server',
-    updated_at: '2026-07-27T09:01:00.000Z',
+    updated_at: iso(1),
     version: 1,
     subtasks: local.subtasks.map((subtask) => ({ ...subtask, id: crypto.randomUUID() })),
   };
@@ -411,7 +369,7 @@ test('pull adds server tasks without overwriting a dirty local task', async () =
       {
         ...local,
         title: 'Remote overwrite',
-        updated_at: '2026-07-27T09:03:00.000Z',
+        updated_at: iso(3),
         version: 3,
       },
       other,

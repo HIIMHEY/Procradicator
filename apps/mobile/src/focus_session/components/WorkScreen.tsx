@@ -22,7 +22,7 @@ type WorkScreenProps = {
 };
 
 export function WorkScreen({ currentSubtask, timer, onComplete, onExit }: WorkScreenProps) {
-  const ringColor = timer.isOT ? '#d97706' : '#0060ac';
+  const ringClass = timer.isOT ? 'stroke-[#d97706]' : 'stroke-primary';
   const textColor = timer.isOT ? 'text-overtime' : 'text-primary';
 
   return (
@@ -35,7 +35,7 @@ export function WorkScreen({ currentSubtask, timer, onComplete, onExit }: WorkSc
           {currentSubtask.description}
         </Text>
       </Box>
-      <TimerRing progress={timer.progress} color={ringColor}>
+      <TimerRing progress={timer.progress} ringClassName={ringClass}>
         <Box className="flex-col items-center">
           {timer.isOT && (
             <Text className="font-label-sm text-outline uppercase tracking-widest mb-1">
@@ -60,7 +60,7 @@ export function WorkScreen({ currentSubtask, timer, onComplete, onExit }: WorkSc
           </ButtonText>
         </Button>
         <Button variant="link" className="flex-row items-center gap-2 px-6 py-2" onPress={onExit}>
-          <LogOut size={20} color="#717783" />
+          <Icon as={LogOut} className="text-outline" size="lg" />
           <ButtonText className="font-label-md font-medium text-outline">Exit Focus</ButtonText>
         </Button>
       </Box>

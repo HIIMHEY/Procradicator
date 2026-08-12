@@ -1,10 +1,9 @@
-/// <reference types="jest" />
-
 import SsoCallback from '@/app/auth/sso/callback';
 import { useGoogleSso } from '@/auth/hooks/useGoogleSso';
 import { API_ROUTES } from '@/config/env';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Pressable, Text } from 'react-native';
+import { session } from '../../test-utils/factories';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockReplace = jest.fn();
@@ -108,16 +107,7 @@ test('Google SSO opens a blank popup immediately then navigates it after authori
   const callbackUrl = `${window.location.origin}/auth/sso/callback`;
   mockFetch.mockReturnValueOnce(authorizeResponse.promise).mockResolvedValueOnce({
     ok: true,
-    json: async () => ({
-      id: 'user-1',
-      email: 'tom@example.com',
-      username: 'tom',
-      is_active: true,
-      is_superuser: false,
-      is_verified: false,
-      server_time: '2026-07-27T09:00:00.000Z',
-      session_expires_at: '2026-07-27T10:00:00.000Z',
-    }),
+    json: async () => session({ email: 'tom@example.com', username: 'tom' }),
   } as Response);
   renderWithProviders(<GoogleSsoProbe />);
   fireEvent.press(screen.getByLabelText('Start Google SSO'));

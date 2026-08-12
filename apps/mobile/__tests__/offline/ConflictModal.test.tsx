@@ -1,16 +1,18 @@
-/// <reference types="jest" />
-
 jest.unmock('@/offline/components/ConflictModal');
 
 import ConflictModal from '@/offline/components/ConflictModal';
 import { keepLocalTask, keepServerTask, listTaskConflicts } from '@/offline/taskSync';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { createTestQueryClient } from '../../test-utils/renderWithProviders';
+import { iso, uid } from '../../test-utils/factories';
+
+const mockUserId = uid('user');
 
 jest.mock('@/auth/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({
-    data: { id: '9b97c715-d720-4ffc-88e6-f395be319dda' },
+    data: { id: mockUserId },
     isPending: false,
   }),
 }));
@@ -28,38 +30,33 @@ jest.mock('@/offline/focusSync', () => ({
 }));
 
 const conflict = {
-  id: '6ebca865-95b8-4128-b1a5-6c41897cd4df',
-  userId: '9b97c715-d720-4ffc-88e6-f395be319dda',
-  entityId: 'd06dd4a2-f96a-4f31-a5e1-abd85acfe28d',
+  id: uid('conflict'),
+  userId: mockUserId,
+  entityId: uid('task'),
   operation: 'update' as const,
   localTask: {
-    id: 'd06dd4a2-f96a-4f31-a5e1-abd85acfe28d',
+    id: uid('task'),
     title: 'Mine',
-    due_at: '2026-08-01T09:00:00.000Z',
-    updated_at: '2026-07-27T09:05:00.000Z',
+    due_at: iso(0),
+    updated_at: iso(5),
     version: 1,
     subtasks: [],
   },
   serverTask: {
-    id: 'd06dd4a2-f96a-4f31-a5e1-abd85acfe28d',
+    id: uid('task'),
     title: 'Server',
-    due_at: '2026-08-01T09:00:00.000Z',
-    updated_at: '2026-07-27T09:06:00.000Z',
+    due_at: iso(0),
+    updated_at: iso(6),
     version: 2,
     subtasks: [],
   },
   baseVersion: 1,
-  createdAt: '2026-07-27T09:06:00.000Z',
+  createdAt: iso(6),
 };
 let taskConflicts = [conflict];
 
 function renderModal() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      mutations: { gcTime: Infinity, retry: false },
-      queries: { gcTime: Infinity, retry: false },
-    },
-  });
+  const queryClient = createTestQueryClient();
   const view = render(<ConflictModal />, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

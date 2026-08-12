@@ -5,18 +5,11 @@ import { useFriendProgress } from '@/friends/hooks/useFriendQueries';
 import { onlineManager } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Pressable } from 'react-native';
+import { linkId, response, userId } from '../../test-utils/friendTestUtils';
+import { uid } from '../../test-utils/factories';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 const mockFetch = jest.fn();
-const userId = '5f948d36-a324-4f7c-b4c0-a9e4df03b875';
-const linkId = 'ed0d7a74-c737-4899-b7f6-476b1bd4f2c1';
-
-const response = (body: unknown = null, status = 200): Response =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  }) as Response;
 
 function ProgressProbe() {
   const { data, fetchStatus, isError } = useFriendProgress(userId);
@@ -116,7 +109,7 @@ test('accepts a friend request through the API', async () => {
 });
 
 test('returns the new friendship after sending a request', async () => {
-  const id = 'ed0d7a74-c737-4899-b7f6-476b1bd4f2c1';
+  const id = uid('friendship');
   mockFetch.mockResolvedValueOnce(response({ friendship_id: id }));
   renderWithProviders(<SendProbe />);
   fireEvent.press(screen.getByRole('button', { name: 'Send' }));

@@ -1,4 +1,3 @@
-/// <reference types="jest" />
 import { fireEvent, screen } from '@testing-library/react-native';
 import TaskIndex from '../../src/app/tasks';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
@@ -25,7 +24,13 @@ beforeEach(() => {
 test('TaskScreen renders the task dashboard', () => {
   renderWithProviders(<TaskIndex />);
   expect(screen.getByText('Your Tasks')).toBeTruthy();
-  expect(screen.getByText('Create Task')).toBeTruthy();
+  expect(screen.getByText('Create')).toBeTruthy();
+});
+
+test('TaskScreen navigation drawer exposes log out', () => {
+  renderWithProviders(<TaskIndex />);
+  fireEvent.press(screen.getByLabelText('Open navigation'));
+  expect(screen.getByLabelText('Log out')).toBeTruthy();
 });
 
 test('TaskScreen opens analytics from the navigation sheet', () => {

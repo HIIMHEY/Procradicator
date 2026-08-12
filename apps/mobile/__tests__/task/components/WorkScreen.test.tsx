@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { WorkScreen } from '@/focus_session/components/WorkScreen';

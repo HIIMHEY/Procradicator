@@ -71,9 +71,11 @@ function ProtectedStack() {
   const isLoggedIn = !!currentUser;
   if (isPending) {
     return (
-      <Box className="flex-1 items-center justify-center gap-3 bg-white px-8">
+      <Box className="flex-1 items-center justify-center gap-3 bg-background px-8">
         <Spinner aria-label="Checking your session" size="large" />
-        <Text className="text-center text-base text-slate-600">Checking your session...</Text>
+        <Text className="text-center text-base text-on-surface-variant">
+          Checking your session...
+        </Text>
       </Box>
     );
   }

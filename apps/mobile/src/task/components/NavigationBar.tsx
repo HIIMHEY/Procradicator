@@ -13,13 +13,13 @@ interface NavigationBarProps {
 export function NavigationBar({ backurl, renderRightAction }: NavigationBarProps) {
   const router = useRouter();
   return (
-    <Box className="top-0 left-0 right-0 p-4 bg-white/95 border-t border-slate-100 flex-row justify-between items-center shadow-lg z-50">
+    <Box className="top-0 left-0 right-0 p-4 bg-background/95 border-t border-outline-variant flex-row justify-between items-center shadow-lg z-50">
       <Button
         onPress={() => router.replace(backurl)}
         variant="link"
         className="rounded-full py-2.5 px-5"
       >
-        <Icon as={ArrowLeft} size="xl" color="black" />
+        <Icon as={ArrowLeft} size="xl" className="text-on-surface" />
       </Button>
       <Box className="w-12 items-end">{renderRightAction ? renderRightAction() : null}</Box>
     </Box>

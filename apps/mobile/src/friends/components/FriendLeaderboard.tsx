@@ -74,7 +74,7 @@ export function FriendLeaderboard({ userId }: FriendLeaderboardProps) {
       contentContainerClassName="gap-3 px-5 pb-8"
       showsVerticalScrollIndicator={false}
     >
-      <Text className="pb-2 text-2xl font-medium text-slate-900">Daily</Text>
+      <Text className="pb-2 text-2xl font-medium text-on-surface">Daily</Text>
       {progress.map((friend) => {
         const link = friends.find((item) => item.user.id === friend.user.id);
         const menuOpen = menuId === friend.user.id;
@@ -82,17 +82,17 @@ export function FriendLeaderboard({ userId }: FriendLeaderboardProps) {
           <View
             key={friend.user.id}
             accessibilityLabel={`Friend progress for ${friend.user.username}`}
-            className="min-h-24 flex-row items-center rounded-xl bg-[#EAF0FF] px-5 py-4"
+            className="min-h-24 flex-row items-center rounded-xl bg-surface-container-low px-5 py-4"
           >
             <Text className="flex-1 text-base text-slate-900">{friend.user.username}</Text>
             <View className="items-end gap-1">
               <View className="flex-row items-center gap-2">
-                <Icon as={Clock3} size="sm" className="text-slate-600" />
-                <Text className="text-lg text-slate-800">{friend.focus_min} min</Text>
+                <Icon as={Clock3} size="sm" className="text-on-surface-variant" />
+                <Text className="text-lg text-on-surface">{friend.focus_min} min</Text>
               </View>
               <View className="flex-row items-center gap-2">
-                <Icon as={ListChecks} size="sm" className="text-slate-500" />
-                <Text className="text-sm text-slate-500">
+                <Icon as={ListChecks} size="sm" className="text-on-surface-variant" />
+                <Text className="text-sm text-on-surface-variant">
                   {friend.completed_subtasks}{' '}
                   {friend.completed_subtasks === 1 ? 'subtask' : 'subtasks'}
                 </Text>
@@ -108,7 +108,7 @@ export function FriendLeaderboard({ userId }: FriendLeaderboardProps) {
                   onPress={() => setMenuId(menuOpen ? undefined : friend.user.id)}
                   className="h-10 w-10 rounded-full p-0"
                 >
-                  <ButtonIcon as={MoreHorizontal} className="text-slate-600" />
+                  <ButtonIcon as={MoreHorizontal} className="text-on-surface-variant" />
                 </Button>
                 {menuOpen && (
                   <Button
@@ -118,9 +118,9 @@ export function FriendLeaderboard({ userId }: FriendLeaderboardProps) {
                     size="xs"
                     isDisabled={remove.isPending}
                     onPress={() => void removeFriend(link.id)}
-                    className="rounded-lg border-red-200 bg-white"
+                    className="rounded-lg border-error bg-surface-container-lowest"
                   >
-                    <ButtonText className="text-red-600">Remove</ButtonText>
+                    <ButtonText className="text-error">Remove</ButtonText>
                   </Button>
                 )}
               </View>

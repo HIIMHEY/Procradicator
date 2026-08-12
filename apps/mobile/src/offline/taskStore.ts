@@ -6,7 +6,10 @@ import type { TaskWritePayload } from '@/task/schema';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function stableIds(values: ModifyTaskData, keepIds: boolean): {
+function stableIds(
+  values: ModifyTaskData,
+  keepIds: boolean,
+): {
   id: string;
   subtasks: TaskWritePayload['subtasks'];
 } {

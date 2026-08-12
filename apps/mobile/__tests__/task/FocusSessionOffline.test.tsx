@@ -1,33 +1,23 @@
-/// <reference types="jest" />
-
 import 'fake-indexeddb/auto';
 
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { FocusSessionPage } from '@/focus_session/components/FocusSessionPage';
-import { deleteOfflineDatabase } from '@/offline/database';
+import { response } from '../../test-utils/http';
+import { iso, uid } from '../../test-utils/factories';
+import { resetOfflineDatabase, setOnline } from '../../test-utils/offline';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
-const USER_ID = '55555555-5555-4555-8555-555555555555';
-const SUBTASK_ID = '11111111-1111-4111-8111-111111111111';
-const TASK_ID = '33333333-3333-4333-8333-333333333333';
-const SESSION_ID = '22222222-2222-4222-8222-222222222222';
+const mockUserId = uid('user');
+const mockSubtaskId = uid('subtask');
+const mockTaskId = uid('task');
+const mockSessionId = uid('session');
+const mockDueAt = iso(0);
 const mockReplace = jest.fn();
-
-const setOnline = (online: boolean) => {
-  Object.defineProperty(navigator, 'onLine', { configurable: true, value: online });
-};
-
-const createJsonResponse = (data: unknown): Response =>
-  ({
-    ok: true,
-    status: 200,
-    json: async () => data,
-  }) as Response;
 
 jest.mock('@/auth/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({
-    data: { id: USER_ID },
+    data: { id: mockUserId },
     isPending: false,
   }),
 }));
@@ -36,14 +26,14 @@ jest.mock('@/task/hooks/useReadTask', () => ({
   __esModule: true,
   default: () => ({
     data: {
-      id: TASK_ID,
+      id: mockTaskId,
       title: 'Offline task',
-      due_at: '2026-08-01T09:00:00.000Z',
-      updated_at: '2026-07-27T09:00:00.000Z',
+      due_at: mockDueAt,
+      updated_at: mockDueAt,
       version: 1,
       subtasks: [
         {
-          id: SUBTASK_ID,
+          id: mockSubtaskId,
           title: 'Write offline',
           description: 'No connection required',
           next_subtask: [],
@@ -59,7 +49,7 @@ jest.mock('@/task/hooks/useReadTask', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: SUBTASK_ID, taskId: TASK_ID }),
+  useLocalSearchParams: () => ({ id: mockSubtaskId, taskId: mockTaskId }),
   useNavigation: () => ({ dispatch: jest.fn() }),
   useRouter: () => ({ replace: mockReplace }),
 }));
@@ -69,7 +59,7 @@ jest.mock('expo-router/react-navigation', () => ({
 }));
 
 beforeEach(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
   mockReplace.mockReset();
   setOnline(false);
   globalThis.fetch = jest.fn();
@@ -80,7 +70,7 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  await deleteOfflineDatabase();
+  await resetOfflineDatabase();
 });
 
 test('completes and exits a focus session while fully offline', async () => {
@@ -91,7 +81,7 @@ test('completes and exits a focus session while fully offline', async () => {
   fireEvent.press(await screen.findByText('Skip'));
   fireEvent.press(await screen.findByText('Finish Task'));
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(`/tasks/${TASK_ID}`));
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(`/tasks/${mockTaskId}`));
   expect(fetch).not.toHaveBeenCalled();
 });
 
@@ -112,11 +102,11 @@ test('uses the server recommendation when starting online', async () => {
   setOnline(true);
   const mockFetch = jest.fn(async (_url: string, options?: RequestInit) => {
     const payload = JSON.parse(options?.body as string) as { id?: string };
-    return createJsonResponse({
-      id: payload.id ?? SESSION_ID,
-      user_id: USER_ID,
-      start_at: '2026-08-01T09:00:00.000Z',
-      updated_at: '2026-08-01T09:00:00.000Z',
+    return response({
+      id: payload.id ?? mockSessionId,
+      user_id: mockUserId,
+      start_at: iso(0),
+      updated_at: iso(0),
       end_at: null,
       version: 1,
       work_cycle_m: 45,
@@ -134,6 +124,6 @@ test('uses the server recommendation when starting online', async () => {
   expect(await screen.findByText('45:00')).toBeTruthy();
   expect(mockFetch).toHaveBeenCalledTimes(1);
   expect(JSON.parse(mockFetch.mock.calls[0][1]?.body as string)).toEqual({
-    subtask_id: SUBTASK_ID,
+    subtask_id: mockSubtaskId,
   });
 });

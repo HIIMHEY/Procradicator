@@ -20,16 +20,16 @@ interface DragListHeaderInputProps {
 
 export function DragListHeader({ control, errors }: DragListHeaderInputProps) {
   return (
-    <Box className="px-4 pt-6 pb-2 gap-4">
+    <Box className="relative z-10 bg-surface-container-low px-4 pt-2 pb-4">
       <FormControl isInvalid={!!errors?.title} className="w-full">
-        <Input className="border-0 bg-transparent h-12 px-0">
+        <Input className="h-12 border-0 border-b border-outline-variant rounded-none bg-transparent px-0">
           <Controller
             control={control}
             name="title"
             render={({ field: { onChange, value } }) => (
               <InputField
                 placeholder="Task Title"
-                className="text-xl font-bold text-slate-800"
+                className="text-[22px] font-bold text-on-surface"
                 value={value}
                 onChangeText={onChange}
               />
@@ -44,14 +44,14 @@ export function DragListHeader({ control, errors }: DragListHeaderInputProps) {
         )}
       </FormControl>
       <FormControl isInvalid={!!errors?.description} className="w-full">
-        <Textarea className="border-0 bg-transparent h-auto px-0">
+        <Textarea className="h-auto border-0 rounded-none bg-transparent px-0">
           <Controller
             control={control}
             name="description"
             render={({ field: { onChange, value } }) => (
               <TextareaInput
                 placeholder="Task Description"
-                className="text-base text-slate-500"
+                className="text-sm text-on-surface-variant py-2"
                 value={value}
                 multiline
                 scrollEnabled={false}

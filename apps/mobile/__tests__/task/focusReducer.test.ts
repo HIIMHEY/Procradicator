@@ -1,7 +1,6 @@
-/// <reference types="jest" />
-
 import { focusReducer, initial } from '@/focus_session/focusReducer';
 import { State } from '@/focus_session/schemas';
+import { iso } from '../../test-utils/factories';
 
 const baseState = (overrides?: Partial<State>): State => ({
   ...initial,
@@ -50,7 +49,7 @@ test('COMPLETE_SUBTASK from WORK !isOT REST when last subtask', () => {
     now: before,
     subtaskId: 'st-6',
     nextExists: false,
-    startAt: '2026-01-01T00:00:00Z',
+    startAt: iso(0),
     OTSeconds: 0,
   });
   expect(s.phase).toBe('REST');
@@ -67,7 +66,7 @@ test('COMPLETE_SUBTASK from WORK !isOT WORK when next exists, advances idx', () 
     now: Date.now(),
     subtaskId: 'st-3',
     nextExists: true,
-    startAt: '2026-01-01T00:00:00Z',
+    startAt: iso(0),
     OTSeconds: 0,
   });
   expect(s.phase).toBe('WORK');
@@ -81,7 +80,7 @@ test('COMPLETE_SUBTASK from WORK isOT REST, does NOT advance idx', () => {
     now: Date.now(),
     subtaskId: 'st-3',
     nextExists: true,
-    startAt: '2026-01-01T00:00:00Z',
+    startAt: iso(0),
     OTSeconds: 30,
   });
   expect(s.phase).toBe('REST');
@@ -96,7 +95,7 @@ test('COMPLETE_SUBTASK from WORK isOT REST when no next', () => {
     now: Date.now(),
     subtaskId: 'st-6',
     nextExists: false,
-    startAt: '2026-01-01T00:00:00Z',
+    startAt: iso(0),
     OTSeconds: 15,
   });
   expect(s.phase).toBe('REST');
@@ -133,8 +132,8 @@ test('ENTER_OT sets isOT true, stays in WORK', () => {
 });
 
 test('REST_END incrCycles + hasMore READY, records rest log, increments restCycles', () => {
-  const phaseStarted = new Date('2026-06-01T12:05:00.000Z').getTime();
-  jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:10:00.000Z'));
+  const phaseStarted = new Date(iso(5)).getTime();
+  jest.useFakeTimers().setSystemTime(new Date(iso(10)));
   const s = focusReducer(
     baseState({ phase: 'REST', restCycles: 0, phaseStartedAt: phaseStarted }),
     { type: 'REST_END', hasMore: true, incrCycles: true },
@@ -143,18 +142,19 @@ test('REST_END incrCycles + hasMore READY, records rest log, increments restCycl
   expect(s.currentIdx).toBe(1);
   expect(s.restCycles).toBe(1);
   expect(s.restLogs).toHaveLength(1);
-  expect(s.restLogs[0].start_at).toBe('2026-06-01T12:05:00.000Z');
-  expect(s.restLogs[0].stop_at).toBe('2026-06-01T12:10:00.000Z');
+  expect(s.restLogs[0].start_at).toBe(iso(5));
+  expect(s.restLogs[0].stop_at).toBe(iso(10));
   expect(s.phaseStartedAt).not.toBeNull();
   jest.useRealTimers();
 });
 
 test('REST_END incrCycles + no hasMore CONGRATS, records rest log', () => {
-  jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:10:00.000Z'));
-  const s = focusReducer(
-    baseState({ phase: 'REST', phaseStartedAt: new Date('2026-06-01T12:05:00.000Z').getTime() }),
-    { type: 'REST_END', hasMore: false, incrCycles: true },
-  );
+  jest.useFakeTimers().setSystemTime(new Date(iso(10)));
+  const s = focusReducer(baseState({ phase: 'REST', phaseStartedAt: new Date(iso(5)).getTime() }), {
+    type: 'REST_END',
+    hasMore: false,
+    incrCycles: true,
+  });
   expect(s.phase).toBe('CONGRATS');
   expect(s.currentIdx).toBe(0);
   expect(s.restCycles).toBe(1);
@@ -218,8 +218,8 @@ test('CLOSE_EXIT_REASON defaults to READY when no previousPhase', () => {
 });
 
 test('EXIT_TO_CONGRATS records the active partial focus log', () => {
-  jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:10:00.000Z'));
-  const phaseStarted = new Date('2026-06-01T12:05:00.000Z').getTime();
+  jest.useFakeTimers().setSystemTime(new Date(iso(10)));
+  const phaseStarted = new Date(iso(5)).getTime();
   const s = focusReducer(
     baseState({
       phase: 'WORK',
@@ -236,15 +236,15 @@ test('EXIT_TO_CONGRATS records the active partial focus log', () => {
   expect(s.focusLogs[0]).toEqual({
     id: expect.any(String),
     subtask_id: 'st-2',
-    start_at: '2026-06-01T12:05:00.000Z',
-    stop_at: '2026-06-01T12:10:00.000Z',
+    start_at: iso(5),
+    stop_at: iso(10),
   });
   jest.useRealTimers();
 });
 
 test('ABANDON_SESSION adds partial focus log when in WORK phase', () => {
-  jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:10:00.000Z'));
-  const phaseStarted = new Date('2026-06-01T12:05:00.000Z').getTime();
+  jest.useFakeTimers().setSystemTime(new Date(iso(10)));
+  const phaseStarted = new Date(iso(5)).getTime();
   const s = focusReducer(baseState({ phase: 'WORK', phaseStartedAt: phaseStarted }), {
     type: 'ABANDON_SESSION',
     subtaskId: 'st-3',
@@ -253,14 +253,14 @@ test('ABANDON_SESSION adds partial focus log when in WORK phase', () => {
   expect(s.abandonReason).toBe('urgent');
   expect(s.focusLogs).toHaveLength(1);
   expect(s.focusLogs[0].subtask_id).toBe('st-3');
-  expect(s.focusLogs[0].start_at).toBe('2026-06-01T12:05:00.000Z');
-  expect(s.focusLogs[0].stop_at).toBe('2026-06-01T12:10:00.000Z');
+  expect(s.focusLogs[0].start_at).toBe(iso(5));
+  expect(s.focusLogs[0].stop_at).toBe(iso(10));
   jest.useRealTimers();
 });
 
 test('ABANDON_SESSION adds partial rest log when in REST phase', () => {
-  jest.useFakeTimers().setSystemTime(new Date('2026-06-01T12:10:00.000Z'));
-  const phaseStarted = new Date('2026-06-01T12:05:00.000Z').getTime();
+  jest.useFakeTimers().setSystemTime(new Date(iso(10)));
+  const phaseStarted = new Date(iso(5)).getTime();
   const s = focusReducer(baseState({ phase: 'REST', phaseStartedAt: phaseStarted }), {
     type: 'ABANDON_SESSION',
     subtaskId: null,
@@ -268,8 +268,8 @@ test('ABANDON_SESSION adds partial rest log when in REST phase', () => {
   });
   expect(s.abandonReason).toBe('break');
   expect(s.restLogs).toHaveLength(1);
-  expect(s.restLogs[0].start_at).toBe('2026-06-01T12:05:00.000Z');
-  expect(s.restLogs[0].stop_at).toBe('2026-06-01T12:10:00.000Z');
+  expect(s.restLogs[0].start_at).toBe(iso(5));
+  expect(s.restLogs[0].stop_at).toBe(iso(10));
   jest.useRealTimers();
 });
 

@@ -1,13 +1,13 @@
-/// <reference types="jest" />
-
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { FocusSessionPage } from '@/focus_session/components/FocusSessionPage';
+import { response } from '../../test-utils/http';
+import { iso, uid } from '../../test-utils/factories';
 import { renderWithProviders } from '../../test-utils/renderWithProviders';
 
 jest.mock('@/auth/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({
-    data: { id: '55555555-5555-4555-8555-555555555555' },
+    data: { id: mockUserId },
     isPending: false,
   }),
 }));
@@ -18,10 +18,11 @@ let mockPreventRemove = false;
 let mockPreventRemoveCallback:
   | ((options: { data: { action: { type: string } } }) => void)
   | undefined;
-const SUBTASK_ID = '11111111-1111-4111-8111-111111111111';
-const SECOND_SUBTASK_ID = '44444444-4444-4444-8444-444444444444';
-const SESSION_ID = '22222222-2222-4222-8222-222222222222';
-const TASK_ID = '33333333-3333-4333-8333-333333333333';
+const mockUserId = uid('user');
+const SUBTASK_ID = uid('subtask');
+const SECOND_SUBTASK_ID = uid('subtask-2');
+const SESSION_ID = uid('session');
+const TASK_ID = uid('task');
 let mockSearchParams = { id: SUBTASK_ID, taskId: TASK_ID };
 
 jest.mock('expo-router', () => ({
@@ -43,8 +44,8 @@ jest.mock('expo-router/react-navigation', () => ({
 const taskResponse = {
   id: TASK_ID,
   title: 'Test Task',
-  due_at: '2026-08-01T09:00:00.000Z',
-  updated_at: '2026-07-27T09:00:00.000Z',
+  due_at: iso(0),
+  updated_at: iso(0),
   version: 1,
   subtasks: [
     {
@@ -64,19 +65,6 @@ const sessionResponse = {
   work_cycle_m: 25,
   rest_cycle_m: 5,
 };
-
-const createJsonResponse = (data: unknown): Response =>
-  ({
-    ok: true,
-    status: 200,
-    json: async () => data,
-  }) as Response;
-
-const createErrorResponse = (status: number): Response =>
-  ({
-    ok: false,
-    status,
-  }) as Response;
 
 let mockFetch: jest.Mock;
 
@@ -101,8 +89,8 @@ beforeEach(() => {
 
 test('hydrates, shows READY screen with task details', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -113,15 +101,15 @@ test('hydrates, shows READY screen with task details', async () => {
 
 test('starts with the recommended work-rest cycle', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
+    .mockResolvedValueOnce(response(taskResponse))
     .mockResolvedValueOnce(
-      createJsonResponse({
+      response({
         ...sessionResponse,
         work_cycle_m: 45,
         rest_cycle_m: 15,
       }),
     )
-    .mockResolvedValue(createJsonResponse({}));
+    .mockResolvedValue(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -140,7 +128,7 @@ test('starts with the recommended work-rest cycle', async () => {
 });
 
 test('shows an error instead of READY when the task cannot be loaded', async () => {
-  mockFetch.mockResolvedValueOnce(createErrorResponse(500));
+  mockFetch.mockResolvedValueOnce(response({}, 500));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -150,9 +138,7 @@ test('shows an error instead of READY when the task cannot be loaded', async () 
 });
 
 test('shows an error instead of READY when session creation fails', async () => {
-  mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createErrorResponse(500));
+  mockFetch.mockResolvedValueOnce(response(taskResponse)).mockResolvedValueOnce(response({}, 500));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -163,10 +149,10 @@ test('shows an error instead of READY when session creation fails', async () => 
 
 test('retries session hydration after a creation failure', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createErrorResponse(500))
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response({}, 500))
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -178,7 +164,7 @@ test('retries session hydration after a creation failure', async () => {
 
 test('shows an error when the selected subtask is not in the task', async () => {
   mockSearchParams = { id: SECOND_SUBTASK_ID, taskId: TASK_ID };
-  mockFetch.mockResolvedValueOnce(createJsonResponse(taskResponse));
+  mockFetch.mockResolvedValueOnce(response(taskResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -189,8 +175,8 @@ test('shows an error when the selected subtask is not in the task', async () => 
 
 test('press Start transitions to WORK phase with timer', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -216,9 +202,9 @@ test('continues the work timer when moving to the next subtask', async () => {
     ],
   };
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskWithTwoSubtasks))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValue(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskWithTwoSubtasks))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValue(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -259,9 +245,9 @@ test('starts from the subtask selected on the roadmap', async () => {
     ],
   };
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskWithCompletedFirstSubtask))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValue(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskWithCompletedFirstSubtask))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValue(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -289,9 +275,9 @@ test('sends each focus log only once, including finalisation', async () => {
     ],
   };
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskWithTwoSubtasks))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValue(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskWithTwoSubtasks))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValue(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -325,11 +311,11 @@ test('sends each focus log only once, including finalisation', async () => {
 
 test('retries a failed focus log update', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValueOnce(createErrorResponse(500))
-    .mockResolvedValueOnce(createErrorResponse(500))
-    .mockResolvedValueOnce(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValueOnce(response({}, 500))
+    .mockResolvedValueOnce(response({}, 500))
+    .mockResolvedValueOnce(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -342,9 +328,9 @@ test('retries a failed focus log update', async () => {
 
 test('stops retrying after the retry limit', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValue(createErrorResponse(500));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValue(response({}, 500));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -358,10 +344,10 @@ test('stops retrying after the retry limit', async () => {
 
 test('press Complete on last subtask shows REST then CONGRATS', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValueOnce(createJsonResponse({}))
-    .mockResolvedValueOnce(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValueOnce(response({}))
+    .mockResolvedValueOnce(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -377,12 +363,12 @@ test('press Complete on last subtask shows REST then CONGRATS', async () => {
 
 test('press Finish PATCH with final data navigates to task', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValueOnce(createJsonResponse({}))
-    .mockResolvedValueOnce(createJsonResponse({}))
-    .mockResolvedValueOnce(createJsonResponse({}))
-    .mockResolvedValueOnce(createJsonResponse(taskResponse));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValueOnce(response({}))
+    .mockResolvedValueOnce(response({}))
+    .mockResolvedValueOnce(response({}))
+    .mockResolvedValueOnce(response(taskResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -402,8 +388,8 @@ test('press Finish PATCH with final data navigates to task', async () => {
 
 test('press Exit Focus on READY shows EXIT_REASON modal', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -413,8 +399,8 @@ test('press Exit Focus on READY shows EXIT_REASON modal', async () => {
 
 test('system back is intercepted by the focus exit flow', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -453,9 +439,9 @@ test('exiting after progress includes the active partial focus log', async () =>
     ],
   };
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskWithTwoSubtasks))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValue(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskWithTwoSubtasks))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValue(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -478,10 +464,10 @@ test('exiting after progress includes the active partial focus log', async () =>
 
 test('Exit with completed subtasks goes to CONGRATS directly', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValueOnce(createJsonResponse({}))
-    .mockResolvedValueOnce(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValueOnce(response({}))
+    .mockResolvedValueOnce(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -497,9 +483,9 @@ test('Exit with completed subtasks goes to CONGRATS directly', async () => {
 
 test('submits abandon reason PATCH with reason navigates back', async () => {
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse))
-    .mockResolvedValueOnce(createJsonResponse({}));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse))
+    .mockResolvedValueOnce(response({}));
 
   renderWithProviders(<FocusSessionPage />);
 
@@ -521,8 +507,8 @@ test('submits abandon reason PATCH with reason navigates back', async () => {
 test('auto-OT transitions when work timer expires', async () => {
   jest.useFakeTimers();
   mockFetch
-    .mockResolvedValueOnce(createJsonResponse(taskResponse))
-    .mockResolvedValueOnce(createJsonResponse(sessionResponse));
+    .mockResolvedValueOnce(response(taskResponse))
+    .mockResolvedValueOnce(response(sessionResponse));
 
   renderWithProviders(<FocusSessionPage />);
 

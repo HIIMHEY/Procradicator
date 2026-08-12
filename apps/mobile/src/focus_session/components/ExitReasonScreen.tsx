@@ -28,7 +28,7 @@ export function ExitReasonScreen({ onSubmit, onClose }: ExitReasonScreenProps) {
 
   return (
     <Box className="flex-1 items-center justify-center px-6">
-      <Text className="text-xl text-gray-800 mb-4">Stay in the Flow?</Text>
+      <Text className="text-xl text-on-surface mb-4">Stay in the Flow?</Text>
       <Textarea className="w-full mb-2">
         <TextareaInput
           placeholder="Why do you have to go?"
@@ -36,12 +36,12 @@ export function ExitReasonScreen({ onSubmit, onClose }: ExitReasonScreenProps) {
           onChangeText={setReason}
         />
       </Textarea>
-      {error && <Text className="text-red-500 text-sm mb-2">{error}</Text>}
+      {error && <Text className="text-error text-sm mb-2">{error}</Text>}
       <Box className="flex-row gap-4 mt-4">
         <Button variant="outline" onPress={onClose}>
           <ButtonText>Close</ButtonText>
         </Button>
-        <Button className="bg-black" onPress={handleSubmit}>
+        <Button className="bg-on-surface" onPress={handleSubmit}>
           <ButtonText className="text-white font-semibold">Exit</ButtonText>
         </Button>
       </Box>

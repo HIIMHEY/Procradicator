@@ -22,8 +22,7 @@ export async function ackFocusOp(
     requestResult<unknown>(sessionStore.get(`${operation.userId}:${operation.entityId}`)),
     requestResult<unknown[]>(outboxStore.getAll()),
   ]);
-  const record =
-    sessionRaw === undefined ? null : LocalFocusSessionRecordSchema.parse(sessionRaw);
+  const record = sessionRaw === undefined ? null : LocalFocusSessionRecordSchema.parse(sessionRaw);
   if (storedRaw === undefined || !record) {
     await done;
     return;
