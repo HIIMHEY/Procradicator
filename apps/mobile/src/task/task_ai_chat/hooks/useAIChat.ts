@@ -15,12 +15,12 @@ export function useAiTaskChat() {
     defaultValues: { msg: '' },
   });
 
-  const currMsg = watch('msg');
+  const draft = watch('msg');
 
   const {
-    mutate: createChatSession,
-    isPending: isCreatingChatSession,
-    isError: hasCreateChatSessionFailed,
+    mutate: createSession,
+    isPending: creatingSession,
+    isError: createFailed,
   } = useCreateChatSession();
 
   const {
@@ -30,17 +30,16 @@ export function useAiTaskChat() {
     isFetchingNextPage,
   } = useReadChatHistory(sessionId);
 
-  const { mutate: sendChatMessage, isPending: isSendingChatMessage } =
-    useSendChatMessage(sessionId);
+  const { mutate: sendMessage, isPending: sendingMessage } = useSendChatMessage(sessionId);
 
   useEffect(() => {
-    if (sessionId || isCreatingChatSession || hasCreateChatSessionFailed) return;
-    createChatSession(taskId, {
+    if (sessionId || creatingSession || createFailed) return;
+    createSession(taskId, {
       onSuccess: (data) => {
         setSessionId(data.session_id);
       },
     });
-  }, [createChatSession, hasCreateChatSessionFailed, isCreatingChatSession, sessionId, taskId]);
+  }, [createFailed, createSession, creatingSession, sessionId, taskId]);
 
   const visibleMessages = useMemo(() => {
     const flattened = history?.pages.flatMap((page) => page || []) ?? [];
@@ -48,14 +47,13 @@ export function useAiTaskChat() {
       (message: ChatMessage) =>
         message.role === 'USER' || message.role === 'ASSISTANT' || message.role === 'TOOL',
     );
-    return [...filtered];
+    return filtered;
   }, [history]);
 
   const onSubmit = (data: SendChatMessage) => {
     const message = data.msg.trim();
-    if (!message || !sessionId || isSendingChatMessage) return;
-
-    sendChatMessage(
+    if (!message || !sessionId || sendingMessage) return;
+    sendMessage(
       { message },
       {
         onSuccess: () => {
@@ -71,8 +69,8 @@ export function useAiTaskChat() {
     }
   };
 
-  const isInputDisabled = !sessionId || isSendingChatMessage;
-  const isSendDisabled = !currMsg?.trim() || isInputDisabled;
+  const isInputDisabled = !sessionId || sendingMessage;
+  const isSendDisabled = !draft?.trim() || isInputDisabled;
 
   return {
     taskId,

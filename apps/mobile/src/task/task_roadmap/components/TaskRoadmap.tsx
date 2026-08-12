@@ -39,15 +39,15 @@ export function TaskRoadmap({ id }: TaskRoadmapProps) {
       ) : (
         <ScrollView className="flex-1 w-full" contentContainerClassName="px-6 pb-10">
           <Box className="pt-8 pb-6">
-            <Heading className="text-2xl font-bold text-on-surface mb-2">{data?.title}</Heading>
-            {data?.description ? (
+            <Heading className="text-2xl font-bold text-on-surface mb-2">{data.title}</Heading>
+            {data.description ? (
               <Text size="sm" className="text-on-surface-variant mb-4">
-                {data?.description}
+                {data.description}
               </Text>
             ) : null}
             <Box className="bg-surface-container-low px-3 py-1.5 rounded-full self-start">
               <Text className="text-xs font-semibold text-on-surface-variant tracking-wide">
-                Due: {dayjs(data?.due_at).format('DD/MM/YYYY HH:mm')}
+                Due: {dayjs(data.due_at).format('DD/MM/YYYY HH:mm')}
               </Text>
             </Box>
           </Box>

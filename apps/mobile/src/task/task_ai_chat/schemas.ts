@@ -19,10 +19,6 @@ export const SendChatMessageSchema = z.object({
   msg: z.string(),
 });
 
-export const ChatHistorySchema = z.array(ChatMessageSchema);
-
-export type ChatRole = z.infer<typeof ChatRoleEnum>;
 export type ChatSessionResponse = z.infer<typeof ChatSessionResponseSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
-export type UIChatMessage = z.infer<typeof ChatMessageSchema>;
 export type SendChatMessage = z.infer<typeof SendChatMessageSchema>;

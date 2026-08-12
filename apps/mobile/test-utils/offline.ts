@@ -1,7 +1,7 @@
 import { createAuthSession } from '@/auth/offlineSession';
 import type { CurrentSessionRead } from '@/auth/schemas';
 import { deleteOfflineDatabase, saveAuthRecord } from '@/offline/database';
-import { iso } from './factories';
+import { session } from './factories';
 
 export const TEST_API_ORIGIN = 'http://localhost:8000';
 
@@ -20,16 +20,9 @@ export async function seedOfflineSession(
   userId: string,
   overrides: Partial<CurrentSessionRead> = {},
 ) {
-  const session: CurrentSessionRead = {
+  const currentSession = session({
     id: userId,
-    email: 'offline@example.com',
-    username: 'offline',
-    is_active: true,
-    is_superuser: false,
-    is_verified: false,
-    server_time: iso(0),
-    session_expires_at: iso(60),
     ...overrides,
-  };
-  await saveAuthRecord(createAuthSession(TEST_API_ORIGIN, session, Date.now()));
+  });
+  await saveAuthRecord(createAuthSession(TEST_API_ORIGIN, currentSession, Date.now()));
 }

@@ -65,7 +65,7 @@ test('shows an empty state when focus history is absent', async () => {
 
 test('shows an error and retries the analytics request', async () => {
   mockFetch
-    .mockResolvedValueOnce(response({}, false, 503))
+    .mockResolvedValueOnce(response({}, 503))
     .mockResolvedValueOnce(response(populatedSummary));
   renderWithProviders(<AnalyticsPage />);
   expect(await screen.findByLabelText('Analytics error state')).toBeTruthy();

@@ -16,6 +16,9 @@ import useDeleteTask from '@/task/hooks/useDeleteTask';
 import { useRouter } from 'expo-router';
 import { Toast, ToastTitle, useToast } from '@/components/ui/toast';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+
+dayjs.extend(utc);
 
 interface TaskItemProps {
   task: Task;
@@ -27,6 +30,7 @@ export function TaskItem({ task }: TaskItemProps) {
   const toast = useToast();
   const isCompleted = task.subtasks.length > 0 && task.subtasks.every((sub) => sub.is_done);
   const { mutate: DeleteMutate } = useDeleteTask(task.id);
+  const dueAt = dayjs.utc(task.due_at).local();
   const toggleOptions = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowOptions(!showOptions);
@@ -49,15 +53,11 @@ export function TaskItem({ task }: TaskItemProps) {
         <HStack className="mt-1 gap-4">
           <HStack className="items-center gap-1">
             <Icon as={CalendarDaysIcon} size="sm" className="text-on-surface-variant" />
-            <Text className="text-xs text-on-surface-variant">
-              {dayjs(task.due_at).format('MMM D')}
-            </Text>
+            <Text className="text-xs text-on-surface-variant">{dueAt.format('MMM D')}</Text>
           </HStack>
           <HStack className="items-center gap-1">
             <Icon as={ClockIcon} size="sm" className="text-on-surface-variant" />
-            <Text className="text-xs text-on-surface-variant">
-              {dayjs(task.due_at).format('hh:mm A')}
-            </Text>
+            <Text className="text-xs text-on-surface-variant">{dueAt.format('hh:mm A')}</Text>
           </HStack>
         </HStack>
       </Box>

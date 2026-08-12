@@ -59,7 +59,7 @@ test('requests the analytics summary route with credentials and parses the respo
 });
 
 test('exposes request failures to the caller', async () => {
-  mockFetch.mockResolvedValueOnce(response({}, false, 503));
+  mockFetch.mockResolvedValueOnce(response({}, 503));
   renderAnalyticsProbe(createTestQueryClient());
   expect(await screen.findByTestId('analytics-hook-error')).toBeTruthy();
 });

@@ -22,6 +22,7 @@ import { resetOfflineDatabase, setOnline } from '../../test-utils/offline';
 import { stubWindowEvents } from '../../test-utils/windowEvents';
 
 let mockCurrentUser: { id: string } | null = null;
+let restoreWindowEvents: (() => void) | undefined;
 
 jest.mock('@/auth/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({ data: mockCurrentUser }),
@@ -56,10 +57,15 @@ function renderSyncProvider(showConflicts = false) {
 
 beforeEach(async () => {
   await resetOfflineDatabase();
-  stubWindowEvents();
+  restoreWindowEvents = stubWindowEvents();
   globalThis.fetch = jest.fn() as unknown as typeof fetch;
   setOnline(false);
   mockCurrentUser = null;
+});
+
+afterEach(() => {
+  restoreWindowEvents?.();
+  restoreWindowEvents = undefined;
 });
 
 afterAll(async () => {

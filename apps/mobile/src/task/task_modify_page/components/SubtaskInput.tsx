@@ -118,7 +118,7 @@ export function SubtaskInput({ mode, value, onChange, errors, onDone }: SubtaskI
       <Box className="items-end mt-3">
         <Button
           onPress={onDone}
-          className="bg-[#3B59B6] rounded-lg py-2 px-4 h-10 flex-row items-center justify-center"
+          className="bg-task-action rounded-lg py-2 px-4 h-10 flex-row items-center justify-center"
         >
           <ButtonText className="text-white font-semibold text-sm">Done</ButtonText>
           <Icon as={CheckIcon} className="text-white" />

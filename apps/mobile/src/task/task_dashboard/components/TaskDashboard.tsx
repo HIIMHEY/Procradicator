@@ -39,7 +39,7 @@ export function TaskDashboard() {
           <FlatList
             contentContainerClassName="w-full items-center justify-start"
             data={tasks}
-            keyExtractor={(item) => item?.id}
+            keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <Box className="mb-3 w-full max-w-xl">
                 <TaskItem task={item} />
@@ -78,7 +78,7 @@ export function TaskDashboard() {
       <Button
         size="lg"
         onPress={() => router.replace('/tasks/create')}
-        className="absolute bottom-8 right-6 z-50 rounded-full bg-[#3B59B6] px-7 py-4 shadow-lg active:bg-[#2f4891]"
+        className="absolute bottom-8 right-6 z-50 rounded-full bg-task-action px-7 py-4 shadow-lg active:bg-task-action-pressed"
       >
         <ButtonIcon as={AddIcon} className="mr-2 text-white" />
         <ButtonText className="font-semibold text-white">Create</ButtonText>

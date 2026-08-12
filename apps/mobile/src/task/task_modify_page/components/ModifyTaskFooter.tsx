@@ -22,7 +22,7 @@ export function ModifyTaskFooter({
       <Button
         disabled={isDisabled || isPending}
         onPress={handleSubmit}
-        className="h-12 w-full rounded-xl bg-[#3B59B6] disabled:bg-on-surface-variant"
+        className="h-12 w-full rounded-xl bg-task-action disabled:bg-on-surface-variant"
       >
         <ButtonText className="text-white font-semibold">{label}</ButtonText>
         {isPending ? <Spinner size="small" color="white" /> : null}
