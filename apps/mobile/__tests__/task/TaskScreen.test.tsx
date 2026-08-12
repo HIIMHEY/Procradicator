@@ -78,8 +78,6 @@ test('TaskScreen renders the task dashboard', () => {
 });
 
 test('task dashboard shows the due time in the user timezone', async () => {
-  const previousTimezone = process.env.TZ;
-  process.env.TZ = 'Asia/Singapore';
   mockFetch.mockImplementation((input: RequestInfo | URL) => {
     if (String(input) === API_ROUTES.AUTH.ME) {
       return Promise.resolve(response(session()));
@@ -98,16 +96,8 @@ test('task dashboard shows the due time in the user timezone', async () => {
       ]),
     );
   });
-  try {
-    renderWithProviders(<TaskIndex />);
-    expect(await screen.findByText('09:48 AM')).toBeTruthy();
-  } finally {
-    if (previousTimezone === undefined) {
-      delete process.env.TZ;
-    } else {
-      process.env.TZ = previousTimezone;
-    }
-  }
+  renderWithProviders(<TaskIndex />);
+  expect(await screen.findByText('09:48 AM')).toBeTruthy();
 });
 
 test('TaskScreen navigation drawer exposes log out', () => {
