@@ -1,12 +1,7 @@
-export function response(
-  body: unknown = null,
-  okOrStatus: boolean | number = 200,
-  status = 200,
-): Response {
-  const ok = typeof okOrStatus === 'boolean' ? okOrStatus : okOrStatus >= 200 && okOrStatus < 300;
+export function response(body: unknown = null, status = 200): Response {
   return {
-    ok,
-    status: typeof okOrStatus === 'number' ? okOrStatus : status,
+    ok: status >= 200 && status < 300,
+    status,
     json: async () => body,
   } as Response;
 }

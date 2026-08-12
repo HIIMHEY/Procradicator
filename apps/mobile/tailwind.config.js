@@ -43,6 +43,8 @@ module.exports = {
         'on-background': 'rgb(var(--color-on-background) / <alpha-value>)',
         'on-surface': 'rgb(var(--color-on-surface) / <alpha-value>)',
         'on-surface-variant': 'rgb(var(--color-on-surface-variant) / <alpha-value>)',
+        'task-action': '#3B59B6',
+        'task-action-pressed': '#2f4891',
         error: 'rgb(var(--color-error) / <alpha-value>)',
         'error-container': 'rgb(var(--color-error-container) / <alpha-value>)',
         'on-error-container': 'rgb(var(--color-on-error-container) / <alpha-value>)',

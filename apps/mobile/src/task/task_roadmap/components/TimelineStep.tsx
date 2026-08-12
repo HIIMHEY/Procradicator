@@ -20,14 +20,14 @@ interface TimelineStepProps {
 function TimelineNode({ status }: { status: TimelineStatus }) {
   if (status === 'completed') {
     return (
-      <Box className="w-10 h-10 rounded-full items-center justify-center bg-[#3B59B6]">
+      <Box className="w-10 h-10 rounded-full items-center justify-center bg-task-action">
         <Icon as={CheckIcon} className="text-white" size="md" />
       </Box>
     );
   }
   if (status === 'in_progress') {
     return (
-      <Box className="w-10 h-10 rounded-full items-center justify-center bg-[#3B59B6]">
+      <Box className="w-10 h-10 rounded-full items-center justify-center bg-task-action">
         <Icon as={PlayIcon} className="text-white" size="md" />
       </Box>
     );
@@ -39,28 +39,17 @@ function TimelineNode({ status }: { status: TimelineStatus }) {
   );
 }
 
-function CompletedStep({ data }: { data: Subtask }) {
+function PassiveStep({ data, completed }: { data: Subtask; completed: boolean }) {
   return (
     <VStack space="xs" className="flex-1 pt-1.5">
-      <Text size="sm" strikeThrough className="font-medium text-outline">
-        {data?.title || '???'}
+      <Text
+        size="sm"
+        strikeThrough={completed}
+        className={completed ? 'font-medium text-outline' : 'font-medium text-on-surface-variant'}
+      >
+        {data.title}
       </Text>
-      {data?.description ? (
-        <Text size="xs" className="text-outline">
-          {data.description}
-        </Text>
-      ) : null}
-    </VStack>
-  );
-}
-
-function LockedStep({ data }: { data: Subtask }) {
-  return (
-    <VStack space="xs" className="flex-1 pt-1.5">
-      <Text size="sm" className="font-medium text-on-surface-variant">
-        {data?.title || '???'}
-      </Text>
-      {data?.description ? (
+      {data.description ? (
         <Text size="xs" className="text-outline">
           {data.description}
         </Text>
@@ -74,8 +63,8 @@ function InProgressStep({ data, taskId }: { data: Subtask; taskId: string }) {
   return (
     <Box className="flex-1 rounded-2xl bg-surface-container-low border border-outline-variant p-4 shadow-sm shadow-outline-variant/70">
       <VStack space="xs">
-        <Text className="text-lg font-semibold text-[#3B59B6]">{data?.title || '???'}</Text>
-        {data?.description ? (
+        <Text className="text-lg font-semibold text-task-action">{data.title}</Text>
+        {data.description ? (
           <Text size="sm" className="text-on-surface-variant">
             {data.description}
           </Text>
@@ -90,7 +79,7 @@ function InProgressStep({ data, taskId }: { data: Subtask; taskId: string }) {
           variant="solid"
           size="sm"
           onPress={() => router.navigate(`/focus/${data.id}?taskId=${taskId}`)}
-          className="self-start mt-2 bg-[#3B59B6] border-[#3B59B6] rounded-full px-5"
+          className="self-start mt-2 bg-task-action border-task-action rounded-full px-5"
         >
           <ButtonText className="text-white font-semibold">Start</ButtonText>
         </Button>
@@ -107,12 +96,10 @@ export function TimelineStep({ data, status, isLast, taskId }: TimelineStepProps
         {!isLast && <Box className="w-[2px] flex-1 bg-outline-variant mt-1" />}
       </Box>
       <Box className="flex-1 pl-3 pb-8">
-        {status === 'completed' ? (
-          <CompletedStep data={data} />
-        ) : status === 'in_progress' ? (
+        {status === 'in_progress' ? (
           <InProgressStep data={data} taskId={taskId} />
         ) : (
-          <LockedStep data={data} />
+          <PassiveStep data={data} completed={status === 'completed'} />
         )}
       </Box>
     </Box>

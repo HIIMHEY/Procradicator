@@ -190,16 +190,19 @@ test('sends a message to the chat session', async () => {
 
 test('requests task sync after task confirmation', async () => {
   mockReplyRole = 'TOOL';
-  stubWindowEvents();
+  const restoreWindowEvents = stubWindowEvents();
   const handleSync = jest.fn();
   window.addEventListener(SYNC_EVENT, handleSync);
+  let view: ReturnType<typeof renderWithProviders> | undefined;
   try {
-    renderWithProviders(<AiTaskChatPage />);
+    view = renderWithProviders(<AiTaskChatPage />);
     const input = await screen.findByPlaceholderText('State your goals...');
     fireEvent.changeText(input, 'Create a task with three steps');
     fireEvent.press(screen.getByLabelText('Send message'));
     await waitFor(() => expect(handleSync).toHaveBeenCalledTimes(1));
   } finally {
     window.removeEventListener(SYNC_EVENT, handleSync);
+    view?.unmount();
+    restoreWindowEvents();
   }
 });

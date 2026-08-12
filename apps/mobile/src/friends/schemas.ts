@@ -34,5 +34,4 @@ export const FriendIdSchema = z.object({
 export type FriendUser = z.infer<typeof FriendUserSchema>;
 export type FriendLink = z.infer<typeof FriendLinkSchema>;
 export type FriendProgress = z.infer<typeof FriendProgressSchema>;
-export type FriendRequest = z.infer<typeof FriendRequestSchema>;
 export type FriendId = z.infer<typeof FriendIdSchema>;

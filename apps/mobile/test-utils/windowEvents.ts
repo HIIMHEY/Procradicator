@@ -1,4 +1,8 @@
 export function stubWindowEvents() {
+  const methods = ['addEventListener', 'removeEventListener', 'dispatchEvent'] as const;
+  const originalDescriptors = new Map(
+    methods.map((method) => [method, Object.getOwnPropertyDescriptor(window, method)]),
+  );
   const browserEvents = new EventTarget();
   Object.defineProperties(window, {
     addEventListener: {
@@ -14,5 +18,14 @@ export function stubWindowEvents() {
       value: browserEvents.dispatchEvent.bind(browserEvents),
     },
   });
-  return browserEvents;
+  return () => {
+    for (const method of methods) {
+      const descriptor = originalDescriptors.get(method);
+      if (descriptor) {
+        Object.defineProperty(window, method, descriptor);
+      } else {
+        Reflect.deleteProperty(window, method);
+      }
+    }
+  };
 }

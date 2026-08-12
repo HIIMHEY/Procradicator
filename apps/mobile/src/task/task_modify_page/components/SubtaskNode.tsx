@@ -61,11 +61,11 @@ export function SubtaskNode({
                   onPress={() => onChange({ ...value, is_done: !value.is_done })}
                 >
                   {value.is_done ? (
-                    <Box className="h-6 w-6 items-center justify-center rounded-full bg-[#3B59B6]">
+                    <Box className="h-6 w-6 items-center justify-center rounded-full bg-task-action">
                       <Icon as={CheckIcon} size="sm" className="text-white" />
                     </Box>
                   ) : (
-                    <Icon as={CircleIcon} size="xl" className="text-[#3B59B6]" />
+                    <Icon as={CircleIcon} size="xl" className="text-task-action" />
                   )}
                 </Pressable>
                 {!isLast && <Box className="my-1 w-[2px] flex-1 bg-outline-variant" />}

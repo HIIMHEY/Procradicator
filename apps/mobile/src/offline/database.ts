@@ -193,10 +193,3 @@ export async function listOutbox(userId: string): Promise<OutboxRecord[]> {
     .filter((record) => record.userId === userId)
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
-
-export async function removeOutboxOperation(operationId: string): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(STORES.outbox, 'readwrite');
-  transaction.objectStore(STORES.outbox).delete(operationId);
-  await transactionDone(transaction);
-}

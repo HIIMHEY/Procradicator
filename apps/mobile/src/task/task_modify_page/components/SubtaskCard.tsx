@@ -18,7 +18,7 @@ export function SubtaskCard({ value, index, onDragTrigger, onDelete, onEdit }: S
     <Box className="w-full flex-row items-center rounded-2xl border border-outline-variant bg-surface-container-lowest px-3 py-3 shadow-sm">
       <Box className="flex-1 pr-2">
         <Text className="text-sm font-medium text-on-surface">
-          {value?.title || `To do number ${index + 1} ...`}
+          {value.title || `To do number ${index + 1} ...`}
         </Text>
         <Text className="mt-0.5 text-xs text-on-surface-variant">
           Est: {formatEstimate(value.est_m)}
